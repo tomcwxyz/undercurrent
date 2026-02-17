@@ -1,0 +1,167 @@
+import { db } from ".";
+import {
+  spaces,
+  spaceMemberships,
+  observations,
+  signals,
+  signalObservations,
+  constellationNodes,
+} from "./schema";
+import {
+  OBSERVATIONS,
+  SIGNALS,
+  CONSTELLATION_NODES,
+} from "@/lib/mock-data";
+
+/** Parse relative time strings from mock data into real dates. */
+function relativeDate(timeStr: string): Date {
+  const now = new Date();
+  if (timeStr.startsWith("Today")) {
+    const match = timeStr.match(/(\d+):(\d+)(am|pm)/);
+    if (match) {
+      let h = parseInt(match[1]);
+      if (match[3] === "pm" && h !== 12) h += 12;
+      if (match[3] === "am" && h === 12) h = 0;
+      now.setHours(h, parseInt(match[2]), 0, 0);
+    }
+    return now;
+  }
+  if (timeStr.startsWith("Yesterday")) {
+    now.setDate(now.getDate() - 1);
+    const match = timeStr.match(/(\d+):(\d+)(am|pm)/);
+    if (match) {
+      let h = parseInt(match[1]);
+      if (match[3] === "pm" && h !== 12) h += 12;
+      if (match[3] === "am" && h === 12) h = 0;
+      now.setHours(h, parseInt(match[2]), 0, 0);
+    }
+    return now;
+  }
+  const daysMatch = timeStr.match(/(\d+) days? ago/);
+  if (daysMatch) {
+    now.setDate(now.getDate() - parseInt(daysMatch[1]));
+    now.setHours(10, 0, 0, 0);
+    return now;
+  }
+  return now;
+}
+
+export async function seedDemoData(userId: string): Promise<string> {
+  // 1. Create space
+  const [space] = await db
+    .insert(spaces)
+    .values({
+      name: "Community Sensing Project",
+      description:
+        "A shared space for observing what's shifting in your community and organisation.",
+      type: "sensing",
+      environment: "stars",
+    })
+    .returning({ id: spaces.id });
+
+  const spaceId = space.id;
+
+  // 2. Create owner membership
+  await db.insert(spaceMemberships).values({
+    userId,
+    spaceId,
+    role: "owner",
+  });
+
+  // 3. Insert observations
+  const obsIdMap = new Map<string, string>();
+  for (const obs of OBSERVATIONS) {
+    const [row] = await db
+      .insert(observations)
+      .values({
+        spaceId,
+        authorName: obs.author,
+        contentText: obs.text,
+        signalStrength: obs.signalStrength,
+        hasImage: obs.hasImage ?? false,
+        imageLabel: obs.imageLabel ?? null,
+        createdAt: relativeDate(obs.time),
+        isDemo: true,
+      })
+      .returning({ id: observations.id });
+    obsIdMap.set(obs.id, row.id);
+  }
+
+  // 4. Insert signals
+  const sigIdMap = new Map<string, string>();
+  for (const sig of SIGNALS) {
+    const weeksAgo = SIGNALS.indexOf(sig);
+    const firstSeen = new Date();
+    firstSeen.setDate(firstSeen.getDate() - (weeksAgo + 2) * 7);
+
+    const [row] = await db
+      .insert(signals)
+      .values({
+        spaceId,
+        title: sig.title,
+        description: sig.description,
+        strength: sig.strength,
+        direction: sig.direction,
+        observationCount: sig.observationCount,
+        contributorCount: sig.contributorCount,
+        firstSeen,
+        lastUpdated: new Date(),
+        isDemo: true,
+      })
+      .returning({ id: signals.id });
+    sigIdMap.set(sig.id, row.id);
+  }
+
+  // 5. Create some signal_observations junction records
+  // Link first few observations to first signal, etc.
+  const obsIds = Array.from(obsIdMap.values());
+  const sigIds = Array.from(sigIdMap.values());
+  const junctions: { signalId: string; observationId: string }[] = [];
+  if (sigIds[0] && obsIds[0]) junctions.push({ signalId: sigIds[0], observationId: obsIds[0] });
+  if (sigIds[0] && obsIds[2]) junctions.push({ signalId: sigIds[0], observationId: obsIds[2] });
+  if (sigIds[0] && obsIds[6]) junctions.push({ signalId: sigIds[0], observationId: obsIds[6] });
+  if (sigIds[1] && obsIds[4]) junctions.push({ signalId: sigIds[1], observationId: obsIds[4] });
+  if (sigIds[2] && obsIds[1]) junctions.push({ signalId: sigIds[2], observationId: obsIds[1] });
+  if (sigIds[3] && obsIds[3]) junctions.push({ signalId: sigIds[3], observationId: obsIds[3] });
+  if (sigIds[4] && obsIds[5]) junctions.push({ signalId: sigIds[4], observationId: obsIds[5] });
+
+  if (junctions.length > 0) {
+    await db.insert(signalObservations).values(junctions);
+  }
+
+  // 6. Insert constellation nodes with UUID connection mapping
+  const nodeIdMap = new Map<number, string>();
+  for (const node of CONSTELLATION_NODES) {
+    const [row] = await db
+      .insert(constellationNodes)
+      .values({
+        spaceId,
+        label: node.label,
+        x: node.x,
+        y: node.y,
+        size: node.size,
+        type: node.type,
+        connections: [], // placeholder, will update after all inserted
+        description: node.text,
+        isDemo: true,
+      })
+      .returning({ id: constellationNodes.id });
+    nodeIdMap.set(node.id, row.id);
+  }
+
+  // Update connections with real UUIDs
+  const { eq } = await import("drizzle-orm");
+  for (const node of CONSTELLATION_NODES) {
+    const nodeUuid = nodeIdMap.get(node.id)!;
+    const connUuids = node.connections
+      .map((connId) => nodeIdMap.get(connId))
+      .filter(Boolean) as string[];
+
+    await db
+      .update(constellationNodes)
+      .set({ connections: connUuids })
+      .where(eq(constellationNodes.id, nodeUuid));
+  }
+
+  return spaceId;
+}
