@@ -2,10 +2,12 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { observations } from "@/lib/db/schema";
 import { clearDemoData } from "@/lib/db/queries";
+import { processObservation } from "@/lib/ai/pipeline";
 
 const createObservationSchema = z.object({
   text: z.string().min(1).max(5000),
@@ -21,15 +23,20 @@ export async function createObservation(formData: FormData) {
     spaceId: formData.get("spaceId"),
   });
 
-  await db.insert(observations).values({
-    spaceId: parsed.spaceId,
-    authorId: session.user.id,
-    authorName: session.user.name ?? "Anonymous",
-    contentText: parsed.text,
-    signalStrength: "single",
-  });
+  const [inserted] = await db
+    .insert(observations)
+    .values({
+      spaceId: parsed.spaceId,
+      authorId: session.user.id,
+      authorName: session.user.name ?? "Anonymous",
+      contentText: parsed.text,
+      signalStrength: "single",
+    })
+    .returning({ id: observations.id });
 
   revalidatePath("/dashboard");
+
+  after(() => processObservation(inserted.id, parsed.spaceId));
 }
 
 export async function clearDemoDataAction(formData: FormData) {

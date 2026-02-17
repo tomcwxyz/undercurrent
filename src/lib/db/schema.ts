@@ -8,6 +8,7 @@ import {
   jsonb,
   primaryKey,
   uuid,
+  vector,
 } from "drizzle-orm/pg-core";
 
 // ── Auth.js tables ──
@@ -111,6 +112,17 @@ export const observations = pgTable("observations", {
   isDemo: boolean("is_demo").default(false),
   hasImage: boolean("has_image").default(false),
   imageLabel: text("image_label"),
+  aiEmbedding: vector("ai_embedding", { dimensions: 3072 }),
+  aiSentimentData: jsonb("ai_sentiment_data").$type<{
+    energy: number;
+    valence: number;
+    arousal: number;
+    label: string;
+  }>(),
+  aiEntities: jsonb("ai_entities").$type<
+    { name: string; type: "person" | "place" | "organisation" | "concept" | "project" }[]
+  >(),
+  aiProcessedAt: timestamp("ai_processed_at", { mode: "date" }),
 });
 
 export const signals = pgTable("signals", {
@@ -134,6 +146,13 @@ export const signals = pgTable("signals", {
     .notNull(),
   status: text("status").default("active"),
   isDemo: boolean("is_demo").default(false),
+  sentiment: jsonb("sentiment").$type<{
+    avgEnergy: number;
+    avgValence: number;
+    dominantThemes: string[];
+  }>(),
+  aiGenerated: boolean("ai_generated").default(false),
+  humanValidated: boolean("human_validated").default(false),
 });
 
 export const signalObservations = pgTable(
@@ -163,5 +182,61 @@ export const constellationNodes = pgTable("constellation_nodes", {
     .notNull(),
   connections: jsonb("connections").$type<string[]>().default([]),
   description: text("description"),
+  isDemo: boolean("is_demo").default(false),
+});
+
+// ── AI pipeline tables ──
+
+export const signalSnapshots = pgTable("signal_snapshots", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  signalId: uuid("signal_id")
+    .notNull()
+    .references(() => signals.id, { onDelete: "cascade" }),
+  snapshotAt: timestamp("snapshot_at", { mode: "date" }).defaultNow().notNull(),
+  strength: text("strength")
+    .$type<"strong" | "emerging" | "weak">()
+    .notNull(),
+  direction: text("direction")
+    .$type<"strengthening" | "steady" | "new">()
+    .notNull(),
+  observationCount: integer("observation_count").default(0),
+  contributorCount: integer("contributor_count").default(0),
+  sentimentAgg: jsonb("sentiment_agg").$type<{
+    avgEnergy: number;
+    avgValence: number;
+  }>(),
+});
+
+export const signalConnections = pgTable(
+  "signal_connections",
+  {
+    signalAId: uuid("signal_a_id")
+      .notNull()
+      .references(() => signals.id, { onDelete: "cascade" }),
+    signalBId: uuid("signal_b_id")
+      .notNull()
+      .references(() => signals.id, { onDelete: "cascade" }),
+    strength: real("strength").notNull(),
+    type: text("type")
+      .$type<"reinforcing" | "contrasting" | "adjacent">()
+      .notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.signalAId, table.signalBId] })]
+);
+
+export const reflections = pgTable("reflections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  spaceId: uuid("space_id")
+    .notNull()
+    .references(() => spaces.id, { onDelete: "cascade" }),
+  type: text("type").$type<"prompted" | "scheduled">().notNull(),
+  prompt: text("prompt").notNull(),
+  signalIds: jsonb("signal_ids").$type<string[]>().default([]),
+  synthesis: text("synthesis"),
+  learningLoop: text("learning_loop")
+    .$type<"single" | "double" | "triple">()
+    .default("single"),
+  triggerType: text("trigger_type"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   isDemo: boolean("is_demo").default(false),
 });
