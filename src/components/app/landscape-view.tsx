@@ -304,7 +304,7 @@ function TerrainCanvas() {
     <div className="relative mx-auto max-w-[1100px]">
       <canvas
         ref={canvasRef}
-        className="h-[300px] w-full cursor-crosshair rounded-2xl"
+        className="h-[220px] w-full cursor-crosshair rounded-2xl md:h-[300px]"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       />

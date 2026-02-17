@@ -89,29 +89,31 @@ export function SentimentView() {
         </p>
       </div>
 
-      {/* Heat grid */}
-      <div className="mx-auto mb-2 grid max-w-[800px] grid-cols-7 gap-1">
-        {cells.map((cell, i) => (
-          <div
-            key={i}
-            className="group relative aspect-square cursor-pointer rounded-[6px] transition-all hover:z-10 hover:scale-[1.15] hover:shadow-[0_0_20px_rgba(255,255,255,0.1)]"
-            style={{ background: cell.color }}
-          >
+      {/* Heat grid — horizontal scroll on mobile */}
+      <div className="mx-auto max-w-[800px] overflow-x-auto">
+        <div className="mb-2 grid min-w-[480px] grid-cols-7 gap-1">
+          {cells.map((cell, i) => (
             <div
-              className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/8 px-3 py-1.5 text-[0.72rem] text-text-secondary opacity-0 backdrop-blur-2xl transition-opacity group-hover:opacity-100"
-              style={{ background: "rgba(20, 27, 45, 0.95)" }}
+              key={i}
+              className="group relative aspect-square cursor-pointer rounded-[6px] transition-all hover:z-10 hover:scale-[1.15] hover:shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+              style={{ background: cell.color }}
             >
-              {cell.label} &middot; {cell.count} observations
+              <div
+                className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/8 px-3 py-1.5 text-[0.72rem] text-text-secondary opacity-0 backdrop-blur-2xl transition-opacity group-hover:opacity-100"
+                style={{ background: "rgba(20, 27, 45, 0.95)" }}
+              >
+                {cell.label} &middot; {cell.count} observations
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {/* Day labels */}
-      <div className="mx-auto mb-10 grid max-w-[800px] grid-cols-7 gap-1 text-center text-[0.68rem] text-text-muted">
-        {DAY_LABELS.map((d) => (
-          <span key={d}>{d}</span>
-        ))}
+        {/* Day labels */}
+        <div className="mb-10 grid min-w-[480px] grid-cols-7 gap-1 text-center text-[0.68rem] text-text-muted">
+          {DAY_LABELS.map((d) => (
+            <span key={d}>{d}</span>
+          ))}
+        </div>
       </div>
 
       {/* Sentiment bar */}

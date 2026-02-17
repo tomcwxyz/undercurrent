@@ -27,7 +27,7 @@ export function RiverView({ observations, stats }: RiverViewProps) {
           Everything noticed by your team in the last 30 days, flowing through
           time.
         </p>
-        <div className="mt-6 flex justify-center gap-12">
+        <div className="mt-6 flex justify-center gap-6 md:gap-12">
           <Stat value={String(stats.observationCount)} label="Observations" />
           <Stat value={String(stats.signalCount)} label="Signals emerging" />
         </div>

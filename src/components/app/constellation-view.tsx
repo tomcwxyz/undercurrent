@@ -137,7 +137,11 @@ export function ConstellationView({ nodes }: ConstellationViewProps) {
       hoveredRef.current = found;
       setHovered(found);
       if (found) {
-        setTooltipPos({ x: e.clientX - rect.left + 16, y: e.clientY - rect.top - 20 });
+        const canvasW = canvas!.offsetWidth;
+        setTooltipPos({
+          x: Math.min(e.clientX - rect.left + 16, canvasW - 276),
+          y: Math.max(e.clientY - rect.top - 20, 8),
+        });
       }
     }
 

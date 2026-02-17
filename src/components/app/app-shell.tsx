@@ -95,10 +95,10 @@ export function AppShell({
             ))}
           </nav>
 
-          {/* Observe Button */}
+          {/* Observe Button (desktop only — mobile uses FAB in bottom bar) */}
           <button
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2.5 rounded-3xl border border-warm-1/30 bg-warm-1/8 px-5 py-2.5 font-body text-[0.85rem] font-medium tracking-wide text-warm-1 transition-all hover:border-warm-1/50 hover:bg-warm-1/15 hover:shadow-[0_0_30px_rgba(255,107,74,0.15)]"
+            className="hidden items-center gap-2.5 rounded-3xl border border-warm-1/30 bg-warm-1/8 px-5 py-2.5 font-body text-[0.85rem] font-medium tracking-wide text-warm-1 transition-all hover:border-warm-1/50 hover:bg-warm-1/15 hover:shadow-[0_0_30px_rgba(255,107,74,0.15)] md:flex"
           >
             <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-warm-1" />
             I noticed something
@@ -109,7 +109,7 @@ export function AppShell({
         {hasDemo && <DemoBanner spaceId={spaceId} />}
 
         {/* Main Content */}
-        <main className="flex flex-1 flex-col">
+        <main className="flex flex-1 flex-col pb-16 md:pb-0">
           {activeView === "river" && (
             <RiverView observations={observations} stats={stats} />
           )}
@@ -120,6 +120,72 @@ export function AppShell({
           {activeView === "heat" && <SentimentView />}
         </main>
 
+        {/* Mobile Bottom Tab Bar */}
+        <nav
+          className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t px-2 py-1.5 backdrop-blur-2xl md:hidden"
+          style={{
+            background: "rgba(10,14,26,0.85)",
+            borderColor: "rgba(255,255,255,0.06)",
+          }}
+        >
+          <MobileTab
+            label="River"
+            active={activeView === "river"}
+            onClick={() => setActiveView("river")}
+          >
+            {/* Water/wave icon */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
+              <path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
+              <path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
+            </svg>
+          </MobileTab>
+
+          <MobileTab
+            label="Stars"
+            active={activeView === "constellation"}
+            onClick={() => setActiveView("constellation")}
+          >
+            {/* Stars icon */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          </MobileTab>
+
+          {/* Centre FAB — observe button */}
+          <button
+            onClick={() => setModalOpen(true)}
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-warm-1 shadow-[0_0_24px_rgba(255,107,74,0.4)] transition-transform active:scale-95"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-deep)" strokeWidth="2" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+
+          <MobileTab
+            label="Signals"
+            active={activeView === "landscape"}
+            onClick={() => setActiveView("landscape")}
+          >
+            {/* Mountain/landscape icon */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m8 3 4 8 5-5 5 15H2L8 3z" />
+            </svg>
+          </MobileTab>
+
+          <MobileTab
+            label="Sentiment"
+            active={activeView === "heat"}
+            onClick={() => setActiveView("heat")}
+          >
+            {/* Thermometer/flame icon */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
+            </svg>
+          </MobileTab>
+        </nav>
+
         {/* Observation Modal */}
         {modalOpen && (
           <ObservationModal
@@ -129,6 +195,30 @@ export function AppShell({
         )}
       </div>
     </>
+  );
+}
+
+function MobileTab({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[0.6rem] tracking-wide transition-colors ${
+        active ? "text-text-primary" : "text-text-muted"
+      }`}
+    >
+      {children}
+      <span>{label}</span>
+    </button>
   );
 }
 
@@ -154,12 +244,12 @@ function ObservationModal({
       }}
     >
       <div
-        className="relative w-[90%] max-w-[560px] rounded-3xl border bg-surface p-10"
+        className="relative w-[90%] max-w-[560px] rounded-3xl border bg-surface p-6 md:p-10"
         style={{ borderColor: "rgba(255,255,255,0.06)" }}
       >
         <button
           onClick={onClose}
-          className="absolute -top-10 right-0 text-lg text-text-muted hover:text-text-secondary"
+          className="absolute top-4 right-4 text-lg text-text-muted hover:text-text-secondary md:-top-10 md:right-0"
           aria-label="Close"
         >
           ✕
@@ -195,7 +285,7 @@ function ObservationModal({
             required
           />
 
-          <div className="mt-5 flex gap-3">
+          <div className="mt-5 flex flex-wrap gap-3">
             <button
               type="button"
               className="flex items-center gap-2 rounded-xl border border-white/8 px-4 py-2.5 text-[0.82rem] text-text-secondary transition-all hover:bg-white/[0.04] hover:text-text-primary"

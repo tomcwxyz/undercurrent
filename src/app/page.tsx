@@ -132,7 +132,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-6">
             <a
               href="/sign-in"
-              className="hidden text-sm text-text-secondary transition-colors hover:text-text-primary md:block"
+              className="text-sm text-text-secondary transition-colors hover:text-text-primary"
             >
               Sign in
             </a>
@@ -194,7 +194,7 @@ export default function LandingPage() {
             </p>
 
             <div
-              className="mt-10 flex items-center gap-6"
+              className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6"
               style={{
                 animation:
                   "fade-up 0.8s cubic-bezier(0.16,1,0.3,1) 1.1s both",
