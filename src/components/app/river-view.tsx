@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { SIGNAL_COLORS } from "@/lib/mock-data";
 import type { ObservationView, SpaceStats } from "@/lib/types";
 
@@ -13,9 +14,33 @@ const STRENGTH_LABELS = {
 interface RiverViewProps {
   observations: ObservationView[];
   stats: SpaceStats;
+  highlightedId?: string | null;
 }
 
-export function RiverView({ observations, stats }: RiverViewProps) {
+export function RiverView({ observations, stats, highlightedId }: RiverViewProps) {
+  const [highlightActive, setHighlightActive] = useState<string | null>(null);
+  const scrolledRef = useRef(false);
+
+  useEffect(() => {
+    if (!highlightedId) {
+      scrolledRef.current = false;
+      return;
+    }
+    // Only scroll once per highlightedId
+    if (scrolledRef.current) return;
+    scrolledRef.current = true;
+
+    const el = document.getElementById(`obs-${highlightedId}`);
+    if (el) {
+      // Small delay to let the view render
+      requestAnimationFrame(() => {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightActive(highlightedId);
+        // Remove highlight after 2s
+        setTimeout(() => setHighlightActive(null), 2000);
+      });
+    }
+  }, [highlightedId]);
   return (
     <div className="relative max-h-[calc(100svh-72px)] overflow-y-auto px-6 py-10 md:px-8">
       {/* Header */}
@@ -60,6 +85,7 @@ export function RiverView({ observations, stats }: RiverViewProps) {
           return (
             <div
               key={obs.id}
+              id={`obs-${obs.id}`}
               className="relative mb-6"
               style={{
                 animation: "fade-up 0.6s ease forwards",
@@ -93,7 +119,7 @@ export function RiverView({ observations, stats }: RiverViewProps) {
                     : "pl-8 md:pl-[calc(50%+24px)] md:pr-0"
                 }
               >
-                <ObservationCard obs={obs} dotColor={dotColor} />
+                <ObservationCard obs={obs} dotColor={dotColor} highlighted={highlightActive === obs.id} />
               </div>
             </div>
           );
@@ -106,12 +132,14 @@ export function RiverView({ observations, stats }: RiverViewProps) {
 function ObservationCard({
   obs,
   dotColor,
+  highlighted,
 }: {
   obs: ObservationView;
   dotColor: string;
+  highlighted?: boolean;
 }) {
   return (
-    <div className="group cursor-pointer rounded-2xl border border-white/[0.04] bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-white/8 hover:bg-card-hover hover:shadow-[0_12px_40px_rgba(0,0,0,0.3)]">
+    <div className={`group cursor-pointer rounded-2xl border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-white/8 hover:bg-card-hover hover:shadow-[0_12px_40px_rgba(0,0,0,0.3)] ${highlighted ? "border-cool-1/40 ring-2 ring-cool-1/30" : "border-white/[0.04]"}`}>
       {obs.hasImage && (
         <div className="mb-3 flex h-[120px] w-full items-center justify-center rounded-[10px] bg-gradient-to-br from-cool-1/10 to-cool-3/10 text-[0.75rem] text-text-muted">
           <svg

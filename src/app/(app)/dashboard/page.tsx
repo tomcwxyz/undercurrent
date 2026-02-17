@@ -7,11 +7,13 @@ import {
   getConstellationNodesForSpace,
   getSpaceStats,
   hasDemoData,
+  getObservationsWithSentiment,
 } from "@/lib/db/queries";
 import {
   toObservationView,
   toSignalView,
   toConstellationNodeView,
+  toSentimentViewData,
 } from "@/lib/db/transforms";
 import { AppShell } from "@/components/app/app-shell";
 
@@ -22,13 +24,15 @@ export default async function DashboardPage() {
   const spaceId = await getUserDefaultSpace(session.user.id);
   if (!spaceId) redirect("/onboarding");
 
-  const [obsRows, sigRows, nodeRows, stats, hasDemo] = await Promise.all([
-    getObservationsForSpace(spaceId),
-    getSignalsForSpace(spaceId),
-    getConstellationNodesForSpace(spaceId),
-    getSpaceStats(spaceId),
-    hasDemoData(spaceId),
-  ]);
+  const [obsRows, sigRows, nodeRows, stats, hasDemo, sentimentRows] =
+    await Promise.all([
+      getObservationsForSpace(spaceId),
+      getSignalsForSpace(spaceId),
+      getConstellationNodesForSpace(spaceId),
+      getSpaceStats(spaceId),
+      hasDemoData(spaceId),
+      getObservationsWithSentiment(spaceId),
+    ]);
 
   return (
     <AppShell
@@ -38,6 +42,7 @@ export default async function DashboardPage() {
       stats={stats}
       hasDemo={hasDemo}
       spaceId={spaceId}
+      sentimentData={toSentimentViewData(sentimentRows)}
     />
   );
 }

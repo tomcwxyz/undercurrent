@@ -13,6 +13,41 @@ import {
   CONSTELLATION_NODES,
 } from "@/lib/mock-data";
 
+/** Plausible AI sentiment data for demo observations, keyed by mock ID. */
+const DEMO_SENTIMENT: Record<string, {
+  aiSentimentData: { energy: number; valence: number; arousal: number; label: string };
+  aiThemes: string[];
+}> = {
+  "1": {
+    aiSentimentData: { energy: 0.4, valence: 0.5, arousal: 0.6, label: "Energised" },
+    aiThemes: ["group dynamics", "momentum", "culture shift"],
+  },
+  "2": {
+    aiSentimentData: { energy: 0.2, valence: -0.1, arousal: 0.3, label: "Warm" },
+    aiThemes: ["community voice", "participation", "power dynamics"],
+  },
+  "3": {
+    aiSentimentData: { energy: 0.7, valence: -0.3, arousal: 0.8, label: "Urgent" },
+    aiThemes: ["budget", "strategy", "institutional challenge"],
+  },
+  "4": {
+    aiSentimentData: { energy: -0.1, valence: 0.3, arousal: 0.1, label: "Calm" },
+    aiThemes: ["communication", "partnership", "tone shift"],
+  },
+  "5": {
+    aiSentimentData: { energy: 0.35, valence: 0.4, arousal: 0.5, label: "Energised" },
+    aiThemes: ["community space", "engagement", "grassroots energy"],
+  },
+  "6": {
+    aiSentimentData: { energy: -0.3, valence: -0.1, arousal: 0.2, label: "Reflective" },
+    aiThemes: ["process", "innovation", "accidental discovery"],
+  },
+  "7": {
+    aiSentimentData: { energy: 0.6, valence: -0.2, arousal: 0.7, label: "Urgent" },
+    aiThemes: ["systemic patterns", "partnership", "frustration"],
+  },
+};
+
 /** Parse relative time strings from mock data into real dates. */
 function relativeDate(timeStr: string): Date {
   const now = new Date();
@@ -71,6 +106,8 @@ export async function seedDemoData(userId: string): Promise<string> {
   // 3. Insert observations
   const obsIdMap = new Map<string, string>();
   for (const obs of OBSERVATIONS) {
+    const sentiment = DEMO_SENTIMENT[obs.id];
+    const createdAt = relativeDate(obs.time);
     const [row] = await db
       .insert(observations)
       .values({
@@ -80,8 +117,13 @@ export async function seedDemoData(userId: string): Promise<string> {
         signalStrength: obs.signalStrength,
         hasImage: obs.hasImage ?? false,
         imageLabel: obs.imageLabel ?? null,
-        createdAt: relativeDate(obs.time),
+        createdAt,
         isDemo: true,
+        ...(sentiment && {
+          aiSentimentData: sentiment.aiSentimentData,
+          aiThemes: sentiment.aiThemes,
+          aiProcessedAt: createdAt,
+        }),
       })
       .returning({ id: observations.id });
     obsIdMap.set(obs.id, row.id);

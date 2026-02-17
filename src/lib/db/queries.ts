@@ -1,4 +1,4 @@
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, gt, sql, and, isNotNull } from "drizzle-orm";
 import { db } from ".";
 import {
   observations,
@@ -71,6 +71,29 @@ export async function hasDemoData(spaceId: string): Promise<boolean> {
     )
     .limit(1);
   return rows.length > 0;
+}
+
+export async function getObservationsWithSentiment(spaceId: string) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 56);
+  return db
+    .select({
+      id: observations.id,
+      contentText: observations.contentText,
+      authorName: observations.authorName,
+      createdAt: observations.createdAt,
+      aiSentimentData: observations.aiSentimentData,
+      aiThemes: observations.aiThemes,
+    })
+    .from(observations)
+    .where(
+      and(
+        eq(observations.spaceId, spaceId),
+        gt(observations.createdAt, cutoff),
+        isNotNull(observations.aiProcessedAt)
+      )
+    )
+    .orderBy(desc(observations.createdAt));
 }
 
 export async function clearDemoData(spaceId: string): Promise<void> {

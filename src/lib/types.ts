@@ -33,3 +33,38 @@ export interface SpaceStats {
   observationCount: number;
   signalCount: number;
 }
+
+export interface ObservationSnippet {
+  id: string;
+  text: string;           // truncated to ~120 chars
+  author: string;
+  sentimentLabel: string;
+}
+
+export interface SentimentCell {
+  date: string;       // YYYY-MM-DD
+  dayLabel: string;   // "Mon"..."Sun"
+  colorIndex: number; // 0-5 → WARM_COLORS/SENTIMENT_LABELS
+  label: string;      // "Quiet" → "Urgent"
+  count: number;
+  observations: ObservationSnippet[];
+}
+
+export interface SentimentInsight {
+  title: string;
+  text: string;
+  bucket: "hot" | "building" | "cool";
+}
+
+export interface SentimentViewData {
+  cells: SentimentCell[];
+  distribution: { label: string; pct: number }[];
+  insights: SentimentInsight[];
+  totalObservations: number;
+  hasData: boolean;
+  comparison?: {
+    cells: SentimentCell[];
+    distribution: { label: string; pct: number }[];
+    totalObservations: number;
+  };
+}

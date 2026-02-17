@@ -13,6 +13,7 @@ import type {
   SignalView,
   ConstellationNodeView,
   SpaceStats,
+  SentimentViewData,
 } from "@/lib/types";
 
 type View = "river" | "constellation" | "landscape" | "heat";
@@ -31,6 +32,7 @@ interface AppShellProps {
   stats: SpaceStats;
   hasDemo: boolean;
   spaceId: string;
+  sentimentData: SentimentViewData;
 }
 
 export function AppShell({
@@ -40,9 +42,16 @@ export function AppShell({
   stats,
   hasDemo,
   spaceId,
+  sentimentData,
 }: AppShellProps) {
   const [activeView, setActiveView] = useState<View>("river");
   const [modalOpen, setModalOpen] = useState(false);
+  const [highlightedObservationId, setHighlightedObservationId] = useState<string | null>(null);
+
+  function switchView(view: View) {
+    setActiveView(view);
+    setHighlightedObservationId(null);
+  }
 
   return (
     <>
@@ -75,7 +84,7 @@ export function AppShell({
             {(Object.keys(VIEW_LABELS) as View[]).map((view) => (
               <button
                 key={view}
-                onClick={() => setActiveView(view)}
+                onClick={() => switchView(view)}
                 className={`rounded-2xl px-5 py-2 font-body text-[0.82rem] tracking-wide transition-all ${
                   activeView === view
                     ? "text-text-primary shadow-md"
@@ -111,13 +120,21 @@ export function AppShell({
         {/* Main Content */}
         <main className="flex flex-1 flex-col pb-16 md:pb-0">
           {activeView === "river" && (
-            <RiverView observations={observations} stats={stats} />
+            <RiverView observations={observations} stats={stats} highlightedId={highlightedObservationId} />
           )}
           {activeView === "constellation" && (
             <ConstellationView nodes={nodes} />
           )}
           {activeView === "landscape" && <LandscapeView signals={signals} />}
-          {activeView === "heat" && <SentimentView />}
+          {activeView === "heat" && (
+            <SentimentView
+              data={sentimentData}
+              onNavigateToObservation={(id) => {
+                setHighlightedObservationId(id);
+                setActiveView("river");
+              }}
+            />
+          )}
         </main>
 
         {/* Mobile Bottom Tab Bar */}
@@ -131,7 +148,7 @@ export function AppShell({
           <MobileTab
             label="River"
             active={activeView === "river"}
-            onClick={() => setActiveView("river")}
+            onClick={() => switchView("river")}
           >
             {/* Water/wave icon */}
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -144,7 +161,7 @@ export function AppShell({
           <MobileTab
             label="Stars"
             active={activeView === "constellation"}
-            onClick={() => setActiveView("constellation")}
+            onClick={() => switchView("constellation")}
           >
             {/* Stars icon */}
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -166,7 +183,7 @@ export function AppShell({
           <MobileTab
             label="Signals"
             active={activeView === "landscape"}
-            onClick={() => setActiveView("landscape")}
+            onClick={() => switchView("landscape")}
           >
             {/* Mountain/landscape icon */}
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -177,7 +194,7 @@ export function AppShell({
           <MobileTab
             label="Sentiment"
             active={activeView === "heat"}
-            onClick={() => setActiveView("heat")}
+            onClick={() => switchView("heat")}
           >
             {/* Thermometer/flame icon */}
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -222,6 +239,19 @@ function MobileTab({
   );
 }
 
+const NUDGES = [
+  "What felt different today?",
+  "Where did you notice energy \u2014 or absence of it?",
+  "What\u2019s everyone talking about that nobody\u2019s naming?",
+  "What surprised you recently?",
+  "What\u2019s shifting that hasn\u2019t been acknowledged?",
+  "Where did you feel friction or flow?",
+  "What\u2019s the mood in the room that nobody mentions?",
+  "What are people doing differently, even slightly?",
+  "What question is hanging in the air?",
+  "What did you notice that others might have missed?",
+];
+
 function ObservationModal({
   spaceId,
   onClose,
@@ -231,6 +261,7 @@ function ObservationModal({
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
+  const [nudge] = useState(() => NUDGES[Math.floor(Math.random() * NUDGES.length)]);
 
   return (
     <div
@@ -262,6 +293,9 @@ function ObservationModal({
           Don&apos;t worry about what it means. Just describe what you observed
           — a feeling, a conversation, a moment, a pattern.
         </p>
+        <p className="mt-3 text-[0.8rem] italic text-text-muted">
+          {nudge}
+        </p>
 
         <form
           ref={formRef}
@@ -275,7 +309,7 @@ function ObservationModal({
           <input type="hidden" name="spaceId" value={spaceId} />
           <textarea
             name="text"
-            className="mt-7 w-full resize-y rounded-[14px] border bg-white/[0.04] p-4 font-body text-[0.92rem] leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-cool-1/30"
+            className="mt-4 w-full resize-y rounded-[14px] border bg-white/[0.04] p-4 font-body text-[0.92rem] leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-cool-1/30"
             style={{
               borderColor: "rgba(255,255,255,0.06)",
               minHeight: "120px",
