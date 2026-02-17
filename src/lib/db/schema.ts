@@ -112,7 +112,7 @@ export const observations = pgTable("observations", {
   isDemo: boolean("is_demo").default(false),
   hasImage: boolean("has_image").default(false),
   imageLabel: text("image_label"),
-  aiEmbedding: vector("ai_embedding", { dimensions: 3072 }),
+  aiEmbedding: vector("ai_embedding", { dimensions: 1536 }),
   aiSentimentData: jsonb("ai_sentiment_data").$type<{
     energy: number;
     valence: number;

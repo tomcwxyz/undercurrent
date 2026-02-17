@@ -10,7 +10,8 @@ export const AI_CONFIG = {
   },
 
   embedding: {
-    dimensions: 3072,
+    /** Reduced from 3072 — HNSW index max is 2000 dims. 1536 still outperforms text-embedding-3-small. */
+    dimensions: 1536,
   },
 
   clustering: {
