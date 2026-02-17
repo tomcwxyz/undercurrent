@@ -1,26 +1,86 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* ─── Undercurrent Design Tokens ─── */
+
+  /* Background */
+  --color-deep: #0a0e1a;
+  --color-river: #0f1628;
+  --color-surface: #141b2d;
+  --color-card: #1a2240;
+  --color-card-hover: #1e2850;
+
+  /* Text */
+  --color-text-primary: #e8e4df;
+  --color-text-secondary: #8b8fa4;
+  --color-text-muted: #565b72;
+
+  /* Warm–Cool Spectrum */
+  --color-warm-1: #ff6b4a;
+  --color-warm-2: #ff8c42;
+  --color-warm-3: #ffd166;
+  --color-cool-1: #4ecdc4;
+  --color-cool-2: #45b7d1;
+  --color-cool-3: #6c5ce7;
+
+  /* Semantic */
+  --color-signal-strong: #ff6b4a;
+  --color-signal-emerging: #ffd166;
+  --color-signal-weak: #45b7d1;
+  --color-signal-single: #6c5ce7;
+  --color-accent-glow: #4ecdc4;
+
+  /* Fonts */
+  --font-display: "Cormorant Garamond", serif;
+  --font-body: "DM Sans", sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ─── Base ─── */
+html, body {
+  background: var(--color-deep);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+}
+
+/* ─── Selection ─── */
+::selection {
+  background: rgba(78, 205, 196, 0.25);
+  color: var(--color-text-primary);
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ─── Scroll ─── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ─── Hero animation ─── */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
