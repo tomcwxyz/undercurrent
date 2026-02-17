@@ -6,12 +6,25 @@ import type {
   SentimentCell,
   SentimentInsight,
   ObservationSnippet,
+  ReflectionView,
+  ReflectionResponseView,
+  NotificationView,
 } from "@/lib/types";
-import type { observations, signals, constellationNodes } from "./schema";
+import type {
+  observations,
+  signals,
+  constellationNodes,
+  reflections,
+  reflectionResponses,
+  notifications,
+} from "./schema";
 
 type ObservationRow = typeof observations.$inferSelect;
 type SignalRow = typeof signals.$inferSelect;
 type ConstellationNodeRow = typeof constellationNodes.$inferSelect;
+type ReflectionRow = typeof reflections.$inferSelect;
+type ReflectionResponseRow = typeof reflectionResponses.$inferSelect;
+type NotificationRow = typeof notifications.$inferSelect;
 
 function formatRelativeTime(date: Date): string {
   const now = new Date();
@@ -36,6 +49,12 @@ function formatRelativeTime(date: Date): string {
 }
 
 export function toObservationView(row: ObservationRow): ObservationView {
+  let sentimentTier: string | undefined;
+  if (row.aiSentimentData) {
+    const idx = sentimentIndex(row.aiSentimentData.energy, row.aiSentimentData.valence);
+    sentimentTier = SENTIMENT_TIERS[idx];
+  }
+
   return {
     id: row.id,
     author: row.authorName ?? "Anonymous",
@@ -44,6 +63,7 @@ export function toObservationView(row: ObservationRow): ObservationView {
     signalStrength: row.signalStrength ?? "single",
     hasImage: row.hasImage ?? false,
     imageLabel: row.imageLabel ?? undefined,
+    sentimentTier,
   };
 }
 
@@ -247,4 +267,66 @@ export function toSentimentViewData(rows: SentimentRow[]): SentimentViewData {
   }
 
   return result;
+}
+
+// ── Reflection transforms ──
+
+export function toReflectionViewData(
+  reflectionRows: ReflectionRow[],
+  responseRows: ReflectionResponseRow[],
+  signalTitleMap: Record<string, string>
+): ReflectionView[] {
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
+
+  // Group responses by reflectionId
+  const responsesByReflection = new Map<string, ReflectionResponseRow[]>();
+  for (const r of responseRows) {
+    const existing = responsesByReflection.get(r.reflectionId) ?? [];
+    existing.push(r);
+    responsesByReflection.set(r.reflectionId, existing);
+  }
+
+  return reflectionRows.map((row): ReflectionView => {
+    const responses = (responsesByReflection.get(row.id) ?? []).map(
+      (r): ReflectionResponseView => ({
+        id: r.id,
+        authorName: r.authorName ?? "Anonymous",
+        text: r.text,
+        time: formatRelativeTime(r.createdAt),
+      })
+    );
+
+    const signalIds = (row.signalIds as string[]) ?? [];
+    const signalTitles = signalIds
+      .map((id) => signalTitleMap[id])
+      .filter((t): t is string => !!t);
+
+    const isActive = row.createdAt > sevenDaysAgo && responses.length === 0;
+
+    return {
+      id: row.id,
+      prompt: row.prompt,
+      learningLoop: row.learningLoop ?? "single",
+      triggerType: row.triggerType,
+      signalTitles,
+      createdAt: formatRelativeTime(row.createdAt),
+      responses,
+      isActive,
+    };
+  });
+}
+
+// ── Notification transforms ──
+
+export function toNotificationView(row: NotificationRow): NotificationView {
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    body: row.body,
+    linkTo: row.linkTo,
+    read: row.read ?? false,
+    time: formatRelativeTime(row.createdAt),
+  };
 }

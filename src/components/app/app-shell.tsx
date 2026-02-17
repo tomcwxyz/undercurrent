@@ -6,23 +6,31 @@ import { RiverView } from "@/components/app/river-view";
 import { ConstellationView } from "@/components/app/constellation-view";
 import { LandscapeView } from "@/components/app/landscape-view";
 import { SentimentView } from "@/components/app/sentiment-view";
+import { ReflectionViewComponent } from "@/components/app/reflection-view";
 import { DemoBanner } from "@/components/app/demo-banner";
-import { createObservation } from "@/app/(app)/actions";
+import {
+  createObservation,
+  markNotificationReadAction,
+  markAllNotificationsReadAction,
+} from "@/app/(app)/actions";
 import type {
   ObservationView,
   SignalView,
   ConstellationNodeView,
   SpaceStats,
   SentimentViewData,
+  ReflectionView,
+  NotificationView,
 } from "@/lib/types";
 
-type View = "river" | "constellation" | "landscape" | "heat";
+type View = "river" | "constellation" | "landscape" | "heat" | "reflect";
 
 const VIEW_LABELS: Record<View, string> = {
   river: "River",
   constellation: "Constellation",
   landscape: "Signals",
   heat: "Sentiment",
+  reflect: "Reflect",
 };
 
 interface AppShellProps {
@@ -33,6 +41,9 @@ interface AppShellProps {
   hasDemo: boolean;
   spaceId: string;
   sentimentData: SentimentViewData;
+  reflections: ReflectionView[];
+  notifications: NotificationView[];
+  unreadNotificationCount: number;
 }
 
 export function AppShell({
@@ -43,10 +54,14 @@ export function AppShell({
   hasDemo,
   spaceId,
   sentimentData,
+  reflections,
+  notifications,
+  unreadNotificationCount,
 }: AppShellProps) {
   const [activeView, setActiveView] = useState<View>("river");
   const [modalOpen, setModalOpen] = useState(false);
   const [highlightedObservationId, setHighlightedObservationId] = useState<string | null>(null);
+  const [notifOpen, setNotifOpen] = useState(false);
 
   function switchView(view: View) {
     setActiveView(view);
@@ -104,14 +119,55 @@ export function AppShell({
             ))}
           </nav>
 
-          {/* Observe Button (desktop only — mobile uses FAB in bottom bar) */}
-          <button
-            onClick={() => setModalOpen(true)}
-            className="hidden items-center gap-2.5 rounded-3xl border border-warm-1/30 bg-warm-1/8 px-5 py-2.5 font-body text-[0.85rem] font-medium tracking-wide text-warm-1 transition-all hover:border-warm-1/50 hover:bg-warm-1/15 hover:shadow-[0_0_30px_rgba(255,107,74,0.15)] md:flex"
-          >
-            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-warm-1" />
-            I noticed something
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                onClick={() => setNotifOpen(!notifOpen)}
+                className="relative flex h-10 w-10 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
+                aria-label="Notifications"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-warm-1 px-1 text-[0.6rem] font-bold text-deep">
+                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notification dropdown */}
+              {notifOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setNotifOpen(false)}
+                  />
+                  <NotificationDropdown
+                    notifications={notifications}
+                    spaceId={spaceId}
+                    onNavigate={(linkTo) => {
+                      setNotifOpen(false);
+                      if (linkTo && linkTo in VIEW_LABELS) {
+                        switchView(linkTo as View);
+                      }
+                    }}
+                  />
+                </>
+              )}
+            </div>
+
+            {/* Observe Button (desktop only — mobile uses FAB in bottom bar) */}
+            <button
+              onClick={() => setModalOpen(true)}
+              className="hidden items-center gap-2.5 rounded-3xl border border-warm-1/30 bg-warm-1/8 px-5 py-2.5 font-body text-[0.85rem] font-medium tracking-wide text-warm-1 transition-all hover:border-warm-1/50 hover:bg-warm-1/15 hover:shadow-[0_0_30px_rgba(255,107,74,0.15)] md:flex"
+            >
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-warm-1" />
+              I noticed something
+            </button>
+          </div>
         </header>
 
         {/* Demo Banner */}
@@ -135,6 +191,9 @@ export function AppShell({
               }}
             />
           )}
+          {activeView === "reflect" && (
+            <ReflectionViewComponent reflections={reflections} />
+          )}
         </main>
 
         {/* Mobile Bottom Tab Bar */}
@@ -151,7 +210,7 @@ export function AppShell({
             onClick={() => switchView("river")}
           >
             {/* Water/wave icon */}
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
               <path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
               <path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
@@ -164,7 +223,7 @@ export function AppShell({
             onClick={() => switchView("constellation")}
           >
             {/* Stars icon */}
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           </MobileTab>
@@ -186,7 +245,7 @@ export function AppShell({
             onClick={() => switchView("landscape")}
           >
             {/* Mountain/landscape icon */}
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="m8 3 4 8 5-5 5 15H2L8 3z" />
             </svg>
           </MobileTab>
@@ -197,8 +256,21 @@ export function AppShell({
             onClick={() => switchView("heat")}
           >
             {/* Thermometer/flame icon */}
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
+            </svg>
+          </MobileTab>
+
+          <MobileTab
+            label="Reflect"
+            active={activeView === "reflect"}
+            onClick={() => switchView("reflect")}
+          >
+            {/* Thought/reflect icon */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4" />
+              <path d="M12 8h.01" />
             </svg>
           </MobileTab>
         </nav>
@@ -212,6 +284,120 @@ export function AppShell({
         )}
       </div>
     </>
+  );
+}
+
+function NotificationDropdown({
+  notifications,
+  spaceId,
+  onNavigate,
+}: {
+  notifications: NotificationView[];
+  spaceId: string;
+  onNavigate: (linkTo: string | null) => void;
+}) {
+  const [isPending, startTransition] = useTransition();
+
+  const TYPE_ICONS: Record<string, string> = {
+    new_reflection: "○",
+    signal_transition: "↑",
+    new_observation: "◊",
+  };
+
+  return (
+    <div
+      className="absolute right-0 top-full z-50 mt-2 w-[340px] max-h-[420px] overflow-y-auto rounded-2xl border border-white/[0.06] p-2 backdrop-blur-2xl"
+      style={{ background: "rgba(15,20,35,0.95)" }}
+    >
+      <div className="flex items-center justify-between px-3 py-2">
+        <span className="text-[0.82rem] font-medium text-text-primary">Notifications</span>
+        {notifications.some((n) => !n.read) && (
+          <form
+            action={(formData) => {
+              startTransition(async () => {
+                await markAllNotificationsReadAction(formData);
+              });
+            }}
+          >
+            <input type="hidden" name="spaceId" value={spaceId} />
+            <button
+              type="submit"
+              disabled={isPending}
+              className="text-[0.72rem] text-cool-1 transition-colors hover:text-cool-2 disabled:opacity-50"
+            >
+              Mark all read
+            </button>
+          </form>
+        )}
+      </div>
+
+      {notifications.length === 0 ? (
+        <div className="px-3 py-6 text-center text-[0.82rem] text-text-muted">
+          No notifications yet
+        </div>
+      ) : (
+        <div className="flex flex-col">
+          {notifications.map((notif) => (
+            <NotificationItem
+              key={notif.id}
+              notification={notif}
+              icon={TYPE_ICONS[notif.type] ?? "·"}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NotificationItem({
+  notification,
+  icon,
+  onNavigate,
+}: {
+  notification: NotificationView;
+  icon: string;
+  onNavigate: (linkTo: string | null) => void;
+}) {
+  const [, startTransition] = useTransition();
+
+  function handleClick() {
+    if (!notification.read) {
+      const formData = new FormData();
+      formData.set("notificationId", notification.id);
+      startTransition(async () => {
+        await markNotificationReadAction(formData);
+      });
+    }
+    onNavigate(notification.linkTo);
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`flex w-full gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04] ${
+        notification.read ? "opacity-60" : ""
+      }`}
+    >
+      <span className="mt-0.5 shrink-0 text-[0.85rem] text-cool-1">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <span className={`text-[0.8rem] leading-snug ${notification.read ? "text-text-secondary" : "text-text-primary font-medium"}`}>
+            {notification.title}
+          </span>
+          {!notification.read && (
+            <span className="mt-1 inline-block h-2 w-2 shrink-0 rounded-full bg-cool-1" />
+          )}
+        </div>
+        {notification.body && (
+          <p className="mt-0.5 text-[0.72rem] leading-relaxed text-text-muted line-clamp-2">
+            {notification.body}
+          </p>
+        )}
+        <span className="mt-0.5 text-[0.65rem] text-text-muted">{notification.time}</span>
+      </div>
+    </button>
   );
 }
 
@@ -229,7 +415,7 @@ function MobileTab({
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[0.6rem] tracking-wide transition-colors ${
+      className={`flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-[0.6rem] tracking-wide transition-colors ${
         active ? "text-text-primary" : "text-text-muted"
       }`}
     >

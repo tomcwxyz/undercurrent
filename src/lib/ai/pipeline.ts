@@ -38,7 +38,7 @@ export async function processObservation(
 
     if (signalId) {
       // Step 4a: Evolve the signal this observation was added to
-      await evolveSignal(signalId);
+      await evolveSignal(signalId, spaceId);
       console.log(`[pipeline] Evolved signal ${signalId}`);
 
       // Step 4b: Check if this signal should trigger a reflection

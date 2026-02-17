@@ -7,6 +7,7 @@ import {
   signalSnapshots,
   reflections,
 } from "@/lib/db/schema";
+import { notifySpaceMembers } from "@/lib/db/queries";
 import { getReflectionModel } from "../providers/registry";
 import { zodToAISchema } from "../schema";
 import { AI_CONFIG } from "../config";
@@ -113,4 +114,17 @@ Also assign a learning loop level:
     learningLoop: result.learningLoop,
     triggerType: triggers[0],
   });
+
+  // Notify space members about the new reflection
+  const promptPreview =
+    result.prompt.length > 100
+      ? result.prompt.slice(0, 100) + "\u2026"
+      : result.prompt;
+  await notifySpaceMembers(
+    spaceId,
+    "new_reflection",
+    "New reflection prompt",
+    promptPreview,
+    "reflect"
+  );
 }

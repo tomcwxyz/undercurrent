@@ -6,6 +6,7 @@ export interface ObservationView {
   signalStrength: "strong" | "emerging" | "weak" | "single";
   hasImage: boolean;
   imageLabel?: string;
+  sentimentTier?: string;
 }
 
 export interface SignalView {
@@ -54,6 +55,34 @@ export interface SentimentInsight {
   title: string;
   text: string;
   bucket: "hot" | "building" | "cool";
+}
+
+export interface ReflectionResponseView {
+  id: string;
+  authorName: string;
+  text: string;
+  time: string;
+}
+
+export interface ReflectionView {
+  id: string;
+  prompt: string;
+  learningLoop: "single" | "double" | "triple";
+  triggerType: string | null;
+  signalTitles: string[];
+  createdAt: string;
+  responses: ReflectionResponseView[];
+  isActive: boolean;
+}
+
+export interface NotificationView {
+  id: string;
+  type: "new_reflection" | "signal_transition" | "new_observation";
+  title: string;
+  body: string | null;
+  linkTo: string | null;
+  read: boolean;
+  time: string;
 }
 
 export interface SentimentViewData {

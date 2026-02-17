@@ -240,3 +240,34 @@ export const reflections = pgTable("reflections", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   isDemo: boolean("is_demo").default(false),
 });
+
+export const reflectionResponses = pgTable("reflection_responses", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  reflectionId: uuid("reflection_id")
+    .notNull()
+    .references(() => reflections.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  authorName: text("author_name"),
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const notifications = pgTable("notifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  spaceId: uuid("space_id")
+    .notNull()
+    .references(() => spaces.id, { onDelete: "cascade" }),
+  type: text("type")
+    .$type<"new_reflection" | "signal_transition" | "new_observation">()
+    .notNull(),
+  title: text("title").notNull(),
+  body: text("body"),
+  linkTo: text("link_to"),
+  read: boolean("read").default(false),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});

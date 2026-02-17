@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { SIGNAL_COLORS } from "@/lib/mock-data";
 import type { ObservationView, SpaceStats } from "@/lib/types";
 
@@ -11,6 +11,9 @@ const STRENGTH_LABELS = {
   single: "◊ Single",
 } as const;
 
+const STRENGTH_FILTERS = ["All", "Strong", "Emerging", "Weak", "Single"] as const;
+const SENTIMENT_FILTERS = ["All", "Quiet", "Reflective", "Calm", "Warm", "Energised", "Urgent"] as const;
+
 interface RiverViewProps {
   observations: ObservationView[];
   stats: SpaceStats;
@@ -20,6 +23,36 @@ interface RiverViewProps {
 export function RiverView({ observations, stats, highlightedId }: RiverViewProps) {
   const [highlightActive, setHighlightActive] = useState<string | null>(null);
   const scrolledRef = useRef(false);
+  const [search, setSearch] = useState("");
+  const [strengthFilter, setStrengthFilter] = useState<string>("All");
+  const [sentimentFilter, setSentimentFilter] = useState<string>("All");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const filtered = useMemo(() => {
+    let result = observations;
+
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (obs) =>
+          obs.text.toLowerCase().includes(q) ||
+          obs.author.toLowerCase().includes(q)
+      );
+    }
+
+    if (strengthFilter !== "All") {
+      const key = strengthFilter.toLowerCase();
+      result = result.filter((obs) => obs.signalStrength === key);
+    }
+
+    if (sentimentFilter !== "All") {
+      result = result.filter((obs) => obs.sentimentTier === sentimentFilter);
+    }
+
+    return result;
+  }, [observations, search, strengthFilter, sentimentFilter]);
+
+  const isFiltered = search || strengthFilter !== "All" || sentimentFilter !== "All";
 
   useEffect(() => {
     if (!highlightedId) {
@@ -58,6 +91,77 @@ export function RiverView({ observations, stats, highlightedId }: RiverViewProps
         </div>
       </div>
 
+      {/* Search + Filters */}
+      <div className="mx-auto mb-6 max-w-[700px]">
+        {/* Mobile: toggle button */}
+        <button
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className="mb-3 flex items-center gap-2 text-[0.8rem] text-text-secondary transition-colors hover:text-text-primary md:hidden"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          Search &amp; filter
+          {isFiltered && (
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-cool-1" />
+          )}
+        </button>
+
+        <div className={`${filtersOpen ? "block" : "hidden"} md:block`}>
+          {/* Search input */}
+          <div className="relative mb-3">
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+              width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search observations..."
+              className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] py-2.5 pl-9 pr-4 text-[0.85rem] text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-cool-1/30"
+            />
+          </div>
+
+          {/* Signal strength chips */}
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            <span className="mr-1 self-center text-[0.7rem] text-text-muted">Strength:</span>
+            {STRENGTH_FILTERS.map((f) => (
+              <FilterChip
+                key={f}
+                label={f}
+                active={strengthFilter === f}
+                onClick={() => setStrengthFilter(f)}
+              />
+            ))}
+          </div>
+
+          {/* Sentiment tier chips */}
+          <div className="flex flex-wrap gap-1.5">
+            <span className="mr-1 self-center text-[0.7rem] text-text-muted">Mood:</span>
+            {SENTIMENT_FILTERS.map((f) => (
+              <FilterChip
+                key={f}
+                label={f}
+                active={sentimentFilter === f}
+                onClick={() => setSentimentFilter(f)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Filtered count */}
+        {isFiltered && (
+          <div className="mt-3 text-center text-[0.78rem] text-text-muted">
+            Showing {filtered.length} of {observations.length}
+          </div>
+        )}
+      </div>
+
       {/* Stream */}
       <div className="relative mx-auto max-w-[700px] py-5">
         {/* Centre line (desktop) */}
@@ -78,7 +182,7 @@ export function RiverView({ observations, stats, highlightedId }: RiverViewProps
           }}
         />
 
-        {observations.map((obs, i) => {
+        {filtered.map((obs, i) => {
           const isLeft = i % 2 === 0;
           const dotColor = SIGNAL_COLORS[obs.signalStrength].css;
 
@@ -183,6 +287,29 @@ function ObservationCard({
         )}
       </div>
     </div>
+  );
+}
+
+function FilterChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-lg px-2.5 py-1 text-[0.72rem] transition-all ${
+        active
+          ? "bg-cool-1/15 text-cool-1 font-medium"
+          : "bg-white/[0.03] text-text-muted hover:text-text-secondary hover:bg-white/[0.06]"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 

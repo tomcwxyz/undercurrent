@@ -1,4 +1,4 @@
-import { eq, desc, gt, sql, and, isNotNull } from "drizzle-orm";
+import { eq, desc, gt, sql, and, isNotNull, inArray } from "drizzle-orm";
 import { db } from ".";
 import {
   observations,
@@ -6,6 +6,9 @@ import {
   constellationNodes,
   spaceMemberships,
   spaces,
+  reflections,
+  reflectionResponses,
+  notifications,
 } from "./schema";
 import type { SpaceStats } from "@/lib/types";
 
@@ -94,6 +97,118 @@ export async function getObservationsWithSentiment(spaceId: string) {
       )
     )
     .orderBy(desc(observations.createdAt));
+}
+
+// ── Reflection queries ──
+
+export async function getReflectionsForSpace(spaceId: string) {
+  const reflectionRows = await db
+    .select()
+    .from(reflections)
+    .where(eq(reflections.spaceId, spaceId))
+    .orderBy(desc(reflections.createdAt));
+
+  if (reflectionRows.length === 0) return { reflections: [], responses: [], signalTitleMap: {} };
+
+  // Get all responses for these reflections
+  const reflectionIds = reflectionRows.map((r) => r.id);
+  const responseRows = await db
+    .select()
+    .from(reflectionResponses)
+    .where(inArray(reflectionResponses.reflectionId, reflectionIds))
+    .orderBy(desc(reflectionResponses.createdAt));
+
+  // Collect all signal IDs referenced by reflections
+  const allSignalIds = [...new Set(reflectionRows.flatMap((r) => (r.signalIds as string[]) ?? []))];
+  const signalTitleMap: Record<string, string> = {};
+
+  if (allSignalIds.length > 0) {
+    const signalRows = await db
+      .select({ id: signals.id, title: signals.title })
+      .from(signals)
+      .where(inArray(signals.id, allSignalIds));
+    for (const s of signalRows) {
+      signalTitleMap[s.id] = s.title;
+    }
+  }
+
+  return { reflections: reflectionRows, responses: responseRows, signalTitleMap };
+}
+
+// ── Notification queries ──
+
+export async function getNotificationsForUser(userId: string, spaceId: string) {
+  return db
+    .select()
+    .from(notifications)
+    .where(and(eq(notifications.userId, userId), eq(notifications.spaceId, spaceId)))
+    .orderBy(desc(notifications.createdAt))
+    .limit(50);
+}
+
+export async function getUnreadNotificationCount(userId: string, spaceId: string): Promise<number> {
+  const result = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.spaceId, spaceId),
+        eq(notifications.read, false)
+      )
+    );
+  return result[0]?.count ?? 0;
+}
+
+export async function markNotificationRead(notificationId: string, userId: string) {
+  await db
+    .update(notifications)
+    .set({ read: true })
+    .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
+}
+
+export async function markAllNotificationsRead(userId: string, spaceId: string) {
+  await db
+    .update(notifications)
+    .set({ read: true })
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.spaceId, spaceId),
+        eq(notifications.read, false)
+      )
+    );
+}
+
+export async function notifySpaceMembers(
+  spaceId: string,
+  type: "new_reflection" | "signal_transition" | "new_observation",
+  title: string,
+  body: string,
+  linkTo: string,
+  excludeUserId?: string
+) {
+  const members = await db
+    .select({ userId: spaceMemberships.userId })
+    .from(spaceMemberships)
+    .where(eq(spaceMemberships.spaceId, spaceId));
+
+  const userIds = members
+    .map((m) => m.userId)
+    .filter((id) => id !== excludeUserId);
+
+  if (userIds.length === 0) return;
+
+  await db.insert(notifications).values(
+    userIds.map((userId) => ({
+      userId,
+      spaceId,
+      type,
+      title,
+      body,
+      linkTo,
+    }))
+  );
 }
 
 export async function clearDemoData(spaceId: string): Promise<void> {

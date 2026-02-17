@@ -8,6 +8,7 @@ import {
   signalObservations,
   signalSnapshots,
 } from "@/lib/db/schema";
+import { notifySpaceMembers } from "@/lib/db/queries";
 import { getSignalSynthesisModel } from "../providers/registry";
 import { zodToAISchema } from "../schema";
 import { findUnattachedClusters } from "./cluster";
@@ -23,7 +24,17 @@ const signalSynthesisSchema = z.object({
  * Re-synthesise a signal from its constituent observations.
  * Updates title, description, strength, direction and takes a snapshot.
  */
-export async function evolveSignal(signalId: string): Promise<void> {
+export async function evolveSignal(signalId: string, spaceId?: string): Promise<void> {
+  // Read current strength before evolving (for transition detection)
+  const [currentSignal] = await db
+    .select({ strength: signals.strength, title: signals.title, spaceId: signals.spaceId })
+    .from(signals)
+    .where(eq(signals.id, signalId))
+    .limit(1);
+
+  const previousStrength = currentSignal?.strength;
+  const resolvedSpaceId = spaceId ?? currentSignal?.spaceId;
+
   // Get all observations in this signal
   const obsRows = await db
     .select({
@@ -111,6 +122,18 @@ Generate a signal with:
       ? { avgEnergy: sentimentAgg.avgEnergy, avgValence: sentimentAgg.avgValence }
       : undefined,
   });
+
+  // Notify if strength changed
+  if (previousStrength && result.strength !== previousStrength && resolvedSpaceId) {
+    const signalTitle = currentSignal?.title ?? "A signal";
+    await notifySpaceMembers(
+      resolvedSpaceId,
+      "signal_transition",
+      `Signal strength changed: ${signalTitle}`,
+      `Moved from ${previousStrength} to ${result.strength}`,
+      "landscape"
+    );
+  }
 
   // Update observation signal strengths
   const strengthMap: Record<string, "strong" | "emerging" | "weak"> = {
