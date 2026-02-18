@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from "react";
 import type { SentimentViewData, SentimentCell, ObservationSnippet } from "@/lib/types";
+import { SENTIMENT_TIERS } from "@/lib/db/transforms";
+import { seededRandom } from "@/lib/mock-data";
 
 const WARM_COLORS = [
   "rgba(108, 92, 231, 0.3)",  // cool/reflective
@@ -10,15 +12,6 @@ const WARM_COLORS = [
   "rgba(255, 209, 102, 0.4)", // warm
   "rgba(255, 140, 66, 0.5)",  // energised
   "rgba(255, 107, 74, 0.6)",  // urgent/hot
-];
-
-const SENTIMENT_LABELS = [
-  "Quiet",
-  "Reflective",
-  "Calm",
-  "Warm",
-  "Energised",
-  "Urgent",
 ];
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -64,11 +57,6 @@ const DIST_COLORS = [
   "var(--color-warm-2)",  // Energised
   "var(--color-warm-1)",  // Urgent
 ];
-
-function seededRandom(seed: number) {
-  const x = Math.sin(seed * 9301 + 49297) * 49297;
-  return x - Math.floor(x);
-}
 
 /** Unified cell type for rendering both daily and weekly grids */
 interface DisplayCell {
@@ -130,7 +118,7 @@ function aggregateWeekly(dailyCells: DisplayCell[]): DisplayCell[] {
 
     weeks.push({
       color: WARM_COLORS[clamped],
-      label: SENTIMENT_LABELS[clamped],
+      label: SENTIMENT_TIERS[clamped],
       count: totalCount,
       colorIndex: clamped,
       bottomLabel: `Week ${w + 1}`,
@@ -155,7 +143,7 @@ function buildSyntheticDailyCells(): DisplayCell[] {
       const count = Math.floor(seededRandom(w * 7 + d + 99) * 6) + (d < 5 ? 2 : 0);
       result.push({
         color: WARM_COLORS[idx],
-        label: SENTIMENT_LABELS[idx],
+        label: SENTIMENT_TIERS[idx],
         count,
         colorIndex: idx,
         bottomLabel: DAY_LABELS[d],

@@ -53,7 +53,7 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
         if (data.members) setMembers(data.members);
         if (data.invitations) setInvitations(data.invitations);
       })
-      .catch(() => {});
+      .catch((err) => console.error("Failed to load space settings:", err));
   }, [spaceId]);
 
   function handleSaveInfo() {

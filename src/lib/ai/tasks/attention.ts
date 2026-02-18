@@ -79,10 +79,12 @@ export async function runAttentionAnalysis(spaceId: string): Promise<void> {
     )
     .join("\n");
 
-  const { object } = await generateObject({
-    model: getAttentionModel(),
-    schema: zodToAISchema(attentionSchema),
-    prompt: `You are performing a meta-level attention analysis for an organisational sensing platform. Your job is to see what the observers are seeing — and what they might be missing.
+  let result: z.infer<typeof attentionSchema>;
+  try {
+    const { object } = await generateObject({
+      model: getAttentionModel(),
+      schema: zodToAISchema(attentionSchema),
+      prompt: `You are performing a meta-level attention analysis for an organisational sensing platform. Your job is to see what the observers are seeing — and what they might be missing.
 
 Recent observations (last ${AI_CONFIG.attention.lookbackDays} days):
 ${obsTexts}
@@ -95,9 +97,12 @@ Analyse:
 2. absentThemes: What might be conspicuously absent? What topics or domains seem under-represented given the context?
 3. attentionShifts: Have there been shifts in what people are noticing? (from → to, with significance)
 4. metaReflectionPrompt: A profound question that helps the group reflect on their collective attention patterns. This should be at the "triple loop" level — questioning the very frames through which they see.`,
-  });
-
-  const result = object as z.infer<typeof attentionSchema>;
+    });
+    result = object as z.infer<typeof attentionSchema>;
+  } catch (error) {
+    console.error(`[attention] Analysis failed for space ${spaceId}:`, error);
+    throw error;
+  }
 
   await db.insert(reflections).values({
     spaceId,

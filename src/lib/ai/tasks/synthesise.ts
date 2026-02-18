@@ -167,29 +167,36 @@ export async function synthesiseNewSignals(spaceId: string): Promise<void> {
   const clusters = await findUnattachedClusters(spaceId);
 
   for (const cluster of clusters) {
-    // Create a new signal
-    const [newSignal] = await db
-      .insert(signals)
-      .values({
-        spaceId,
-        title: "Processing...",
-        description: "",
-        strength: "weak",
-        direction: "new",
-        observationCount: cluster.observationIds.length,
-        aiGenerated: true,
-      })
-      .returning({ id: signals.id });
+    try {
+      // Create a new signal
+      const [newSignal] = await db
+        .insert(signals)
+        .values({
+          spaceId,
+          title: "Processing...",
+          description: "",
+          strength: "weak",
+          direction: "new",
+          observationCount: cluster.observationIds.length,
+          aiGenerated: true,
+        })
+        .returning({ id: signals.id });
 
-    // Link observations to signal
-    await db.insert(signalObservations).values(
-      cluster.observationIds.map((obsId) => ({
-        signalId: newSignal.id,
-        observationId: obsId,
-      }))
-    );
+      // Link observations to signal
+      await db.insert(signalObservations).values(
+        cluster.observationIds.map((obsId) => ({
+          signalId: newSignal.id,
+          observationId: obsId,
+        }))
+      );
 
-    // Evolve the signal (generates title, description etc.)
-    await evolveSignal(newSignal.id);
+      // Evolve the signal (generates title, description etc.)
+      await evolveSignal(newSignal.id);
+    } catch (error) {
+      console.error(
+        `[synthesise] Failed to create signal from cluster (${cluster.observationIds.length} obs):`,
+        error
+      );
+    }
   }
 }

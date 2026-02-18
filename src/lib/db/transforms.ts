@@ -98,7 +98,7 @@ export function toConstellationNodeView(
 
 // --- Sentiment transforms ---
 
-const SENTIMENT_TIERS = [
+export const SENTIMENT_TIERS = [
   "Quiet",
   "Reflective",
   "Calm",

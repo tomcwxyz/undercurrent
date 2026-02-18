@@ -155,6 +155,11 @@ export const CONSTELLATION_NODES: ConstellationNode[] = [
   { id: 12, label: "Tuesday crowd", x: 0.82, y: 0.45, size: 9, type: "emerging", connections: [4], text: "Unusual activity levels at unexpected times." },
 ];
 
+export function seededRandom(seed: number) {
+  const x = Math.sin(seed * 9301 + 49297) * 49297;
+  return x - Math.floor(x);
+}
+
 export const SIGNAL_COLORS = {
   strong: { css: "var(--color-warm-1)", rgb: "255,107,74" },
   emerging: { css: "var(--color-warm-3)", rgb: "255,209,102" },

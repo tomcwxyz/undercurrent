@@ -1,3 +1,6 @@
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { observations } from "@/lib/db/schema";
 import { embedObservation } from "./tasks/embed";
 import { enrichObservation } from "./tasks/enrich";
 import { clusterObservation } from "./tasks/cluster";
@@ -9,49 +12,88 @@ import { checkReflectionTriggers } from "./tasks/reflect";
  * Runs asynchronously after the HTTP response via `after()`.
  *
  * Steps:
- * 1. Embed — generate vector embedding
- * 2. Enrich — extract sentiment, themes, entities
+ * 1. Embed — generate vector embedding (critical — can't cluster without it)
+ * 2. Enrich — extract sentiment, themes, entities (non-critical)
  * 3. Cluster — find similar observations / existing signals
  * 4. If clustered → evolve the signal → check reflection triggers
  * 5. If not clustered → try to synthesise new signals from unattached obs
+ *
+ * Each step is independently error-handled so a non-critical failure
+ * doesn't block later steps.
  */
 export async function processObservation(
   observationId: string,
   spaceId: string
 ): Promise<void> {
-  try {
-    console.log(`[pipeline] Processing observation ${observationId}`);
+  console.log(`[pipeline] Processing observation ${observationId}`);
 
-    // Step 1: Embed
+  // Step 1: Embed — critical path, can't cluster without a vector
+  try {
     await embedObservation(observationId);
     console.log(`[pipeline] Embedded ${observationId}`);
+  } catch (error) {
+    console.error(`[pipeline] Embed failed for ${observationId}:`, error);
+    await markProcessed(observationId);
+    return;
+  }
 
-    // Step 2: Enrich
+  // Step 2: Enrich — non-critical, clustering uses embeddings not enrichment
+  try {
     await enrichObservation(observationId);
     console.log(`[pipeline] Enriched ${observationId}`);
+  } catch (error) {
+    console.error(`[pipeline] Enrich failed for ${observationId} (continuing):`, error);
+  }
 
-    // Step 3: Cluster
-    const signalId = await clusterObservation(observationId, spaceId);
+  // Step 3: Cluster
+  let signalId: string | null = null;
+  try {
+    signalId = await clusterObservation(observationId, spaceId);
     console.log(
       `[pipeline] Clustered ${observationId} → ${signalId ?? "unattached"}`
     );
+  } catch (error) {
+    console.error(`[pipeline] Cluster failed for ${observationId} (continuing):`, error);
+  }
 
-    if (signalId) {
-      // Step 4a: Evolve the signal this observation was added to
+  if (signalId) {
+    // Step 4a: Evolve the signal this observation was added to
+    try {
       await evolveSignal(signalId, spaceId);
       console.log(`[pipeline] Evolved signal ${signalId}`);
-
-      // Step 4b: Check if this signal should trigger a reflection
-      await checkReflectionTriggers(signalId, spaceId);
-      console.log(`[pipeline] Checked reflection triggers for ${signalId}`);
-    } else {
-      // Step 5: Try to form new signals from unattached observations
-      await synthesiseNewSignals(spaceId);
-      console.log(`[pipeline] Synthesised new signals for space ${spaceId}`);
+    } catch (error) {
+      console.error(`[pipeline] Evolve failed for signal ${signalId}:`, error);
     }
 
-    console.log(`[pipeline] Done processing ${observationId}`);
+    // Step 4b: Check if this signal should trigger a reflection
+    try {
+      await checkReflectionTriggers(signalId, spaceId);
+      console.log(`[pipeline] Checked reflection triggers for ${signalId}`);
+    } catch (error) {
+      console.error(`[pipeline] Reflect failed for signal ${signalId}:`, error);
+    }
+  } else {
+    // Step 5: Try to form new signals from unattached observations
+    try {
+      await synthesiseNewSignals(spaceId);
+      console.log(`[pipeline] Synthesised new signals for space ${spaceId}`);
+    } catch (error) {
+      console.error(`[pipeline] Synthesise failed for space ${spaceId}:`, error);
+    }
+  }
+
+  await markProcessed(observationId);
+  console.log(`[pipeline] Done processing ${observationId}`);
+}
+
+/** Mark observation as processed regardless of pipeline outcome */
+async function markProcessed(observationId: string): Promise<void> {
+  try {
+    await db
+      .update(observations)
+      .set({ aiProcessedAt: new Date() })
+      .where(eq(observations.id, observationId));
   } catch (error) {
-    console.error(`[pipeline] Error processing observation ${observationId}:`, error);
+    console.error(`[pipeline] Failed to mark ${observationId} as processed:`, error);
   }
 }

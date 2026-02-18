@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { SIGNAL_COLORS } from "@/lib/mock-data";
+import { SIGNAL_COLORS, seededRandom } from "@/lib/mock-data";
 import { FilterChip } from "@/components/app/filter-chip";
 import type { SignalView } from "@/lib/types";
 
@@ -223,11 +223,6 @@ const LAYER_DEFS = [
 const DAYS = 30;
 const PADDING = 40;
 const TIME_LABELS = ["4 weeks ago", "3 weeks ago", "2 weeks ago", "Last week", "Now"];
-
-function seededRandom(seed: number) {
-  const x = Math.sin(seed * 9301 + 49297) * 49297;
-  return x - Math.floor(x);
-}
 
 function generateLayers(): Layer[] {
   return LAYER_DEFS.map((def, li) => {
