@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useRef, useTransition } from "react";
+import Link from "next/link";
 import { HeroCanvas } from "@/components/landing/hero-canvas";
 import { RiverView } from "@/components/app/river-view";
 import { ConstellationView } from "@/components/app/constellation-view";
 import { LandscapeView } from "@/components/app/landscape-view";
 import { SentimentView } from "@/components/app/sentiment-view";
 import { ReflectionViewComponent } from "@/components/app/reflection-view";
+import { TimelineView } from "@/components/app/timeline-view";
+import { SpaceSettings } from "@/components/app/space-settings";
 import { DemoBanner } from "@/components/app/demo-banner";
 import {
   createObservation,
@@ -21,9 +24,13 @@ import type {
   SentimentViewData,
   ReflectionView,
   NotificationView,
+  TimelineEvent,
+  SpaceView,
+  SpaceRole,
 } from "@/lib/types";
+import { canEditSpace, canCreateObservation } from "@/lib/permissions";
 
-type View = "river" | "constellation" | "landscape" | "heat" | "reflect";
+type View = "river" | "constellation" | "landscape" | "heat" | "reflect" | "timeline";
 
 const VIEW_LABELS: Record<View, string> = {
   river: "River",
@@ -31,6 +38,7 @@ const VIEW_LABELS: Record<View, string> = {
   landscape: "Signals",
   heat: "Sentiment",
   reflect: "Reflect",
+  timeline: "Timeline",
 };
 
 interface AppShellProps {
@@ -44,6 +52,10 @@ interface AppShellProps {
   reflections: ReflectionView[];
   notifications: NotificationView[];
   unreadNotificationCount: number;
+  timelineEvents: TimelineEvent[];
+  spaces?: SpaceView[];
+  currentSpaceId?: string;
+  userRole?: SpaceRole;
 }
 
 export function AppShell({
@@ -57,11 +69,18 @@ export function AppShell({
   reflections,
   notifications,
   unreadNotificationCount,
+  timelineEvents,
+  spaces,
+  currentSpaceId,
+  userRole = "observer",
 }: AppShellProps) {
   const [activeView, setActiveView] = useState<View>("river");
   const [modalOpen, setModalOpen] = useState(false);
   const [highlightedObservationId, setHighlightedObservationId] = useState<string | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [spaceMenuOpen, setSpaceMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   function switchView(view: View) {
     setActiveView(view);
@@ -81,14 +100,69 @@ export function AppShell({
             borderBottom: "1px solid rgba(255,255,255,0.04)",
           }}
         >
-          <div className="font-display text-[1.6rem] font-light tracking-wide text-text-primary">
-            under
-            <em
-              className="bg-gradient-to-r from-cool-1 to-cool-2 bg-clip-text text-transparent"
-              style={{ fontStyle: "italic" }}
-            >
-              current
-            </em>
+          <div className="flex items-center gap-3">
+            <div className="font-display text-[1.6rem] font-light tracking-wide text-text-primary">
+              under
+              <em
+                className="bg-gradient-to-r from-cool-1 to-cool-2 bg-clip-text text-transparent"
+                style={{ fontStyle: "italic" }}
+              >
+                current
+              </em>
+            </div>
+
+            {/* Space selector */}
+            {spaces && spaces.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setSpaceMenuOpen(!spaceMenuOpen)}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[0.8rem] text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
+                >
+                  <span className="max-w-[120px] truncate">
+                    {spaces.find((s) => s.id === currentSpaceId)?.name ?? "Space"}
+                  </span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+
+                {spaceMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setSpaceMenuOpen(false)} />
+                    <div
+                      className="absolute left-0 top-full z-50 mt-1 min-w-[200px] rounded-xl border border-white/[0.06] p-1.5 backdrop-blur-2xl"
+                      style={{ background: "rgba(15,20,35,0.95)" }}
+                    >
+                      {spaces.map((space) => (
+                        <Link
+                          key={space.id}
+                          href={`/dashboard/${space.id}`}
+                          className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] transition-colors hover:bg-white/[0.06] ${
+                            space.id === currentSpaceId ? "text-text-primary" : "text-text-secondary"
+                          }`}
+                        >
+                          <span className="flex-1 truncate">{space.name}</span>
+                          {space.id === currentSpaceId && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-cool-1" />
+                          )}
+                        </Link>
+                      ))}
+                      <div className="my-1 border-t border-white/[0.06]" />
+                      <Link
+                        href="/dashboard/new"
+                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-[0.8rem] text-cool-1 transition-colors hover:bg-white/[0.06]"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        Create new space
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* View Navigation */}
@@ -159,14 +233,30 @@ export function AppShell({
               )}
             </div>
 
+            {/* Settings gear (admin+) */}
+            {canEditSpace(userRole) && (
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
+                aria-label="Space settings"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+            )}
+
             {/* Observe Button (desktop only — mobile uses FAB in bottom bar) */}
-            <button
-              onClick={() => setModalOpen(true)}
-              className="hidden items-center gap-2.5 rounded-3xl border border-warm-1/30 bg-warm-1/8 px-5 py-2.5 font-body text-[0.85rem] font-medium tracking-wide text-warm-1 transition-all hover:border-warm-1/50 hover:bg-warm-1/15 hover:shadow-[0_0_30px_rgba(255,107,74,0.15)] md:flex"
-            >
-              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-warm-1" />
-              I noticed something
-            </button>
+            {canCreateObservation(userRole) && (
+              <button
+                onClick={() => setModalOpen(true)}
+                className="hidden items-center gap-2.5 rounded-3xl border border-warm-1/30 bg-warm-1/8 px-5 py-2.5 font-body text-[0.85rem] font-medium tracking-wide text-warm-1 transition-all hover:border-warm-1/50 hover:bg-warm-1/15 hover:shadow-[0_0_30px_rgba(255,107,74,0.15)] md:flex"
+              >
+                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-warm-1" />
+                I noticed something
+              </button>
+            )}
           </div>
         </header>
 
@@ -193,6 +283,9 @@ export function AppShell({
           )}
           {activeView === "reflect" && (
             <ReflectionViewComponent reflections={reflections} />
+          )}
+          {activeView === "timeline" && (
+            <TimelineView timelineEvents={timelineEvents} />
           )}
         </main>
 
@@ -229,15 +322,17 @@ export function AppShell({
           </MobileTab>
 
           {/* Centre FAB — observe button */}
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-warm-1 shadow-[0_0_24px_rgba(255,107,74,0.4)] transition-transform active:scale-95"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-deep)" strokeWidth="2" strokeLinecap="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
+          {canCreateObservation(userRole) && (
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-warm-1 shadow-[0_0_24px_rgba(255,107,74,0.4)] transition-transform active:scale-95"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-deep)" strokeWidth="2" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          )}
 
           <MobileTab
             label="Signals"
@@ -261,18 +356,53 @@ export function AppShell({
             </svg>
           </MobileTab>
 
-          <MobileTab
-            label="Reflect"
-            active={activeView === "reflect"}
-            onClick={() => switchView("reflect")}
-          >
-            {/* Thought/reflect icon */}
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 16v-4" />
-              <path d="M12 8h.01" />
-            </svg>
-          </MobileTab>
+          {/* More overflow for Reflect + Timeline */}
+          <div className="relative">
+            <MobileTab
+              label="More"
+              active={activeView === "reflect" || activeView === "timeline"}
+              onClick={() => setMoreOpen(!moreOpen)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <circle cx="12" cy="5" r="1" />
+                <circle cx="12" cy="12" r="1" />
+                <circle cx="12" cy="19" r="1" />
+              </svg>
+            </MobileTab>
+
+            {moreOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
+                <div
+                  className="absolute bottom-full right-0 z-50 mb-2 min-w-[140px] rounded-xl border border-white/[0.06] p-1.5 backdrop-blur-2xl"
+                  style={{ background: "rgba(15,20,35,0.95)" }}
+                >
+                  <button
+                    onClick={() => { switchView("reflect"); setMoreOpen(false); }}
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] transition-colors hover:bg-white/[0.06] ${activeView === "reflect" ? "text-text-primary" : "text-text-secondary"}`}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 16v-4" />
+                      <path d="M12 8h.01" />
+                    </svg>
+                    Reflect
+                  </button>
+                  <button
+                    onClick={() => { switchView("timeline"); setMoreOpen(false); }}
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] transition-colors hover:bg-white/[0.06] ${activeView === "timeline" ? "text-text-primary" : "text-text-secondary"}`}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 20V10" />
+                      <path d="M18 20V4" />
+                      <path d="M6 20v-4" />
+                    </svg>
+                    Timeline
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </nav>
 
         {/* Observation Modal */}
@@ -280,6 +410,15 @@ export function AppShell({
           <ObservationModal
             spaceId={spaceId}
             onClose={() => setModalOpen(false)}
+          />
+        )}
+
+        {/* Space Settings Panel */}
+        {settingsOpen && currentSpaceId && (
+          <SpaceSettings
+            spaceId={currentSpaceId}
+            userRole={userRole}
+            onClose={() => setSettingsOpen(false)}
           />
         )}
       </div>

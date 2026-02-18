@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { SIGNAL_COLORS } from "@/lib/mock-data";
+import { FilterChip } from "@/components/app/filter-chip";
 import type { SignalView } from "@/lib/types";
 
 const DIRECTION_LABELS = {
@@ -10,11 +11,46 @@ const DIRECTION_LABELS = {
   new: { label: "✦ New", cls: "bg-cool-3/12 text-cool-3" },
 } as const;
 
+const STRENGTH_FILTERS = ["All", "Strong", "Emerging", "Weak"] as const;
+const DIRECTION_FILTERS = ["All", "Strengthening", "Steady", "New"] as const;
+
 interface LandscapeViewProps {
   signals: SignalView[];
 }
 
 export function LandscapeView({ signals }: LandscapeViewProps) {
+  const [search, setSearch] = useState("");
+  const [strengthFilter, setStrengthFilter] = useState<string>("All");
+  const [directionFilter, setDirectionFilter] = useState<string>("All");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const filtered = useMemo(() => {
+    let result = signals;
+
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          s.description.toLowerCase().includes(q)
+      );
+    }
+
+    if (strengthFilter !== "All") {
+      const key = strengthFilter.toLowerCase();
+      result = result.filter((s) => s.strength === key);
+    }
+
+    if (directionFilter !== "All") {
+      const key = directionFilter.toLowerCase();
+      result = result.filter((s) => s.direction === key);
+    }
+
+    return result;
+  }, [signals, search, strengthFilter, directionFilter]);
+
+  const isFiltered = search || strengthFilter !== "All" || directionFilter !== "All";
+
   return (
     <div className="max-h-[calc(100svh-72px)] overflow-y-auto px-6 py-10 md:px-8">
       <div className="mb-10 text-center">
@@ -27,10 +63,81 @@ export function LandscapeView({ signals }: LandscapeViewProps) {
         </p>
       </div>
 
+      {/* Search + Filters */}
+      <div className="mx-auto mb-6 max-w-[1100px]">
+        {/* Mobile: toggle button */}
+        <button
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className="mb-3 flex items-center gap-2 text-[0.8rem] text-text-secondary transition-colors hover:text-text-primary md:hidden"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          Search &amp; filter
+          {isFiltered && (
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-cool-1" />
+          )}
+        </button>
+
+        <div className={`${filtersOpen ? "block" : "hidden"} md:block`}>
+          {/* Search input */}
+          <div className="relative mb-3">
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+              width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search signals..."
+              className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] py-2.5 pl-9 pr-4 text-[0.85rem] text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-cool-1/30"
+            />
+          </div>
+
+          {/* Strength chips */}
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            <span className="mr-1 self-center text-[0.7rem] text-text-muted">Strength:</span>
+            {STRENGTH_FILTERS.map((f) => (
+              <FilterChip
+                key={f}
+                label={f}
+                active={strengthFilter === f}
+                onClick={() => setStrengthFilter(f)}
+              />
+            ))}
+          </div>
+
+          {/* Direction chips */}
+          <div className="flex flex-wrap gap-1.5">
+            <span className="mr-1 self-center text-[0.7rem] text-text-muted">Direction:</span>
+            {DIRECTION_FILTERS.map((f) => (
+              <FilterChip
+                key={f}
+                label={f}
+                active={directionFilter === f}
+                onClick={() => setDirectionFilter(f)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Filtered count */}
+        {isFiltered && (
+          <div className="mt-3 text-center text-[0.78rem] text-text-muted">
+            Showing {filtered.length} of {signals.length}
+          </div>
+        )}
+      </div>
+
       <TerrainCanvas />
 
       <div className="mx-auto mt-8 grid max-w-[1100px] gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {signals.map((signal) => {
+        {filtered.map((signal) => {
           const color = SIGNAL_COLORS[signal.strength];
           const dir = DIRECTION_LABELS[signal.direction];
           const pct =

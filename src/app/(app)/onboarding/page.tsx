@@ -9,9 +9,12 @@ export default async function OnboardingPage() {
 
   // If user already has a space, skip onboarding
   const existingSpace = await getUserDefaultSpace(session.user.id);
-  if (existingSpace) redirect("/dashboard");
+  if (existingSpace) redirect(`/dashboard/${existingSpace}`);
 
   // Seed demo data and redirect
   await seedDemoData(session.user.id);
-  redirect("/dashboard");
+
+  // After seeding, get the new space
+  const spaceId = await getUserDefaultSpace(session.user.id);
+  redirect(spaceId ? `/dashboard/${spaceId}` : "/dashboard");
 }

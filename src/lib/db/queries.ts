@@ -9,6 +9,9 @@ import {
   reflections,
   reflectionResponses,
   notifications,
+  signalSnapshots,
+  spaceInvitations,
+  users,
 } from "./schema";
 import type { SpaceStats } from "@/lib/types";
 
@@ -97,6 +100,23 @@ export async function getObservationsWithSentiment(spaceId: string) {
       )
     )
     .orderBy(desc(observations.createdAt));
+}
+
+// ── Signal snapshot queries ──
+
+export async function getSignalSnapshotsForSpace(spaceId: string) {
+  return db
+    .select({
+      id: signalSnapshots.id,
+      signalId: signalSnapshots.signalId,
+      snapshotAt: signalSnapshots.snapshotAt,
+      strength: signalSnapshots.strength,
+      direction: signalSnapshots.direction,
+    })
+    .from(signalSnapshots)
+    .innerJoin(signals, eq(signals.id, signalSnapshots.signalId))
+    .where(eq(signals.spaceId, spaceId))
+    .orderBy(desc(signalSnapshots.snapshotAt));
 }
 
 // ── Reflection queries ──
@@ -209,6 +229,165 @@ export async function notifySpaceMembers(
       linkTo,
     }))
   );
+}
+
+// ── Space management queries ──
+
+export async function getSpacesForUser(userId: string) {
+  return db
+    .select({
+      id: spaces.id,
+      name: spaces.name,
+      description: spaces.description,
+      role: spaceMemberships.role,
+    })
+    .from(spaceMemberships)
+    .innerJoin(spaces, eq(spaces.id, spaceMemberships.spaceId))
+    .where(eq(spaceMemberships.userId, userId));
+}
+
+export async function getSpaceMembers(spaceId: string) {
+  return db
+    .select({
+      userId: spaceMemberships.userId,
+      role: spaceMemberships.role,
+      name: users.name,
+      email: users.email,
+    })
+    .from(spaceMemberships)
+    .innerJoin(users, eq(users.id, spaceMemberships.userId))
+    .where(eq(spaceMemberships.spaceId, spaceId));
+}
+
+export async function createSpace(name: string, description: string | null, userId: string): Promise<string> {
+  const [space] = await db
+    .insert(spaces)
+    .values({ name, description })
+    .returning({ id: spaces.id });
+
+  await db.insert(spaceMemberships).values({
+    userId,
+    spaceId: space.id,
+    role: "owner",
+  });
+
+  return space.id;
+}
+
+export async function getSpaceById(spaceId: string) {
+  const rows = await db
+    .select()
+    .from(spaces)
+    .where(eq(spaces.id, spaceId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function updateSpace(spaceId: string, fields: { name?: string; description?: string | null }) {
+  await db
+    .update(spaces)
+    .set(fields)
+    .where(eq(spaces.id, spaceId));
+}
+
+export async function deleteSpace(spaceId: string) {
+  await db.delete(spaces).where(eq(spaces.id, spaceId));
+}
+
+export async function getMemberRole(userId: string, spaceId: string): Promise<string | null> {
+  const rows = await db
+    .select({ role: spaceMemberships.role })
+    .from(spaceMemberships)
+    .where(and(eq(spaceMemberships.userId, userId), eq(spaceMemberships.spaceId, spaceId)))
+    .limit(1);
+  return rows[0]?.role ?? null;
+}
+
+export async function updateMemberRole(userId: string, spaceId: string, role: string) {
+  await db
+    .update(spaceMemberships)
+    .set({ role })
+    .where(and(eq(spaceMemberships.userId, userId), eq(spaceMemberships.spaceId, spaceId)));
+}
+
+export async function removeMember(userId: string, spaceId: string) {
+  await db
+    .delete(spaceMemberships)
+    .where(and(eq(spaceMemberships.userId, userId), eq(spaceMemberships.spaceId, spaceId)));
+}
+
+export async function createInvitation(
+  spaceId: string,
+  email: string,
+  role: string,
+  invitedBy: string,
+  token: string,
+  expiresAt: Date,
+) {
+  const [row] = await db
+    .insert(spaceInvitations)
+    .values({ spaceId, email, role: role as "admin" | "facilitator" | "observer" | "viewer", invitedBy, token, expiresAt })
+    .returning({ id: spaceInvitations.id });
+  return row;
+}
+
+export async function getInvitationByToken(token: string) {
+  const rows = await db
+    .select()
+    .from(spaceInvitations)
+    .where(eq(spaceInvitations.token, token))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getInvitationsForSpace(spaceId: string) {
+  return db
+    .select({
+      id: spaceInvitations.id,
+      email: spaceInvitations.email,
+      role: spaceInvitations.role,
+      invitedByName: users.name,
+      createdAt: spaceInvitations.createdAt,
+      expiresAt: spaceInvitations.expiresAt,
+      acceptedAt: spaceInvitations.acceptedAt,
+    })
+    .from(spaceInvitations)
+    .innerJoin(users, eq(users.id, spaceInvitations.invitedBy))
+    .where(eq(spaceInvitations.spaceId, spaceId))
+    .orderBy(desc(spaceInvitations.createdAt));
+}
+
+export async function acceptInvitation(token: string, userId: string): Promise<string | null> {
+  const invitation = await getInvitationByToken(token);
+  if (!invitation) return null;
+  if (invitation.acceptedAt) return null;
+  if (invitation.expiresAt < new Date()) return null;
+
+  // Mark as accepted
+  await db
+    .update(spaceInvitations)
+    .set({ acceptedAt: new Date() })
+    .where(eq(spaceInvitations.id, invitation.id));
+
+  // Check if already a member
+  const existing = await getMemberRole(userId, invitation.spaceId);
+  if (!existing) {
+    await db.insert(spaceMemberships).values({
+      userId,
+      spaceId: invitation.spaceId,
+      role: invitation.role,
+    });
+  }
+
+  return invitation.spaceId;
+}
+
+export async function getSpaceMemberCount(spaceId: string): Promise<number> {
+  const result = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(spaceMemberships)
+    .where(eq(spaceMemberships.spaceId, spaceId));
+  return result[0]?.count ?? 0;
 }
 
 export async function clearDemoData(spaceId: string): Promise<void> {

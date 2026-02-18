@@ -85,6 +85,71 @@ export interface NotificationView {
   time: string;
 }
 
+// ── Timeline types ──
+
+export interface ObservationTimelineEvent {
+  id: string;
+  type: "observation";
+  timestamp: string; // ISO for sorting
+  time: string;      // relative for display
+  text: string;
+  author: string;
+}
+
+export interface SignalTimelineEvent {
+  id: string;
+  type: "signal";
+  timestamp: string;
+  time: string;
+  signalTitle: string;
+  strength: "strong" | "emerging" | "weak";
+  direction: "strengthening" | "steady" | "new";
+}
+
+export interface ReflectionTimelineEvent {
+  id: string;
+  type: "reflection";
+  timestamp: string;
+  time: string;
+  prompt: string;
+  learningLoop: "single" | "double" | "triple";
+}
+
+export type TimelineEvent =
+  | ObservationTimelineEvent
+  | SignalTimelineEvent
+  | ReflectionTimelineEvent;
+
+// ── Space types ──
+
+export type SpaceRole = "owner" | "admin" | "facilitator" | "observer" | "viewer";
+
+export interface SpaceView {
+  id: string;
+  name: string;
+  description: string | null;
+  memberCount: number;
+  role: SpaceRole;
+}
+
+export interface SpaceMemberView {
+  userId: string;
+  name: string;
+  email: string;
+  role: SpaceRole;
+  isCurrentUser: boolean;
+}
+
+export interface SpaceInvitationView {
+  id: string;
+  email: string;
+  role: SpaceRole;
+  invitedByName: string;
+  createdAt: string;
+  expired: boolean;
+  accepted: boolean;
+}
+
 export interface SentimentViewData {
   cells: SentimentCell[];
   distribution: { label: string; pct: number }[];

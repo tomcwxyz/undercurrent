@@ -9,6 +9,7 @@ import type {
   ReflectionView,
   ReflectionResponseView,
   NotificationView,
+  TimelineEvent,
 } from "@/lib/types";
 import type {
   observations,
@@ -17,6 +18,7 @@ import type {
   reflections,
   reflectionResponses,
   notifications,
+  signalSnapshots,
 } from "./schema";
 
 type ObservationRow = typeof observations.$inferSelect;
@@ -315,6 +317,61 @@ export function toReflectionViewData(
       isActive,
     };
   });
+}
+
+// ── Timeline transforms ──
+
+type SnapshotRow = Pick<
+  typeof signalSnapshots.$inferSelect,
+  "id" | "signalId" | "snapshotAt" | "strength" | "direction"
+>;
+
+export function toTimelineEvents(
+  obsRows: ObservationRow[],
+  snapshotRows: SnapshotRow[],
+  reflectionRows: ReflectionRow[],
+  signalTitleMap: Record<string, string>
+): TimelineEvent[] {
+  const events: TimelineEvent[] = [];
+
+  for (const obs of obsRows) {
+    events.push({
+      id: obs.id,
+      type: "observation",
+      timestamp: obs.createdAt.toISOString(),
+      time: formatRelativeTime(obs.createdAt),
+      text: obs.contentText.length > 140
+        ? obs.contentText.slice(0, 140) + "\u2026"
+        : obs.contentText,
+      author: obs.authorName ?? "Anonymous",
+    });
+  }
+
+  for (const snap of snapshotRows) {
+    events.push({
+      id: snap.id,
+      type: "signal",
+      timestamp: snap.snapshotAt.toISOString(),
+      time: formatRelativeTime(snap.snapshotAt),
+      signalTitle: signalTitleMap[snap.signalId] ?? "Unknown signal",
+      strength: snap.strength,
+      direction: snap.direction,
+    });
+  }
+
+  for (const ref of reflectionRows) {
+    events.push({
+      id: ref.id,
+      type: "reflection",
+      timestamp: ref.createdAt.toISOString(),
+      time: formatRelativeTime(ref.createdAt),
+      prompt: ref.prompt,
+      learningLoop: ref.learningLoop ?? "single",
+    });
+  }
+
+  events.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  return events;
 }
 
 // ── Notification transforms ──
