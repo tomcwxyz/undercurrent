@@ -12,6 +12,8 @@ import {
   signalSnapshots,
   spaceInvitations,
   users,
+  subscriptions,
+  usageRecords,
 } from "./schema";
 import type { SpaceStats } from "@/lib/types";
 
@@ -283,7 +285,7 @@ export async function getSpaceById(spaceId: string) {
   return rows[0] ?? null;
 }
 
-export async function updateSpace(spaceId: string, fields: { name?: string; description?: string | null }) {
+export async function updateSpace(spaceId: string, fields: { name?: string; description?: string | null; environment?: string }) {
   await db
     .update(spaces)
     .set(fields)
@@ -388,6 +390,115 @@ export async function getSpaceMemberCount(spaceId: string): Promise<number> {
     .from(spaceMemberships)
     .where(eq(spaceMemberships.spaceId, spaceId));
   return result[0]?.count ?? 0;
+}
+
+// ── Subscription queries ──
+
+export async function getSubscriptionForUser(userId: string) {
+  const rows = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, userId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getSubscriptionByStripeId(stripeSubscriptionId: string) {
+  const rows = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getSubscriptionByStripeCustomerId(stripeCustomerId: string) {
+  const rows = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.stripeCustomerId, stripeCustomerId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function createSubscription(data: {
+  userId: string;
+  stripeCustomerId: string;
+  stripeSubscriptionId: string | null;
+  tier: "individual" | "team" | "organisation";
+  status: "trialing" | "active" | "past_due" | "canceled" | "unpaid";
+  trialEndsAt: Date | null;
+  currentPeriodEnd: Date | null;
+  userLimit: number;
+}) {
+  const [row] = await db
+    .insert(subscriptions)
+    .values({
+      userId: data.userId,
+      stripeCustomerId: data.stripeCustomerId,
+      stripeSubscriptionId: data.stripeSubscriptionId,
+      tier: data.tier,
+      status: data.status,
+      trialEndsAt: data.trialEndsAt,
+      currentPeriodEnd: data.currentPeriodEnd,
+      userLimit: data.userLimit,
+    })
+    .returning({ id: subscriptions.id });
+  return row;
+}
+
+export async function updateSubscriptionStatus(
+  stripeSubscriptionId: string,
+  fields: {
+    status?: "trialing" | "active" | "past_due" | "canceled" | "unpaid";
+    currentPeriodEnd?: Date;
+    tier?: "individual" | "team" | "organisation";
+    userLimit?: number;
+  }
+) {
+  await db
+    .update(subscriptions)
+    .set(fields)
+    .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId));
+}
+
+export async function getObservationCountThisMonth(spaceId: string): Promise<number> {
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  const result = await db
+    .select({ count: usageRecords.observationCount })
+    .from(usageRecords)
+    .where(and(eq(usageRecords.spaceId, spaceId), eq(usageRecords.month, month)))
+    .limit(1);
+  return result[0]?.count ?? 0;
+}
+
+export async function incrementObservationCount(subscriptionId: string, spaceId: string) {
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  // Try to increment existing record
+  const updated = await db
+    .update(usageRecords)
+    .set({ observationCount: sql`${usageRecords.observationCount} + 1` })
+    .where(
+      and(
+        eq(usageRecords.subscriptionId, subscriptionId),
+        eq(usageRecords.spaceId, spaceId),
+        eq(usageRecords.month, month)
+      )
+    )
+    .returning({ id: usageRecords.id });
+
+  if (updated.length === 0) {
+    await db.insert(usageRecords).values({
+      subscriptionId,
+      spaceId,
+      month,
+      observationCount: 1,
+    });
+  }
 }
 
 export async function clearDemoData(spaceId: string): Promise<void> {

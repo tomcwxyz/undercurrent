@@ -19,10 +19,15 @@ import {
   removeMember,
   deleteSpace,
   createSpace,
+  getSubscriptionForUser,
+  getObservationCountThisMonth,
+  incrementObservationCount,
+  getSpaceMemberCount,
 } from "@/lib/db/queries";
 import { canEditSpace, canManageMembers, canDeleteSpace } from "@/lib/permissions";
 import type { SpaceRole } from "@/lib/types";
 import { processObservation } from "@/lib/ai/pipeline";
+import { checkSubscriptionAccess, getTierConfig } from "@/lib/stripe";
 
 const createObservationSchema = z.object({
   text: z.string().min(1).max(5000),
@@ -38,6 +43,19 @@ export async function createObservation(formData: FormData) {
     spaceId: formData.get("spaceId"),
   });
 
+  // Check subscription limits
+  const subscription = await getSubscriptionForUser(session.user.id);
+  if (subscription) {
+    const access = checkSubscriptionAccess(subscription);
+    if (!access.allowed) throw new Error(`Subscription ${access.reason}`);
+
+    const config = getTierConfig(subscription.tier);
+    const count = await getObservationCountThisMonth(parsed.spaceId);
+    if (count >= config.observationLimit) {
+      throw new Error("Monthly observation limit reached");
+    }
+  }
+
   const [inserted] = await db
     .insert(observations)
     .values({
@@ -48,6 +66,11 @@ export async function createObservation(formData: FormData) {
       signalStrength: "single",
     })
     .returning({ id: observations.id });
+
+  // Track usage
+  if (subscription) {
+    await incrementObservationCount(subscription.id, parsed.spaceId);
+  }
 
   revalidatePath("/dashboard", "layout");
 
@@ -117,6 +140,7 @@ const updateSpaceSchema = z.object({
   spaceId: z.string().uuid(),
   name: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
+  environment: z.enum(["stars", "water", "mycelium"]).optional(),
 });
 
 export async function updateSpaceAction(formData: FormData) {
@@ -127,12 +151,17 @@ export async function updateSpaceAction(formData: FormData) {
     spaceId: formData.get("spaceId"),
     name: formData.get("name"),
     description: formData.get("description") || undefined,
+    environment: formData.get("environment") || undefined,
   });
 
   const role = await getMemberRole(session.user.id, parsed.spaceId);
   if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Not authorized");
 
-  await updateSpace(parsed.spaceId, { name: parsed.name, description: parsed.description ?? null });
+  await updateSpace(parsed.spaceId, {
+    name: parsed.name,
+    description: parsed.description ?? null,
+    environment: parsed.environment,
+  });
   revalidatePath("/dashboard", "layout");
 }
 
@@ -154,6 +183,15 @@ export async function inviteToSpaceAction(formData: FormData): Promise<{ link: s
 
   const role = await getMemberRole(session.user.id, parsed.spaceId);
   if (!role || !canManageMembers(role as SpaceRole)) throw new Error("Not authorized");
+
+  // Check user limit from subscription
+  const subscription = await getSubscriptionForUser(session.user.id);
+  if (subscription) {
+    const memberCount = await getSpaceMemberCount(parsed.spaceId);
+    if (memberCount >= subscription.userLimit) {
+      throw new Error("Space member limit reached for your plan");
+    }
+  }
 
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 7 * 86400000); // 7 days

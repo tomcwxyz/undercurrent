@@ -74,6 +74,7 @@ const USE_CASES = [
 const TIERS = [
   {
     name: "Individual",
+    plan: "individual",
     price: "£5",
     annual: "£48/year (save 20%)",
     desc: "For your personal reflective practice. Unlimited spaces, 500 observations per month, all views and environments.",
@@ -81,6 +82,7 @@ const TIERS = [
   },
   {
     name: "Organisation",
+    plan: "team",
     price: "£25",
     annual: "£240/year · Up to 10 users",
     desc: "For teams sensing together. Shared spaces, collective reflections, 2,000 observations per month, data export, priority support.",
@@ -88,6 +90,7 @@ const TIERS = [
   },
   {
     name: "Large Organisation",
+    plan: "organisation",
     price: "£50",
     annual: "£480/year · 25 users + £2/user",
     desc: "For complex systems. Cross-space signal detection, API access, SSO, custom branding, 10,000 observations per month.",
@@ -472,7 +475,7 @@ export default function LandingPage() {
                   {tier.desc}
                 </p>
                 <a
-                  href="/sign-in"
+                  href={`/sign-in?plan=${tier.plan}`}
                   className={`mt-8 block rounded-full py-2.5 text-center text-sm transition-all ${
                     tier.highlighted
                       ? "bg-warm-1 font-medium text-deep hover:shadow-[0_0_30px_rgba(255,107,74,0.25)]"

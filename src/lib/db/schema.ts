@@ -273,6 +273,40 @@ export const spaceInvitations = pgTable("space_invitations", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 
+// ── Billing tables ──
+
+export const subscriptions = pgTable("subscriptions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  stripeCustomerId: text("stripe_customer_id").notNull(),
+  stripeSubscriptionId: text("stripe_subscription_id").unique(),
+  tier: text("tier")
+    .$type<"individual" | "team" | "organisation">()
+    .notNull(),
+  status: text("status")
+    .$type<"trialing" | "active" | "past_due" | "canceled" | "unpaid">()
+    .notNull()
+    .default("trialing"),
+  trialEndsAt: timestamp("trial_ends_at", { mode: "date" }),
+  currentPeriodEnd: timestamp("current_period_end", { mode: "date" }),
+  userLimit: integer("user_limit").notNull().default(1),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const usageRecords = pgTable("usage_records", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  subscriptionId: uuid("subscription_id")
+    .notNull()
+    .references(() => subscriptions.id, { onDelete: "cascade" }),
+  spaceId: uuid("space_id")
+    .notNull()
+    .references(() => spaces.id, { onDelete: "cascade" }),
+  month: text("month").notNull(), // "2026-02"
+  observationCount: integer("observation_count").notNull().default(0),
+});
+
 export const notifications = pgTable("notifications", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id")

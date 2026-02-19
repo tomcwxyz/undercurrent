@@ -46,6 +46,7 @@ export async function GET(
   return NextResponse.json({
     name: space.name,
     description: space.description,
+    environment: space.environment ?? "stars",
     members: members.map((m) => ({
       userId: m.userId,
       name: m.name ?? "Anonymous",

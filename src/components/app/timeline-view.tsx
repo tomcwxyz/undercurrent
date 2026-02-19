@@ -16,9 +16,9 @@ const LOOP_COLORS = {
 } as const;
 
 const STRENGTH_COLORS: Record<string, string> = {
-  strong: "rgb(78,205,196)",
+  strong: "rgb(255,107,74)",
   emerging: "rgb(255,209,102)",
-  weak: "rgb(108,92,231)",
+  weak: "rgb(69,183,209)",
 };
 
 const DIRECTION_LABELS: Record<string, string> = {
