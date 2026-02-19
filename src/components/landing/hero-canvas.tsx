@@ -21,6 +21,8 @@ const PALETTE = [
   "255,140,66",
 ];
 
+const LINE_COLOR = "78,205,196";
+
 export function HeroCanvas() {
   const ref = useRef<HTMLCanvasElement>(null);
 
@@ -43,7 +45,9 @@ export function HeroCanvas() {
     }
 
     function seed() {
-      const count = Math.min(80, (window.innerWidth / 18) | 0);
+      const isMobile = window.innerWidth < 640;
+      const count = Math.min(60, (window.innerWidth / (isMobile ? 12 : 18)) | 0);
+
       pts = Array.from({ length: count }, () => ({
         x: Math.random() * window.innerWidth,
         y: Math.random() * window.innerHeight,
@@ -65,6 +69,7 @@ export function HeroCanvas() {
       for (const p of pts) {
         p.x += p.vx + Math.sin(t * 0.3 + p.ph) * 0.07;
         p.y += p.vy + Math.cos(t * 0.2 + p.ph) * 0.05;
+
         if (p.x < -20) p.x = w + 20;
         if (p.x > w + 20) p.x = -20;
         if (p.y < -20) p.y = h + 20;
@@ -77,9 +82,11 @@ export function HeroCanvas() {
         ctx!.fill();
       }
 
-      // Connection lines between nearby particles
-      const maxDist = 90;
+      // Connection lines
+      const isMobile = window.innerWidth < 640;
+      const maxDist = isMobile ? 60 : 90;
       const maxDistSq = maxDist * maxDist;
+
       for (let i = 0; i < pts.length; i++) {
         for (let j = i + 1; j < pts.length; j++) {
           const dx = pts[i].x - pts[j].x;
@@ -90,7 +97,7 @@ export function HeroCanvas() {
             ctx!.beginPath();
             ctx!.moveTo(pts[i].x, pts[i].y);
             ctx!.lineTo(pts[j].x, pts[j].y);
-            ctx!.strokeStyle = `rgba(78,205,196,${alpha.toFixed(4)})`;
+            ctx!.strokeStyle = `rgba(${LINE_COLOR},${alpha.toFixed(4)})`;
             ctx!.lineWidth = 0.5;
             ctx!.stroke();
           }

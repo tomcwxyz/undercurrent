@@ -2,15 +2,25 @@
 
 import { useState, useRef, useTransition } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { HeroCanvas } from "@/components/landing/hero-canvas";
 import { RiverView } from "@/components/app/river-view";
-import { ConstellationView } from "@/components/app/constellation-view";
-import { LandscapeView } from "@/components/app/landscape-view";
-import { SentimentView } from "@/components/app/sentiment-view";
-import { ReflectionViewComponent } from "@/components/app/reflection-view";
-import { TimelineView } from "@/components/app/timeline-view";
-import { SpaceSettings } from "@/components/app/space-settings";
 import { DemoBanner } from "@/components/app/demo-banner";
+
+function ViewSkeleton() {
+  return (
+    <div className="flex flex-1 items-center justify-center py-20">
+      <div className="h-6 w-6 animate-pulse rounded-full bg-cool-1/20" />
+    </div>
+  );
+}
+
+const ConstellationView = dynamic(() => import("@/components/app/constellation-view").then((m) => m.ConstellationView), { loading: ViewSkeleton });
+const LandscapeView = dynamic(() => import("@/components/app/landscape-view").then((m) => m.LandscapeView), { loading: ViewSkeleton });
+const SentimentView = dynamic(() => import("@/components/app/sentiment-view").then((m) => m.SentimentView), { loading: ViewSkeleton });
+const ReflectionViewComponent = dynamic(() => import("@/components/app/reflection-view").then((m) => m.ReflectionViewComponent), { loading: ViewSkeleton });
+const TimelineView = dynamic(() => import("@/components/app/timeline-view").then((m) => m.TimelineView), { loading: ViewSkeleton });
+const SpaceSettings = dynamic(() => import("@/components/app/space-settings").then((m) => m.SpaceSettings));
 import {
   createObservation,
   markNotificationReadAction,
@@ -56,6 +66,7 @@ interface AppShellProps {
   spaces?: SpaceView[];
   currentSpaceId?: string;
   userRole?: SpaceRole;
+  subscriptionStatus?: { allowed: boolean; reason: string; trialDaysLeft?: number };
 }
 
 export function AppShell({
@@ -73,6 +84,7 @@ export function AppShell({
   spaces,
   currentSpaceId,
   userRole = "observer",
+  subscriptionStatus,
 }: AppShellProps) {
   const [activeView, setActiveView] = useState<View>("river");
   const [modalOpen, setModalOpen] = useState(false);
@@ -248,7 +260,7 @@ export function AppShell({
             )}
 
             {/* Observe Button (desktop only — mobile uses FAB in bottom bar) */}
-            {canCreateObservation(userRole) && (
+            {canCreateObservation(userRole) && subscriptionStatus?.allowed !== false && (
               <button
                 onClick={() => setModalOpen(true)}
                 className="hidden items-center gap-2.5 rounded-3xl border border-warm-1/30 bg-warm-1/8 px-5 py-2.5 font-body text-[0.85rem] font-medium tracking-wide text-warm-1 transition-all hover:border-warm-1/50 hover:bg-warm-1/15 hover:shadow-[0_0_30px_rgba(255,107,74,0.15)] md:flex"
@@ -262,6 +274,23 @@ export function AppShell({
 
         {/* Demo Banner */}
         {hasDemo && <DemoBanner spaceId={spaceId} />}
+
+        {/* Trial countdown banner */}
+        {subscriptionStatus?.allowed && subscriptionStatus.trialDaysLeft != null && subscriptionStatus.trialDaysLeft <= 10 && (
+          <div className="flex items-center justify-center gap-2 bg-warm-3/10 px-4 py-2 text-[0.78rem] text-warm-3">
+            <span>{subscriptionStatus.trialDaysLeft} day{subscriptionStatus.trialDaysLeft !== 1 ? "s" : ""} left in your trial</span>
+            <button
+              onClick={async () => {
+                const res = await fetch("/api/stripe/portal", { method: "POST" });
+                const data = await res.json();
+                if (data.url) window.location.href = data.url;
+              }}
+              className="rounded-lg bg-warm-3/15 px-2.5 py-0.5 text-[0.72rem] font-medium text-warm-3 transition-colors hover:bg-warm-3/25"
+            >
+              Upgrade now
+            </button>
+          </div>
+        )}
 
         {/* Main Content */}
         <main className="flex flex-1 flex-col pb-16 md:pb-0">
@@ -322,7 +351,7 @@ export function AppShell({
           </MobileTab>
 
           {/* Centre FAB — observe button */}
-          {canCreateObservation(userRole) && (
+          {canCreateObservation(userRole) && subscriptionStatus?.allowed !== false && (
             <button
               onClick={() => setModalOpen(true)}
               className="flex h-12 w-12 items-center justify-center rounded-full bg-warm-1 shadow-[0_0_24px_rgba(255,107,74,0.4)] transition-transform active:scale-95"

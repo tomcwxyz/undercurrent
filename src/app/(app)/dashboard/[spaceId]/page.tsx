@@ -14,7 +14,9 @@ import {
   getSignalSnapshotsForSpace,
   getSpacesForUser,
   getSpaceMemberCount,
+  getSubscriptionForUser,
 } from "@/lib/db/queries";
+import { checkSubscriptionAccess } from "@/lib/stripe";
 import {
   toObservationView,
   toSignalView,
@@ -80,6 +82,18 @@ export default async function SpaceDashboardPage({
     }))
   );
 
+  // Compute subscription status
+  const subscription = await getSubscriptionForUser(session.user.id);
+  let subscriptionStatus: { allowed: boolean; reason: string; trialDaysLeft?: number } | undefined;
+  if (subscription) {
+    const access = checkSubscriptionAccess(subscription);
+    subscriptionStatus = { ...access };
+    if (subscription.trialEndsAt) {
+      const msLeft = subscription.trialEndsAt.getTime() - new Date().getTime();
+      subscriptionStatus.trialDaysLeft = Math.max(0, Math.ceil(msLeft / 86400000));
+    }
+  }
+
   return (
     <AppShell
       observations={obsRows.map(toObservationView)}
@@ -100,6 +114,7 @@ export default async function SpaceDashboardPage({
       spaces={spacesWithCounts}
       currentSpaceId={spaceId}
       userRole={role as SpaceRole}
+      subscriptionStatus={subscriptionStatus}
     />
   );
 }

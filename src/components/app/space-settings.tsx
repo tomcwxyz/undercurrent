@@ -20,7 +20,7 @@ interface SpaceSettingsProps {
 const ROLES: SpaceRole[] = ["admin", "facilitator", "observer", "viewer"];
 
 export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps) {
-  const [tab, setTab] = useState<"info" | "members" | "invitations">("info");
+  const [tab, setTab] = useState<"info" | "members" | "invitations" | "billing">("info");
   const [isPending, startTransition] = useTransition();
 
   // Space info form
@@ -36,6 +36,17 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
   // Members + invitations data (fetched client-side)
   const [members, setMembers] = useState<{ userId: string; name: string; email: string; role: string }[]>([]);
   const [invitations, setInvitations] = useState<{ id: string; email: string; role: string; expired: boolean; accepted: boolean }[]>([]);
+
+  // Billing data
+  const [billingData, setBillingData] = useState<{
+    tier: string;
+    status: string;
+    observationCount: number;
+    observationLimit: number;
+    userLimit: number;
+    trialEndsAt: string | null;
+  } | null>(null);
+  const [billingLoaded, setBillingLoaded] = useState(false);
 
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -133,17 +144,25 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
 
         {/* Tabs */}
         <div className="mb-6 flex gap-1 rounded-xl p-1" style={{ background: "rgba(255,255,255,0.04)" }}>
-          {(["info", "members", "invitations"] as const).map((t) => (
+          {(["info", "members", "invitations", ...(userRole === "owner" ? ["billing" as const] : [])] as const).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => {
+                setTab(t);
+                if (t === "billing" && !billingLoaded) {
+                  fetch(`/api/space/${spaceId}/billing`)
+                    .then((r) => r.json())
+                    .then((data) => { setBillingData(data); setBillingLoaded(true); })
+                    .catch(() => setBillingLoaded(true));
+                }
+              }}
               className={`flex-1 rounded-lg py-2 text-[0.8rem] transition-all ${
                 tab === t
                   ? "bg-white/[0.08] text-text-primary font-medium"
                   : "text-text-secondary hover:text-text-primary"
               }`}
             >
-              {t === "info" ? "Info" : t === "members" ? "Members" : "Invitations"}
+              {t === "info" ? "Info" : t === "members" ? "Members" : t === "invitations" ? "Invitations" : "Billing"}
             </button>
           ))}
         </div>
@@ -334,6 +353,110 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Billing tab */}
+        {tab === "billing" && userRole === "owner" && (
+          <div className="space-y-4">
+            {!billingLoaded ? (
+              <div className="py-8 text-center text-[0.85rem] text-text-muted">Loading billing...</div>
+            ) : !billingData?.tier ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-white/[0.06] p-4 text-center">
+                  <p className="text-[0.85rem] text-text-secondary">No subscription yet</p>
+                  <p className="mt-1 text-[0.75rem] text-text-muted">
+                    Choose a plan to unlock observation limits and collaboration features.
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["individual", "team", "organisation"] as const).map((tier) => (
+                    <button
+                      key={tier}
+                      onClick={() => {
+                        startTransition(async () => {
+                          const res = await fetch("/api/stripe/checkout", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ tier }),
+                          });
+                          const data = await res.json();
+                          if (data.url) window.location.href = data.url;
+                        });
+                      }}
+                      disabled={isPending}
+                      className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-center transition-all hover:border-cool-1/30 hover:bg-white/[0.04] disabled:opacity-50"
+                    >
+                      <div className="text-[0.8rem] font-medium text-text-primary capitalize">{tier}</div>
+                      <div className="mt-1 text-[0.68rem] text-text-muted">30-day trial</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-white/[0.06] p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[0.85rem] font-medium text-text-primary capitalize">{billingData.tier} plan</div>
+                      <div className="mt-0.5 text-[0.72rem] text-text-muted capitalize">{billingData.status}</div>
+                    </div>
+                    <span className={`rounded-lg px-2.5 py-1 text-[0.7rem] font-medium ${
+                      billingData.status === "active" || billingData.status === "trialing"
+                        ? "bg-cool-1/12 text-cool-1"
+                        : "bg-warm-1/12 text-warm-1"
+                    }`}>
+                      {billingData.status === "trialing" ? "Trial" : billingData.status}
+                    </span>
+                  </div>
+                  {billingData.trialEndsAt && billingData.status === "trialing" && (
+                    <div className="mt-2 text-[0.72rem] text-text-muted">
+                      Trial ends {new Date(billingData.trialEndsAt).toLocaleDateString("en-GB", { month: "short", day: "numeric", year: "numeric" })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Usage */}
+                <div className="rounded-xl border border-white/[0.06] p-4">
+                  <div className="text-[0.75rem] font-medium text-text-secondary mb-2">Usage this month</div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[0.8rem] text-text-primary">Observations</span>
+                    <span className="text-[0.8rem] text-text-secondary">
+                      {billingData.observationCount} / {billingData.observationLimit}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 w-full rounded-full bg-white/[0.06]">
+                    <div
+                      className="h-full rounded-full bg-cool-1/60 transition-all"
+                      style={{ width: `${Math.min(100, (billingData.observationCount / billingData.observationLimit) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-[0.8rem] text-text-primary">Members</span>
+                    <span className="text-[0.8rem] text-text-secondary">
+                      {members.length} / {billingData.userLimit}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      startTransition(async () => {
+                        const res = await fetch("/api/stripe/portal", { method: "POST" });
+                        const data = await res.json();
+                        if (data.url) window.location.href = data.url;
+                      });
+                    }}
+                    disabled={isPending}
+                    className="rounded-xl bg-cool-1/15 px-5 py-2.5 text-[0.82rem] font-medium text-cool-1 transition-colors hover:bg-cool-1/25 disabled:opacity-50"
+                  >
+                    {isPending ? "Loading..." : "Manage billing"}
+                  </button>
+                </div>
               </div>
             )}
           </div>
