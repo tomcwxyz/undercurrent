@@ -11,6 +11,8 @@ import {
   verificationTokens,
 } from "@/lib/db/schema";
 import { getUserByEmail, verifyPassword } from "@/lib/auth-utils";
+import { isDemoAccount } from "@/lib/account";
+import { resetDemoAccount } from "@/lib/db/queries";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db, {
@@ -48,6 +50,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/sign-in",
     verifyRequest: "/check-email",
+  },
+  events: {
+    async signOut(message) {
+      // Reset demo account data on signout so next login gets fresh seed
+      if ("token" in message && message.token?.email) {
+        if (isDemoAccount(message.token.email as string)) {
+          const userId = message.token.id as string;
+          if (userId) await resetDemoAccount(userId);
+        }
+      }
+    },
   },
   callbacks: {
     authorized({ auth: session, request }) {

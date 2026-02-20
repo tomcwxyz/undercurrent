@@ -9,6 +9,7 @@ import {
   primaryKey,
   uuid,
   vector,
+  varchar,
 } from "drizzle-orm/pg-core";
 
 // ── Auth.js tables ──
@@ -280,7 +281,7 @@ export const subscriptions = pgTable("subscriptions", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  stripeCustomerId: text("stripe_customer_id").notNull(),
+  stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id").unique(),
   tier: text("tier")
     .$type<"individual" | "team" | "organisation">()
@@ -292,6 +293,24 @@ export const subscriptions = pgTable("subscriptions", {
   trialEndsAt: timestamp("trial_ends_at", { mode: "date" }),
   currentPeriodEnd: timestamp("current_period_end", { mode: "date" }),
   userLimit: integer("user_limit").notNull().default(1),
+  referralCode: varchar("referral_code", { length: 20 }).unique(),
+  referralDiscountPct: integer("referral_discount_pct").default(0),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const referrals = pgTable("referrals", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  referrerSubscriptionId: uuid("referrer_subscription_id")
+    .notNull()
+    .references(() => subscriptions.id, { onDelete: "cascade" }),
+  referredUserId: uuid("referred_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  referredSubscriptionId: uuid("referred_subscription_id").references(
+    () => subscriptions.id,
+    { onDelete: "set null" }
+  ),
+  rewardApplied: boolean("reward_applied").default(false),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 

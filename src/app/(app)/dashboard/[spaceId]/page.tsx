@@ -15,9 +15,9 @@ import {
   getSignalSnapshotsForSpace,
   getSpacesForUser,
   getSpaceMemberCount,
-  getSubscriptionForUser,
 } from "@/lib/db/queries";
 import { checkSubscriptionAccess } from "@/lib/stripe";
+import { isSuperAdmin } from "@/lib/account";
 import {
   toObservationView,
   toSignalView,
@@ -41,8 +41,11 @@ export default async function SpaceDashboardPage({
 
   const { spaceId } = await params;
 
-  // Verify membership
-  const role = await getMemberRole(session.user.id, spaceId);
+  // Verify membership (super admin can access any space)
+  let role = await getMemberRole(session.user.id, spaceId);
+  if (!role && isSuperAdmin(session.user.email)) {
+    role = "admin"; // Grant admin-level access for super admin
+  }
   if (!role) redirect("/dashboard");
 
   const [obsRows, sigRows, nodeRows, stats, hasDemo, sentimentRows, reflectionData, notifRows, unreadCount, snapshotRows, userSpaces, junctionRows] =
@@ -88,16 +91,7 @@ export default async function SpaceDashboardPage({
   );
 
   // Compute subscription status
-  const subscription = await getSubscriptionForUser(session.user.id);
-  let subscriptionStatus: { allowed: boolean; reason: string; trialDaysLeft?: number } | undefined;
-  if (subscription) {
-    const access = checkSubscriptionAccess(subscription);
-    subscriptionStatus = { ...access };
-    if (subscription.trialEndsAt) {
-      const msLeft = subscription.trialEndsAt.getTime() - new Date().getTime();
-      subscriptionStatus.trialDaysLeft = Math.max(0, Math.ceil(msLeft / 86400000));
-    }
-  }
+  const subscriptionStatus = await checkSubscriptionAccess(session.user.id, session.user.email);
 
   return (
     <AppShell
@@ -121,6 +115,8 @@ export default async function SpaceDashboardPage({
       userRole={role as SpaceRole}
       subscriptionStatus={subscriptionStatus}
       signalObservationMaps={signalObservationMaps}
+      userEmail={session.user.email}
+      isSuperAdmin={isSuperAdmin(session.user.email)}
     />
   );
 }

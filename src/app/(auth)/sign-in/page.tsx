@@ -19,13 +19,12 @@ export default async function SignInPage() {
 
       <div className="relative z-10 w-full max-w-[380px] text-center">
         {/* Logo */}
-        <h1 className="font-display text-[2.4rem] font-light tracking-wide text-text-primary">
-          under
+        <h1 className="font-display text-[2.4rem] font-light tracking-wide">
           <em
             className="bg-gradient-to-r from-cool-1 to-cool-2 bg-clip-text text-transparent"
             style={{ fontStyle: "italic" }}
           >
-            current
+            swells
           </em>
         </h1>
         <p className="mt-2 text-[0.9rem] leading-relaxed text-text-secondary">

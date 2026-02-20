@@ -12,13 +12,12 @@ export default function CheckEmailPage() {
       />
 
       <div className="relative z-10 w-full max-w-[380px] text-center">
-        <h1 className="font-display text-[2.4rem] font-light tracking-wide text-text-primary">
-          under
+        <h1 className="font-display text-[2.4rem] font-light tracking-wide">
           <em
             className="bg-gradient-to-r from-cool-1 to-cool-2 bg-clip-text text-transparent"
             style={{ fontStyle: "italic" }}
           >
-            current
+            swells
           </em>
         </h1>
 

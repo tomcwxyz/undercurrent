@@ -28,6 +28,7 @@ import { canEditSpace, canManageMembers, canDeleteSpace } from "@/lib/permission
 import type { SpaceRole } from "@/lib/types";
 import { processObservation } from "@/lib/ai/pipeline";
 import { checkSubscriptionAccess, getTierConfig } from "@/lib/stripe";
+import { hasFreeAccess } from "@/lib/account";
 
 const createObservationSchema = z.object({
   text: z.string().min(1).max(5000),
@@ -43,12 +44,13 @@ export async function createObservation(formData: FormData) {
     spaceId: formData.get("spaceId"),
   });
 
-  // Check subscription limits
-  const subscription = await getSubscriptionForUser(session.user.id);
-  if (subscription) {
-    const access = checkSubscriptionAccess(subscription);
-    if (!access.allowed) throw new Error(`Subscription ${access.reason}`);
+  // Check subscription access
+  const access = await checkSubscriptionAccess(session.user.id, session.user.email);
+  if (!access.allowed) throw new Error(`Subscription ${access.reason}`);
 
+  // Check observation limits (skip for free-access accounts)
+  const subscription = await getSubscriptionForUser(session.user.id);
+  if (subscription && !hasFreeAccess(session.user.email)) {
     const config = getTierConfig(subscription.tier);
     const count = await getObservationCountThisMonth(parsed.spaceId);
     if (count >= config.observationLimit) {

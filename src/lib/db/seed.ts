@@ -154,18 +154,32 @@ export async function seedDemoData(userId: string): Promise<string> {
     sigIdMap.set(sig.id, row.id);
   }
 
-  // 5. Create some signal_observations junction records
-  // Link first few observations to first signal, etc.
+  // 5. Create signal_observations junction records
+  // Map observations to signals by thematic relevance:
+  //   obs 0 (Sarah – group energy shifted)   → s1 power dynamics, s2 community energy
+  //   obs 1 (Marcus – post-its, want asked)  → s3 want to be asked, s1 power dynamics
+  //   obs 2 (Priya – budget → strategy)      → s1 power dynamics, s3 want to be asked
+  //   obs 3 (Tom – email tone changed)       → s4 relationships less formal, s2 community energy
+  //   obs 4 (Aisha – community space busy)   → s2 community energy, s4 relationships less formal
+  //   obs 5 (James – accidental innovation)  → s5 process as barrier, s3 want to be asked
+  //   obs 6 (Sarah – systemic frustration)   → s1 power dynamics, s5 process as barrier, s4 relationships
   const obsIds = Array.from(obsIdMap.values());
   const sigIds = Array.from(sigIdMap.values());
-  const junctions: { signalId: string; observationId: string }[] = [];
-  if (sigIds[0] && obsIds[0]) junctions.push({ signalId: sigIds[0], observationId: obsIds[0] });
-  if (sigIds[0] && obsIds[2]) junctions.push({ signalId: sigIds[0], observationId: obsIds[2] });
-  if (sigIds[0] && obsIds[6]) junctions.push({ signalId: sigIds[0], observationId: obsIds[6] });
-  if (sigIds[1] && obsIds[4]) junctions.push({ signalId: sigIds[1], observationId: obsIds[4] });
-  if (sigIds[2] && obsIds[1]) junctions.push({ signalId: sigIds[2], observationId: obsIds[1] });
-  if (sigIds[3] && obsIds[3]) junctions.push({ signalId: sigIds[3], observationId: obsIds[3] });
-  if (sigIds[4] && obsIds[5]) junctions.push({ signalId: sigIds[4], observationId: obsIds[5] });
+  const junctionPairs: [number, number][] = [
+    // s1: Power dynamics (obs 0, 1, 2, 6)
+    [0, 0], [0, 1], [0, 2], [0, 6],
+    // s2: Community energy (obs 0, 3, 4)
+    [1, 0], [1, 3], [1, 4],
+    // s3: People want to be asked (obs 1, 2, 5)
+    [2, 1], [2, 2], [2, 5],
+    // s4: Relationships less formal (obs 3, 4, 6)
+    [3, 3], [3, 4], [3, 6],
+    // s5: Process as barrier (obs 5, 6)
+    [4, 5], [4, 6],
+  ];
+  const junctions = junctionPairs
+    .filter(([s, o]) => sigIds[s] && obsIds[o])
+    .map(([s, o]) => ({ signalId: sigIds[s], observationId: obsIds[o] }));
 
   if (junctions.length > 0) {
     await db.insert(signalObservations).values(junctions);

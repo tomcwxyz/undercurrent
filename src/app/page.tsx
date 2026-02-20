@@ -77,7 +77,7 @@ const TIERS = [
     plan: "individual",
     price: "£5",
     annual: "£48/year (save 20%)",
-    desc: "For your personal reflective practice. Unlimited spaces, 500 observations per month, all views and environments.",
+    desc: "For your personal reflective practice. Unlimited spaces, up to 200 observations per month, all views and environments.",
     highlighted: false,
   },
   {
@@ -85,7 +85,7 @@ const TIERS = [
     plan: "team",
     price: "£25",
     annual: "£240/year · Up to 10 users",
-    desc: "For teams sensing together. Shared spaces, collective reflections, 2,000 observations per month, data export, priority support.",
+    desc: "For teams sensing together. Shared spaces, collective reflections, up to 1,000 observations per month, data export, priority support.",
     highlighted: true,
   },
   {
@@ -93,22 +93,19 @@ const TIERS = [
     plan: "organisation",
     price: "£50",
     annual: "£480/year · 25 users + £2/user",
-    desc: "For complex systems. Cross-space signal detection, API access, SSO, custom branding, 10,000 observations per month.",
+    desc: "For complex systems. Cross-space signal detection, API access, SSO, custom branding, up to 5,000 observations per month.",
     highlighted: false,
   },
 ];
 
 function BrandName({ className = "" }: { className?: string }) {
   return (
-    <span className={className}>
-      under
-      <em
-        className="bg-gradient-to-r from-cool-1 to-cool-2 bg-clip-text text-transparent"
-        style={{ fontStyle: "italic" }}
-      >
-        current
-      </em>
-    </span>
+    <em
+      className={`bg-gradient-to-r from-cool-1 to-cool-2 bg-clip-text text-transparent ${className}`}
+      style={{ fontStyle: "italic" }}
+    >
+      swells
+    </em>
   );
 }
 
@@ -156,22 +153,13 @@ export default function LandingPage() {
               style={{ fontSize: "clamp(3.5rem, 8vw, 8rem)" }}
             >
               <span
-                className="block"
+                className="block bg-gradient-to-r from-cool-1 to-cool-2 bg-clip-text italic text-transparent"
                 style={{
                   animation:
                     "fade-up 1s cubic-bezier(0.16,1,0.3,1) 0.2s both",
                 }}
               >
-                under
-              </span>
-              <span
-                className="block bg-gradient-to-r from-cool-1 to-cool-2 bg-clip-text italic text-transparent"
-                style={{
-                  animation:
-                    "fade-up 1s cubic-bezier(0.16,1,0.3,1) 0.4s both",
-                }}
-              >
-                current
+                swells
               </span>
             </h1>
 
@@ -237,7 +225,7 @@ export default function LandingPage() {
               to go.
             </p>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-text-muted md:text-lg">
-              Undercurrent gives them a home.
+              Swells gives them a home.
             </p>
           </Reveal>
         </section>
@@ -559,7 +547,7 @@ export default function LandingPage() {
           </div>
           <div className="mt-12 flex flex-col gap-2 text-xs text-text-muted/60 md:flex-row md:justify-between">
             <p>The Good Ship · tomcw.xyz</p>
-            <p>&copy; 2026 Undercurrent. All rights reserved.</p>
+            <p>&copy; 2026 Swells. All rights reserved.</p>
           </div>
         </footer>
       </div>

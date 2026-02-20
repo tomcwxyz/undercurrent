@@ -99,7 +99,7 @@ export async function forgotPassword(
     await resend.emails.send({
       from: process.env.RESEND_FROM ?? "onboarding@resend.dev",
       to: email,
-      subject: "Reset your password — undercurrent",
+      subject: "Reset your password — swells",
       html: `
         <p>You requested a password reset.</p>
         <p><a href="${resetUrl}">Click here to reset your password</a></p>

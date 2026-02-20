@@ -5,6 +5,10 @@ import {
   updateSubscriptionStatus,
   getSubscriptionByStripeId,
   getSubscriptionByStripeCustomerId,
+  getPendingReferralForUser,
+  markReferralRewarded,
+  incrementReferralDiscount,
+  getSubscriptionForUser,
 } from "@/lib/db/queries";
 
 function getPeriodEnd(sub: Stripe.Subscription): Date {
@@ -54,18 +58,53 @@ export async function POST(request: Request) {
 
       const existing = await getSubscriptionByStripeCustomerId(customerId);
       if (!existing) {
-        const stripeSub = await stripe.subscriptions.retrieve(subscriptionId);
+        // Check if user already has a trial subscription (from onboarding) — update it
+        const trialSub = await getSubscriptionForUser(userId);
+        if (trialSub && !trialSub.stripeSubscriptionId) {
+          // Upgrade the trial subscription with Stripe IDs
+          const stripeSub = await stripe.subscriptions.retrieve(subscriptionId);
+          await updateSubscriptionStatus(subscriptionId, {
+            status: stripeSub.status === "trialing" ? "trialing" : "active",
+            currentPeriodEnd: getPeriodEnd(stripeSub),
+            tier,
+            userLimit: config.userLimit,
+          });
+          // Also set the stripe IDs on the existing record
+          const { db } = await import("@/lib/db");
+          const { subscriptions } = await import("@/lib/db/schema");
+          const { eq } = await import("drizzle-orm");
+          await db
+            .update(subscriptions)
+            .set({
+              stripeCustomerId: customerId,
+              stripeSubscriptionId: subscriptionId,
+            })
+            .where(eq(subscriptions.id, trialSub.id));
+        } else {
+          const stripeSub = await stripe.subscriptions.retrieve(subscriptionId);
+          await createSubscription({
+            userId,
+            stripeCustomerId: customerId,
+            stripeSubscriptionId: subscriptionId,
+            tier,
+            status: stripeSub.status === "trialing" ? "trialing" : "active",
+            trialEndsAt: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : null,
+            currentPeriodEnd: getPeriodEnd(stripeSub),
+            userLimit: config.userLimit,
+          });
+        }
+      }
 
-        await createSubscription({
-          userId,
-          stripeCustomerId: customerId,
-          stripeSubscriptionId: subscriptionId,
-          tier,
-          status: stripeSub.status === "trialing" ? "trialing" : "active",
-          trialEndsAt: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : null,
-          currentPeriodEnd: getPeriodEnd(stripeSub),
-          userLimit: config.userLimit,
-        });
+      // Referral reward: check if this user was referred
+      if (userId) {
+        const pendingReferral = await getPendingReferralForUser(userId);
+        if (pendingReferral) {
+          const referredSub = await getSubscriptionForUser(userId);
+          if (referredSub) {
+            await markReferralRewarded(pendingReferral.id, referredSub.id);
+            await incrementReferralDiscount(pendingReferral.referrerSubscriptionId);
+          }
+        }
       }
       break;
     }

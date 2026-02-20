@@ -15,6 +15,7 @@ import {
   users,
   subscriptions,
   usageRecords,
+  referrals,
 } from "./schema";
 import type { SpaceStats } from "@/lib/types";
 
@@ -435,25 +436,27 @@ export async function getSubscriptionByStripeCustomerId(stripeCustomerId: string
 
 export async function createSubscription(data: {
   userId: string;
-  stripeCustomerId: string;
-  stripeSubscriptionId: string | null;
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
   tier: "individual" | "team" | "organisation";
   status: "trialing" | "active" | "past_due" | "canceled" | "unpaid";
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
   userLimit: number;
+  referralCode?: string;
 }) {
   const [row] = await db
     .insert(subscriptions)
     .values({
       userId: data.userId,
-      stripeCustomerId: data.stripeCustomerId,
-      stripeSubscriptionId: data.stripeSubscriptionId,
+      stripeCustomerId: data.stripeCustomerId ?? null,
+      stripeSubscriptionId: data.stripeSubscriptionId ?? null,
       tier: data.tier,
       status: data.status,
       trialEndsAt: data.trialEndsAt,
       currentPeriodEnd: data.currentPeriodEnd,
       userLimit: data.userLimit,
+      referralCode: data.referralCode,
     })
     .returning({ id: subscriptions.id });
   return row;
@@ -513,6 +516,113 @@ export async function incrementObservationCount(subscriptionId: string, spaceId:
   }
 }
 
+// ── Referral queries ──
+
+export async function getSubscriptionByReferralCode(code: string) {
+  const rows = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.referralCode, code))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function createReferral(
+  referrerSubscriptionId: string,
+  referredUserId: string,
+) {
+  const [row] = await db
+    .insert(referrals)
+    .values({ referrerSubscriptionId, referredUserId })
+    .returning({ id: referrals.id });
+  return row;
+}
+
+export async function getPendingReferralForUser(userId: string) {
+  const rows = await db
+    .select()
+    .from(referrals)
+    .where(and(eq(referrals.referredUserId, userId), eq(referrals.rewardApplied, false)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function markReferralRewarded(
+  referralId: string,
+  referredSubscriptionId: string,
+) {
+  await db
+    .update(referrals)
+    .set({ rewardApplied: true, referredSubscriptionId })
+    .where(eq(referrals.id, referralId));
+}
+
+export async function incrementReferralDiscount(subscriptionId: string) {
+  await db
+    .update(subscriptions)
+    .set({
+      referralDiscountPct: sql`LEAST(${subscriptions.referralDiscountPct} + 10, 30)`,
+    })
+    .where(eq(subscriptions.id, subscriptionId));
+}
+
+export async function getReferralCountForSubscription(subscriptionId: string): Promise<number> {
+  const result = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(referrals)
+    .where(and(eq(referrals.referrerSubscriptionId, subscriptionId), eq(referrals.rewardApplied, true)));
+  return result[0]?.count ?? 0;
+}
+
+// ── Admin queries ──
+
+export async function getAllSpacesWithDetails() {
+  return db
+    .select({
+      id: spaces.id,
+      name: spaces.name,
+      description: spaces.description,
+      createdAt: spaces.createdAt,
+      memberCount: sql<number>`(SELECT count(*)::int FROM space_memberships WHERE space_id = ${spaces.id})`,
+      observationCount: sql<number>`(SELECT count(*)::int FROM observations WHERE space_id = ${spaces.id})`,
+      lastActiveAt: sql<Date | null>`(SELECT max(created_at) FROM observations WHERE space_id = ${spaces.id})`,
+      observationCount7d: sql<number>`(SELECT count(*)::int FROM observations WHERE space_id = ${spaces.id} AND created_at > now() - interval '7 days')`,
+      observationCount30d: sql<number>`(SELECT count(*)::int FROM observations WHERE space_id = ${spaces.id} AND created_at > now() - interval '30 days')`,
+    })
+    .from(spaces)
+    .orderBy(desc(spaces.createdAt));
+}
+
+export async function getAllUsersWithDetails() {
+  return db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      // Subscription fields (LEFT JOIN)
+      tier: subscriptions.tier,
+      status: subscriptions.status,
+      trialEndsAt: subscriptions.trialEndsAt,
+      referralCode: subscriptions.referralCode,
+      referralDiscountPct: subscriptions.referralDiscountPct,
+      // Activity subqueries
+      lastActiveAt: sql<Date | null>`(SELECT max(created_at) FROM observations WHERE author_id = ${users.id})`,
+      observationCount7d: sql<number>`(SELECT count(*)::int FROM observations WHERE author_id = ${users.id} AND created_at > now() - interval '7 days')`,
+      observationCount30d: sql<number>`(SELECT count(*)::int FROM observations WHERE author_id = ${users.id} AND created_at > now() - interval '30 days')`,
+    })
+    .from(users)
+    .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
+    .orderBy(users.email);
+}
+
+export async function deleteUser(userId: string) {
+  await db.delete(users).where(eq(users.id, userId));
+}
+
+export async function updateUser(userId: string, fields: { name?: string; email?: string }) {
+  await db.update(users).set(fields).where(eq(users.id, userId));
+}
+
 export async function clearDemoData(spaceId: string): Promise<void> {
   await Promise.all([
     db
@@ -532,4 +642,23 @@ export async function clearDemoData(spaceId: string): Promise<void> {
         )
       ),
   ]);
+}
+
+/**
+ * Reset demo account: delete all spaces owned by this user so onboarding re-seeds.
+ */
+export async function resetDemoAccount(userId: string): Promise<void> {
+  // Get all spaces the user is a member of
+  const userSpaces = await db
+    .select({ spaceId: spaceMemberships.spaceId })
+    .from(spaceMemberships)
+    .where(eq(spaceMemberships.userId, userId));
+
+  // Delete all their spaces (cascades delete observations, signals, etc.)
+  for (const { spaceId } of userSpaces) {
+    await db.delete(spaces).where(eq(spaces.id, spaceId));
+  }
+
+  // Delete their subscription so onboarding can re-create
+  await db.delete(subscriptions).where(eq(subscriptions.userId, userId));
 }

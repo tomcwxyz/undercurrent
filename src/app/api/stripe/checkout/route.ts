@@ -30,8 +30,9 @@ export async function POST(request: Request) {
     customer_email: existing?.stripeCustomerId ? undefined : session.user.email,
     customer: existing?.stripeCustomerId || undefined,
     line_items: [{ price: config.priceId, quantity: 1 }],
+    allow_promotion_codes: true,
     subscription_data: {
-      trial_period_days: 30,
+      trial_period_days: existing?.status === "trialing" ? undefined : 30,
       metadata: {
         userId: session.user.id,
         tier,

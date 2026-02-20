@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useRef, useTransition } from "react";
+import { signOut } from "next-auth/react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { HeroCanvas } from "@/components/landing/hero-canvas";
 import { RiverView } from "@/components/app/river-view";
 import { DemoBanner } from "@/components/app/demo-banner";
+import { SubscriptionGate } from "@/components/app/subscription-gate";
 
 function ViewSkeleton() {
   return (
@@ -69,6 +71,8 @@ interface AppShellProps {
   userRole?: SpaceRole;
   subscriptionStatus?: { allowed: boolean; reason: string; trialDaysLeft?: number };
   signalObservationMaps?: SignalObservationMaps;
+  userEmail?: string | null;
+  isSuperAdmin?: boolean;
 }
 
 export function AppShell({
@@ -88,6 +92,8 @@ export function AppShell({
   userRole = "observer",
   subscriptionStatus,
   signalObservationMaps,
+  userEmail,
+  isSuperAdmin: isSuperAdminProp,
 }: AppShellProps) {
   const [activeView, setActiveView] = useState<View>("river");
   const [modalOpen, setModalOpen] = useState(false);
@@ -96,6 +102,7 @@ export function AppShell({
   const [moreOpen, setMoreOpen] = useState(false);
   const [spaceMenuOpen, setSpaceMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   function switchView(view: View) {
     setActiveView(view);
@@ -116,15 +123,12 @@ export function AppShell({
           }}
         >
           <div className="flex items-center gap-3">
-            <div className="font-display text-[1.6rem] font-light tracking-wide text-text-primary">
-              under
-              <em
-                className="bg-gradient-to-r from-cool-1 to-cool-2 bg-clip-text text-transparent"
-                style={{ fontStyle: "italic" }}
-              >
-                current
-              </em>
-            </div>
+            <em
+              className="font-display text-[1.6rem] font-light tracking-wide bg-gradient-to-r from-cool-1 to-cool-2 bg-clip-text text-transparent"
+              style={{ fontStyle: "italic" }}
+            >
+              swells
+            </em>
 
             {/* Space selector */}
             {spaces && spaces.length > 0 && (
@@ -262,6 +266,69 @@ export function AppShell({
               </button>
             )}
 
+            {/* User menu */}
+            <div className="relative">
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
+                aria-label="Account menu"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </button>
+
+              {userMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                  <div
+                    className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-xl border border-white/[0.06] p-1.5 backdrop-blur-2xl"
+                    style={{ background: "rgba(15,20,35,0.95)" }}
+                  >
+                    {isSuperAdminProp && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 4.5a2.5 2.5 0 0 0-4.96-.46 2.5 2.5 0 0 0-1.98 3 2.5 2.5 0 0 0-1.32 4.24 3 3 0 0 0 .34 5.58 2.5 2.5 0 0 0 2.96 3.08A2.5 2.5 0 0 0 12 19.5a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 12 4.5" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        Admin
+                      </Link>
+                    )}
+                    <Link
+                      href="/referral"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <line x1="19" y1="8" x2="19" y2="14" />
+                        <line x1="22" y1="11" x2="16" y2="11" />
+                      </svg>
+                      Referrals
+                    </Link>
+                    <div className="my-1 border-t border-white/[0.06]" />
+                    <button
+                      onClick={() => { setUserMenuOpen(false); signOut({ callbackUrl: "/sign-in" }); }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                      </svg>
+                      Sign out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             {/* Observe Button (desktop only — mobile uses FAB in bottom bar) */}
             {canCreateObservation(userRole) && subscriptionStatus?.allowed !== false && (
               <button
@@ -293,6 +360,11 @@ export function AppShell({
               Upgrade now
             </button>
           </div>
+        )}
+
+        {/* Subscription Gate — shown when access is denied */}
+        {subscriptionStatus && !subscriptionStatus.allowed && (
+          <SubscriptionGate reason={subscriptionStatus.reason} />
         )}
 
         {/* Main Content */}

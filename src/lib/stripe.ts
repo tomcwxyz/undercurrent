@@ -1,4 +1,6 @@
 import Stripe from "stripe";
+import { hasFreeAccess } from "@/lib/account";
+import { getSubscriptionForUser } from "@/lib/db/queries";
 
 let _stripe: Stripe | null = null;
 
@@ -43,34 +45,61 @@ export const TIER_LABELS: Record<Tier, string> = {
   organisation: "Organisation",
 };
 
-export function checkSubscriptionAccess(subscription: {
-  status: string;
-  trialEndsAt: Date | null;
-  currentPeriodEnd: Date | null;
-}): { allowed: boolean; reason: string } {
+export interface SubscriptionAccess {
+  allowed: boolean;
+  reason: string;
+  tier?: Tier;
+  trialDaysLeft?: number;
+}
+
+/**
+ * Check whether a user has access to create observations.
+ * Handles free-access accounts, trials, active subs, and no-subscription state.
+ */
+export async function checkSubscriptionAccess(
+  userId: string,
+  email: string | null | undefined,
+): Promise<SubscriptionAccess> {
+  // Free-access accounts (super admin, demo) — full access, organisation tier
+  if (hasFreeAccess(email)) {
+    return { allowed: true, reason: "free_access", tier: "organisation" };
+  }
+
+  const subscription = await getSubscriptionForUser(userId);
+
+  // No subscription at all — must subscribe
+  if (!subscription) {
+    return { allowed: false, reason: "no_subscription" };
+  }
+
   const now = new Date();
 
   if (subscription.status === "active") {
-    return { allowed: true, reason: "active" };
+    return { allowed: true, reason: "active", tier: subscription.tier };
   }
 
   if (subscription.status === "trialing") {
     if (subscription.trialEndsAt && subscription.trialEndsAt > now) {
-      return { allowed: true, reason: "trialing" };
+      const msLeft = subscription.trialEndsAt.getTime() - now.getTime();
+      return {
+        allowed: true,
+        reason: "trialing",
+        tier: subscription.tier,
+        trialDaysLeft: Math.max(0, Math.ceil(msLeft / 86400000)),
+      };
     }
-    return { allowed: false, reason: "trial_expired" };
+    return { allowed: false, reason: "trial_expired", tier: subscription.tier };
   }
 
   if (subscription.status === "past_due") {
-    // Grace period: allow access for 7 days past period end
     if (subscription.currentPeriodEnd) {
       const grace = new Date(subscription.currentPeriodEnd.getTime() + 7 * 86400000);
       if (now < grace) {
-        return { allowed: true, reason: "past_due_grace" };
+        return { allowed: true, reason: "past_due_grace", tier: subscription.tier };
       }
     }
-    return { allowed: false, reason: "payment_failed" };
+    return { allowed: false, reason: "payment_failed", tier: subscription.tier };
   }
 
-  return { allowed: false, reason: "inactive" };
+  return { allowed: false, reason: "inactive", tier: subscription.tier };
 }
