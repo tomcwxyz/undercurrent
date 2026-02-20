@@ -18,7 +18,7 @@ const cormorant = Cormorant_Garamond({
 export const metadata: Metadata = {
   metadataBase: new URL("https://swells.app"),
   title: {
-    default: "Swells — Sense what's shifting",
+    default: "Swells — Sense what's shifting before it becomes obvious",
     template: "%s | Swells",
   },
   description:

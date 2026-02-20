@@ -1,7 +1,8 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Swells — Sense what's shifting";
+export const alt =
+  "Swells — Sense what's shifting before it becomes obvious";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -17,7 +18,7 @@ export default async function OGImage() {
           justifyContent: "center",
           alignItems: "flex-start",
           padding: "80px 100px",
-          background: "#0A0E1A",
+          background: "linear-gradient(145deg, #0A0E1A 0%, #0F1628 50%, #0A0E1A 100%)",
           position: "relative",
           overflow: "hidden",
         }}
@@ -26,25 +27,25 @@ export default async function OGImage() {
         <div
           style={{
             position: "absolute",
-            top: -120,
-            right: -80,
+            top: -80,
+            right: -40,
             width: 500,
             height: 500,
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(78,205,196,0.12) 0%, transparent 70%)",
+              "radial-gradient(circle, rgba(78,205,196,0.15) 0%, transparent 70%)",
           }}
         />
         <div
           style={{
             position: "absolute",
-            bottom: -100,
-            left: -60,
+            bottom: -80,
+            left: -40,
             width: 400,
             height: 400,
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(255,107,74,0.08) 0%, transparent 70%)",
+              "radial-gradient(circle, rgba(108,92,231,0.1) 0%, transparent 70%)",
           }}
         />
 
@@ -53,11 +54,11 @@ export default async function OGImage() {
           viewBox="0 0 1200 200"
           style={{
             position: "absolute",
-            bottom: 60,
-            right: 80,
-            width: 500,
-            height: 120,
-            opacity: 0.3,
+            bottom: 40,
+            right: 60,
+            width: 550,
+            height: 130,
+            opacity: 0.25,
           }}
         >
           <defs>
@@ -86,29 +87,28 @@ export default async function OGImage() {
         {/* Brand name */}
         <div
           style={{
-            fontSize: 96,
+            fontSize: 88,
             fontStyle: "italic",
             fontWeight: 300,
-            background: "linear-gradient(to right, #4ecdc4, #45b7d1)",
-            backgroundClip: "text",
-            color: "transparent",
+            color: "#4ecdc4",
             lineHeight: 1,
           }}
         >
           swells
         </div>
 
-        {/* Tagline */}
+        {/* Headline */}
         <div
           style={{
-            fontSize: 32,
-            fontWeight: 300,
-            fontStyle: "italic",
-            color: "rgba(255,255,255,0.6)",
-            marginTop: 24,
+            fontSize: 36,
+            fontWeight: 500,
+            color: "rgba(255,255,255,0.9)",
+            marginTop: 28,
+            lineHeight: 1.3,
+            maxWidth: 700,
           }}
         >
-          Sense what&apos;s shifting
+          Sense what&apos;s shifting before it becomes obvious
         </div>
 
         {/* Description */}
@@ -116,14 +116,37 @@ export default async function OGImage() {
           style={{
             fontSize: 20,
             fontWeight: 400,
-            color: "rgba(255,255,255,0.4)",
+            color: "rgba(255,255,255,0.45)",
             marginTop: 20,
             maxWidth: 600,
             lineHeight: 1.5,
           }}
         >
-          A platform for observations, signals, and reflections — helping people
-          sense what&apos;s emerging before it becomes obvious.
+          Observations, signals, and reflections — AI-powered pattern detection
+          for teams and individuals.
+        </div>
+
+        {/* CTA */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            marginTop: 36,
+            padding: "12px 28px",
+            borderRadius: 8,
+            background: "rgba(78,205,196,0.12)",
+            border: "1px solid rgba(78,205,196,0.3)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 18,
+              fontWeight: 500,
+              color: "#4ecdc4",
+            }}
+          >
+            Start free at swells.app
+          </div>
         </div>
       </div>
     ),
