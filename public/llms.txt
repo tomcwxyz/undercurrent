@@ -1,0 +1,50 @@
+# Swells
+
+> Sense what's shifting
+
+Swells is a platform for observations, signals, and reflections. It helps individuals, organisations, and systems sense what's emerging — before it becomes obvious.
+
+## What it does
+
+People notice things constantly — a shift in energy, a conversation that surprised them, a pattern they can't quite name. Swells gives those noticings a home. Users record observations (text, photos, voice), and AI surfaces patterns across collective observations — turning scattered noticings into visible signals.
+
+## Core concepts
+
+- Observations: What did you notice? A quick record of something you saw, felt, or heard. No categories, no scores.
+- Signals: AI-detected patterns across multiple observations. A quiet frustration mentioned by three different people becomes a visible trend.
+- Reflections: Prompted by signal activity, reflections guide deeper sense-making. What might this mean? What are we missing?
+- Spaces: Shared environments where teams observe and sense together.
+
+## Views
+
+Swells offers four ways of seeing the same data:
+
+- River: The chronological flow of observations, like a timeline.
+- Constellation: A relationship map where observations are positioned by similarity, revealing clusters.
+- Signal Landscape: A terrain view where signals rise and fall like living topography.
+- Sentiment: A temperature map. Warm means energy. Cool means reflection.
+
+## Use cases
+
+- Individual learning and reflective practice
+- Organisational culture sensing (from lived experience, not surveys)
+- Impact and change evaluation (sense for what's actually emerging)
+- Systems sensing across multiple organisations
+
+## Pricing
+
+All plans include a 30-day free trial. No credit card required.
+
+- Individual: £5/month (£48/year) — 1 user, 200 observations/month
+- Organisation: £25/month (£240/year) — up to 10 users, 1,000 observations/month
+- Large Organisation: £50/month (£480/year) — 25 users + £2/user, 5,000 observations/month
+
+## Links
+
+- Website: https://swells.app
+- Sign in: https://swells.app/sign-in
+- Register: https://swells.app/register
+
+## Built by
+
+The Good Ship · tomcw.xyz

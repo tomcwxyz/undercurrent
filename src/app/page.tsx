@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { HeroCanvas } from "@/components/landing/hero-canvas";
 import { Reveal } from "@/components/landing/reveal";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 const VIEWS = [
   {
@@ -180,9 +185,36 @@ function BrandName({ className = "" }: { className?: string }) {
   );
 }
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "Swells",
+  url: "https://swells.app",
+  description:
+    "A platform for observations, signals, and reflections. Helping individuals, organisations, and systems sense what's emerging — before it becomes obvious.",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  offers: {
+    "@type": "AggregateOffer",
+    lowPrice: "5",
+    highPrice: "50",
+    priceCurrency: "GBP",
+    offerCount: 3,
+  },
+  creator: {
+    "@type": "Organization",
+    name: "The Good Ship",
+    url: "https://tomcw.xyz",
+  },
+};
+
 export default function LandingPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <HeroCanvas />
 
       <div className="relative z-10">

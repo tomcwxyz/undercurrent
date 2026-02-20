@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { SignInForm } from "@/components/auth/sign-in-form";
+
+export const metadata: Metadata = {
+  title: "Sign in",
+  alternates: { canonical: "/sign-in" },
+};
 
 export default async function SignInPage() {
   const session = await auth();

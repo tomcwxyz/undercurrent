@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { RegisterForm } from "@/components/auth/register-form";
+
+export const metadata: Metadata = {
+  title: "Create account",
+  description:
+    "Create a Swells account and start sensing what's emerging — free for 30 days.",
+  alternates: { canonical: "/register" },
+};
 
 export default async function RegisterPage() {
   const session = await auth();

@@ -16,10 +16,25 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "Swells — Sense what's shifting",
+  metadataBase: new URL("https://swells.app"),
+  title: {
+    default: "Swells — Sense what's shifting",
+    template: "%s | Swells",
+  },
   description:
     "A platform for observations, signals, and reflections. Helping individuals, organisations, and systems sense what's emerging — before it becomes obvious.",
   icons: { icon: "/favicon.svg" },
+  openGraph: {
+    type: "website",
+    siteName: "Swells",
+    locale: "en_GB",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
+  alternates: {
+    canonical: "/",
+  },
 };
 
 export default function RootLayout({
