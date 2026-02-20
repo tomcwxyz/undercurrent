@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   title: "Swells — Sense what's shifting",
   description:
     "A platform for observations, signals, and reflections. Helping individuals, organisations, and systems sense what's emerging — before it becomes obvious.",
+  icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({

@@ -7,50 +7,121 @@ const VIEWS = [
     name: "River",
     desc: "The chronological flow of observations. See everything your team has noticed, flowing through time.",
     color: "var(--color-cool-1)",
+    illustration: "river" as const,
   },
   {
     name: "Constellation",
     desc: "The relationship map. Observations positioned by similarity, revealing clusters you'd never see in a list.",
     color: "var(--color-warm-3)",
+    illustration: "constellation" as const,
   },
   {
     name: "Signal Landscape",
     desc: "The terrain of emerging meaning. Watch signals rise and fall like a living topography.",
     color: "var(--color-warm-1)",
+    illustration: "landscape" as const,
   },
   {
     name: "Sentiment",
     desc: "The temperature of things. Warm means energy. Cool means reflection. Neither is better.",
     color: "var(--color-cool-3)",
+    illustration: "sentiment" as const,
   },
 ];
 
-const ENVIRONMENTS = [
-  {
-    name: "Stars",
-    bg: "#0A0E1A",
-    metaphor:
-      "Observations as stars in a night sky. Signals as constellations. Discovery in infinite space.",
-    bestFor: "Exploratory sensing. Systems change. Looking for what's emerging.",
-    dots: ["#FF6B4A", "#FFD166", "#45B7D1", "#6C5CE7"],
-  },
-  {
-    name: "Water",
-    bg: "#071E22",
-    metaphor:
-      "Observations as droplets feeding a river. Signals as currents and eddies beneath the surface.",
-    bestFor: "Ongoing culture work. Tracking the continuous flow of experience.",
-    dots: ["#4ECDC4", "#2AB7CA", "#45B7D1", "#3D5A80"],
-  },
-  {
-    name: "Mycelium",
-    bg: "#0D1B0E",
-    metaphor:
-      "Observations as nutrients. Signals as underground networks connecting what seems separate.",
-    bestFor: "Partnership work. Ecosystem sensing. Place-based initiatives.",
-    dots: ["#E8B960", "#C4A35A", "#73956F", "#4A7C59"],
-  },
-];
+function ViewIllustration({ type, color }: { type: string; color: string }) {
+  if (type === "river") {
+    const bars = [
+      { w: "75%", accent: "#4ecdc4" },
+      { w: "90%", accent: "#45b7d1" },
+      { w: "60%", accent: "#4ecdc4" },
+      { w: "85%", accent: "#45b7d1" },
+      { w: "70%", accent: "#4ecdc4" },
+    ];
+    return (
+      <div className="flex flex-col gap-2.5">
+        {bars.map((bar, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-2 rounded"
+            style={{ width: bar.w, background: "rgba(255,255,255,0.04)", padding: "6px 8px" }}
+          >
+            <div
+              className="h-full w-1 shrink-0 rounded-full"
+              style={{ background: bar.accent, minHeight: 16 }}
+            />
+            <div className="flex flex-1 flex-col gap-1">
+              <div className="h-1.5 rounded-full" style={{ width: "60%", background: "rgba(255,255,255,0.12)" }} />
+              <div className="h-1 rounded-full" style={{ width: "40%", background: "rgba(255,255,255,0.06)" }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (type === "constellation") {
+    const dots = [
+      { x: 20, y: 25, r: 4 }, { x: 55, y: 15, r: 3 }, { x: 80, y: 30, r: 5 },
+      { x: 35, y: 55, r: 3 }, { x: 65, y: 50, r: 4 }, { x: 45, y: 80, r: 3 },
+      { x: 75, y: 70, r: 4 }, { x: 15, y: 72, r: 3 },
+    ];
+    const lines: [number, number][] = [[0, 1], [1, 2], [1, 4], [3, 4], [4, 6], [5, 7], [3, 7]];
+    return (
+      <svg viewBox="0 0 100 100" className="h-full w-full">
+        {lines.map(([a, b], i) => (
+          <line
+            key={i}
+            x1={dots[a].x} y1={dots[a].y}
+            x2={dots[b].x} y2={dots[b].y}
+            stroke="rgba(255,209,102,0.15)" strokeWidth={0.5}
+          />
+        ))}
+        {dots.map((d, i) => (
+          <circle key={i} cx={d.x} cy={d.y} r={d.r} fill={color} opacity={0.5 + (i % 3) * 0.2} />
+        ))}
+      </svg>
+    );
+  }
+
+  if (type === "landscape") {
+    const heights = [35, 55, 75, 50, 90, 65, 45, 80, 40, 60, 70, 50];
+    return (
+      <div className="flex h-full items-end gap-1 px-1 pb-1">
+        {heights.map((h, i) => (
+          <div
+            key={i}
+            className="flex-1 rounded-t"
+            style={{
+              height: `${h}%`,
+              background: `linear-gradient(to top, ${color}, rgba(255,107,74,${0.3 + (h / 100) * 0.5}))`,
+              opacity: 0.6 + (h / 100) * 0.4,
+            }}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  // sentiment — grid of coloured squares
+  const spectrum = [
+    "#FF6B4A", "#FF8A65", "#FFD166", "#E8B960",
+    "#73956F", "#4ECDC4", "#45B7D1", "#6C5CE7",
+    "#FF8A65", "#FFD166", "#4ECDC4", "#45B7D1",
+    "#E8B960", "#73956F", "#6C5CE7", "#FF6B4A",
+  ];
+  return (
+    <div className="grid grid-cols-4 gap-1 p-1">
+      {spectrum.map((c, i) => (
+        <div
+          key={i}
+          className="aspect-square rounded-sm"
+          style={{ background: c, opacity: 0.5 + (i % 4) * 0.12 }}
+        />
+      ))}
+    </div>
+  );
+}
 
 const USE_CASES = [
   {
@@ -307,82 +378,44 @@ export default function LandingPage() {
             </h2>
           </Reveal>
 
-          <div
-            className="mt-16 grid gap-px md:grid-cols-2"
-            style={{ background: "rgba(255,255,255,0.03)" }}
-          >
+          <div className="mt-16 space-y-4">
             {VIEWS.map((view, i) => (
-              <Reveal
-                key={view.name}
-                delay={i * 80}
-                className="bg-deep p-8 md:p-12"
-              >
+              <Reveal key={view.name} delay={i * 80}>
                 <div
-                  className="mb-4 h-0.5 w-8 rounded-full"
-                  style={{ background: view.color }}
-                />
-                <h3
-                  className="font-display text-xl font-light md:text-2xl"
-                  style={{ color: view.color }}
+                  className="flex flex-col gap-6 rounded-2xl border border-white/[0.04] bg-surface p-6 md:flex-row md:items-center md:gap-12 md:p-10"
                 >
-                  {view.name}
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed text-text-secondary">
-                  {view.desc}
-                </p>
-              </Reveal>
-            ))}
-          </div>
-        </section>
-
-        {/* ─── ENVIRONMENTS ─── */}
-        <section className="py-32 md:py-48">
-          <Reveal className="px-6 md:px-12 lg:px-24">
-            <p className="text-xs font-medium uppercase tracking-[0.15em] text-text-muted">
-              Three environments
-            </p>
-            <h2
-              className="mt-4 font-display font-light text-text-primary"
-              style={{ fontSize: "clamp(1.8rem, 3.5vw, 2.8rem)" }}
-            >
-              Choose the metaphor that fits
-            </h2>
-            <p className="mt-4 max-w-lg text-base leading-relaxed text-text-secondary">
-              Each space lives in a visual environment that shapes how signals
-              and connections appear. Not decoration — a way of thinking.
-            </p>
-          </Reveal>
-
-          <div className="mt-16 space-y-px">
-            {ENVIRONMENTS.map((env) => (
-              <div key={env.name} style={{ background: env.bg }}>
-                <Reveal className="px-6 py-16 md:px-12 md:py-24 lg:px-24">
-                  <div className="flex flex-col gap-8 md:flex-row md:items-start md:gap-24">
-                    <div className="shrink-0 md:w-48">
-                      <h3 className="font-display text-2xl font-light text-text-primary md:text-3xl">
-                        {env.name}
-                      </h3>
-                      <div className="mt-3 flex gap-1.5">
-                        {env.dots.map((c) => (
-                          <div
-                            key={c}
-                            className="h-2 w-2 rounded-full"
-                            style={{ background: c }}
-                          />
-                        ))}
+                  <div className="flex-1">
+                    <div
+                      className="mb-3 h-0.5 w-8 rounded-full"
+                      style={{ background: view.color }}
+                    />
+                    <h3
+                      className="font-display text-xl font-light md:text-2xl"
+                      style={{ color: view.color }}
+                    >
+                      {view.name}
+                    </h3>
+                    <p className="mt-3 max-w-md text-sm leading-relaxed text-text-secondary">
+                      {view.desc}
+                    </p>
+                  </div>
+                  <div
+                    className="h-40 w-full shrink-0 overflow-hidden rounded-xl md:h-44 md:w-64"
+                    style={{ background: "rgba(10,14,26,0.8)", border: "1px solid rgba(255,255,255,0.06)" }}
+                  >
+                    <div className="flex h-full flex-col">
+                      <div className="flex items-center gap-1.5 px-3 py-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-white/10" />
+                        <div className="h-1.5 w-1.5 rounded-full bg-white/10" />
+                        <div className="h-1.5 w-1.5 rounded-full bg-white/10" />
+                      </div>
+                      <div className="flex-1 px-3 pb-3">
+                        <ViewIllustration type={view.illustration} color={view.color} />
                       </div>
                     </div>
-                    <div>
-                      <p className="text-base leading-relaxed text-text-secondary">
-                        {env.metaphor}
-                      </p>
-                      <p className="mt-3 text-sm text-text-muted">
-                        Best for: {env.bestFor}
-                      </p>
-                    </div>
                   </div>
-                </Reveal>
-              </div>
+                </div>
+              </Reveal>
             ))}
           </div>
         </section>
