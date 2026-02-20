@@ -91,7 +91,7 @@ function ReflectionCard({ reflection }: { reflection: ReflectionView }) {
               key={title}
               className="inline-flex items-center gap-1 rounded-lg bg-white/[0.05] px-2.5 py-0.5 text-[0.7rem] text-text-secondary"
             >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="m8 3 4 8 5-5 5 15H2L8 3z" />
               </svg>
               {title}
@@ -168,7 +168,11 @@ function ResponseForm({
       }}
     >
       <input type="hidden" name="reflectionId" value={reflectionId} />
+      <label htmlFor={`reflection-response-${reflectionId}`} className="sr-only">
+        Your reflection response
+      </label>
       <textarea
+        id={`reflection-response-${reflectionId}`}
         name="text"
         className="w-full resize-y rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 font-body text-[0.88rem] leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-cool-1/30"
         style={{ minHeight: "80px" }}
@@ -203,6 +207,7 @@ function PastReflections({ reflections }: { reflections: ReflectionView[] }) {
     <section>
       <button
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
         className="mb-5 flex items-center gap-2 text-[0.78rem] uppercase tracking-[0.12em] text-text-muted transition-colors hover:text-text-secondary"
       >
         <svg
@@ -215,6 +220,7 @@ function PastReflections({ reflections }: { reflections: ReflectionView[] }) {
           strokeLinecap="round"
           strokeLinejoin="round"
           className={`transition-transform ${expanded ? "rotate-90" : ""}`}
+          aria-hidden="true"
         >
           <polyline points="9 18 15 12 9 6" />
         </svg>
@@ -257,7 +263,7 @@ function EmptyState() {
   return (
     <div className="mx-auto max-w-[440px] text-center py-16">
       <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-cool-2/8">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-cool-2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-cool-2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="10" />
           <path d="M12 16v-4" />
           <path d="M12 8h.01" />

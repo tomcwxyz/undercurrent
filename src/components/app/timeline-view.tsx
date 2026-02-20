@@ -91,13 +91,16 @@ export function TimelineView({ timelineEvents }: TimelineViewProps) {
       <div className="mx-auto mb-8 max-w-[640px]">
         <div className="relative">
           <svg
+            aria-hidden="true"
             className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
             width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           >
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
           </svg>
+          <label htmlFor="timeline-search" className="sr-only">Search timeline</label>
           <input
+            id="timeline-search"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -158,7 +161,7 @@ function TimelineCard({ event }: { event: TimelineEvent }) {
     return (
       <div className="rounded-2xl border border-white/[0.04] bg-card p-4 transition-colors hover:bg-card-hover">
         <div className="mb-1 flex items-center gap-2 text-[0.7rem] text-text-muted">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <circle cx="12" cy="12" r="10" />
             <path d="M12 16v-4" />
             <path d="M12 8h.01" />
@@ -176,7 +179,7 @@ function TimelineCard({ event }: { event: TimelineEvent }) {
     return (
       <div className="rounded-2xl border border-white/[0.04] bg-card p-4 transition-colors hover:bg-card-hover">
         <div className="mb-1 flex items-center gap-2 text-[0.7rem] text-text-muted">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m8 3 4 8 5-5 5 15H2L8 3z" />
           </svg>
           Signal snapshot · {event.time}
@@ -206,7 +209,7 @@ function TimelineCard({ event }: { event: TimelineEvent }) {
   return (
     <div className="rounded-2xl border border-white/[0.04] bg-card p-4 transition-colors hover:bg-card-hover">
       <div className="mb-1 flex items-center gap-2 text-[0.7rem] text-text-muted">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
           <path d="M3 3v5h5" />
           <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />

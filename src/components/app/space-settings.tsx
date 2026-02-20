@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { useFocusTrap } from "@/lib/use-focus-trap";
+import { useEscapeKey } from "@/lib/use-escape-key";
 import {
   updateSpaceAction,
   inviteToSpaceAction,
@@ -50,6 +52,9 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
 
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  const trapRef = useFocusTrap(true);
+  useEscapeKey(true, onClose);
 
   // Fetch space data on mount
   useEffect(() => {
@@ -127,6 +132,10 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="space-settings-title"
         className="relative w-[90%] max-w-[600px] max-h-[85vh] overflow-y-auto rounded-3xl border bg-surface p-6 md:p-8"
         style={{ borderColor: "rgba(255,255,255,0.06)" }}
       >
@@ -138,15 +147,18 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
           ✕
         </button>
 
-        <h3 className="font-display text-2xl font-light text-text-primary mb-6">
+        <h3 id="space-settings-title" className="font-display text-2xl font-light text-text-primary mb-6">
           Space settings
         </h3>
 
         {/* Tabs */}
-        <div className="mb-6 flex gap-1 rounded-xl p-1" style={{ background: "rgba(255,255,255,0.04)" }}>
+        <div role="tablist" aria-label="Settings sections" className="mb-6 flex gap-1 rounded-xl p-1" style={{ background: "rgba(255,255,255,0.04)" }}>
           {(["info", "members", "invitations", ...(userRole === "owner" ? ["billing" as const] : [])] as const).map((t) => (
             <button
               key={t}
+              role="tab"
+              aria-selected={tab === t}
+              aria-controls={`tabpanel-${t}`}
               onClick={() => {
                 setTab(t);
                 if (t === "billing" && !billingLoaded) {
@@ -169,10 +181,11 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
 
         {/* Info tab */}
         {tab === "info" && (
-          <div className="space-y-4">
+          <div id="tabpanel-info" role="tabpanel" aria-labelledby="tab-info" className="space-y-4">
             <div>
-              <label className="mb-1 block text-[0.75rem] text-text-muted">Name</label>
+              <label htmlFor="space-name" className="mb-1 block text-[0.75rem] text-text-muted">Name</label>
               <input
+                id="space-name"
                 type="text"
                 value={spaceName}
                 onChange={(e) => setSpaceName(e.target.value)}
@@ -181,8 +194,9 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
               />
             </div>
             <div>
-              <label className="mb-1 block text-[0.75rem] text-text-muted">Description</label>
+              <label htmlFor="space-description" className="mb-1 block text-[0.75rem] text-text-muted">Description</label>
               <textarea
+                id="space-description"
                 value={spaceDescription}
                 onChange={(e) => setSpaceDescription(e.target.value)}
                 className="w-full resize-y rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2.5 text-[0.85rem] text-text-primary outline-none focus:border-cool-1/30"
@@ -236,7 +250,7 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
 
         {/* Members tab */}
         {tab === "members" && (
-          <div className="space-y-2">
+          <div id="tabpanel-members" role="tabpanel" aria-labelledby="tab-members" className="space-y-2">
             {members.length === 0 ? (
               <div className="py-8 text-center text-[0.85rem] text-text-muted">Loading members...</div>
             ) : (
@@ -252,7 +266,9 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
                   <div className="flex items-center gap-2">
                     {canManageMembers(userRole) && member.role !== "owner" ? (
                       <>
+                        <label htmlFor={`role-${member.userId}`} className="sr-only">Role for {member.name ?? member.email}</label>
                         <select
+                          id={`role-${member.userId}`}
                           value={member.role}
                           onChange={(e) => handleRoleChange(member.userId, e.target.value)}
                           className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[0.75rem] text-text-primary outline-none"
@@ -284,17 +300,21 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
 
         {/* Invitations tab */}
         {tab === "invitations" && canManageMembers(userRole) && (
-          <div className="space-y-4">
+          <div id="tabpanel-invitations" role="tabpanel" aria-labelledby="tab-invitations" className="space-y-4">
             {/* Invite form */}
             <div className="flex flex-wrap gap-2">
+              <label htmlFor="invite-email" className="sr-only">Email address</label>
               <input
+                id="invite-email"
                 type="email"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="Email address"
                 className="flex-1 min-w-[200px] rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2.5 text-[0.85rem] text-text-primary outline-none focus:border-cool-1/30 placeholder:text-text-muted"
               />
+              <label htmlFor="invite-role" className="sr-only">Role</label>
               <select
+                id="invite-role"
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value as SpaceRole)}
                 className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-[0.82rem] text-text-primary outline-none"
@@ -317,7 +337,9 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
               <div className="rounded-xl border border-cool-1/20 bg-cool-1/5 p-3">
                 <div className="mb-1 text-[0.75rem] font-medium text-cool-1">Invitation link created</div>
                 <div className="flex items-center gap-2">
+                  <label htmlFor="invite-link" className="sr-only">Invitation link</label>
                   <input
+                    id="invite-link"
                     type="text"
                     value={inviteLink}
                     readOnly
@@ -360,7 +382,7 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
 
         {/* Billing tab */}
         {tab === "billing" && userRole === "owner" && (
-          <div className="space-y-4">
+          <div id="tabpanel-billing" role="tabpanel" aria-labelledby="tab-billing" className="space-y-4">
             {!billingLoaded ? (
               <div className="py-8 text-center text-[0.85rem] text-text-muted">Loading billing...</div>
             ) : !billingData?.tier ? (

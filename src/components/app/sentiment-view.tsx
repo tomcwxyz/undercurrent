@@ -325,6 +325,7 @@ export function SentimentView({ data, onNavigateToObservation }: SentimentViewPr
                   ? "bg-white/[0.08] text-text-primary"
                   : "text-text-muted hover:text-text-secondary"
               }`}
+              aria-pressed={aggregation === "daily"}
               onClick={() => handleAggregationChange("daily")}
             >
               Daily
@@ -335,6 +336,7 @@ export function SentimentView({ data, onNavigateToObservation }: SentimentViewPr
                   ? "bg-white/[0.08] text-text-primary"
                   : "text-text-muted hover:text-text-secondary"
               }`}
+              aria-pressed={aggregation === "weekly"}
               onClick={() => handleAggregationChange("weekly")}
             >
               Weekly
@@ -347,6 +349,7 @@ export function SentimentView({ data, onNavigateToObservation }: SentimentViewPr
                   ? "border-white/[0.15] bg-white/[0.08] text-text-primary"
                   : "border-white/[0.08] text-text-muted hover:text-text-secondary"
               }`}
+              aria-pressed={comparing}
               onClick={handleCompareToggle}
             >
               Compare &harr;
@@ -450,7 +453,7 @@ export function SentimentView({ data, onNavigateToObservation }: SentimentViewPr
 
       {/* Detail panel */}
       {selectedCellData && selectedCellData.isReal && selectedCellData.count > 0 && (
-        <div className="mx-auto mb-6 mt-4 max-w-[800px]">
+        <div className="mx-auto mb-6 mt-4 max-w-[800px]" aria-live="polite">
           <div
             className="rounded-2xl border border-white/[0.06] bg-card p-5"
             style={{ animation: "fade-up 0.25s ease forwards" }}

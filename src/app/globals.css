@@ -13,7 +13,7 @@
   /* Text */
   --color-text-primary: #e8e4df;
   --color-text-secondary: #8b8fa4;
-  --color-text-muted: #565b72;
+  --color-text-muted: #787d96;
 
   /* Warm–Cool Spectrum */
   --color-warm-1: #ff6b4a;
@@ -77,10 +77,26 @@ html {
   }
 }
 
+/* ─── Screen reader only ─── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 /* ─── Reduced motion ─── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+  html {
+    scroll-behavior: auto;
   }
 }

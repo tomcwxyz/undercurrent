@@ -204,10 +204,12 @@ export function AdminDashboard({ spaces: initialSpaces, users: initialUsers }: A
   return (
     <div>
       {/* Tabs */}
-      <div className="mb-6 flex gap-1 rounded-xl p-1" style={{ background: "rgba(255,255,255,0.04)" }}>
+      <div role="tablist" aria-label="Admin sections" className="mb-6 flex gap-1 rounded-xl p-1" style={{ background: "rgba(255,255,255,0.04)" }}>
         {(["spaces", "users"] as const).map((t) => (
           <button
             key={t}
+            role="tab"
+            aria-selected={tab === t}
             onClick={() => setTab(t)}
             className={`flex-1 rounded-lg py-2 text-[0.82rem] transition-all ${
               tab === t
@@ -408,15 +410,16 @@ export function AdminDashboard({ spaces: initialSpaces, users: initialUsers }: A
           style={{ background: "rgba(10,14,26,0.8)", backdropFilter: "blur(8px)" }}
           onClick={(e) => { if (e.target === e.currentTarget) setEditingSpace(null); }}
         >
-          <div className="relative w-[90%] max-w-[500px] rounded-2xl border bg-surface p-6" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="edit-space-title" className="relative w-[90%] max-w-[500px] rounded-2xl border bg-surface p-6" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
             <button onClick={() => setEditingSpace(null)} className="absolute top-4 right-4 text-text-muted hover:text-text-secondary" aria-label="Close">
               ✕
             </button>
-            <h3 className="mb-4 font-display text-xl font-light text-text-primary">Edit space</h3>
+            <h3 id="edit-space-title" className="mb-4 font-display text-xl font-light text-text-primary">Edit space</h3>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-[0.75rem] text-text-muted">Name</label>
+                <label htmlFor="admin-space-name" className="mb-1 block text-[0.75rem] text-text-muted">Name</label>
                 <input
+                  id="admin-space-name"
                   type="text"
                   value={editSpaceName}
                   onChange={(e) => setEditSpaceName(e.target.value)}
@@ -424,8 +427,9 @@ export function AdminDashboard({ spaces: initialSpaces, users: initialUsers }: A
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[0.75rem] text-text-muted">Description</label>
+                <label htmlFor="admin-space-desc" className="mb-1 block text-[0.75rem] text-text-muted">Description</label>
                 <textarea
+                  id="admin-space-desc"
                   value={editSpaceDescription}
                   onChange={(e) => setEditSpaceDescription(e.target.value)}
                   className="w-full resize-y rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2.5 text-[0.85rem] text-text-primary outline-none focus:border-cool-1/30"
@@ -459,15 +463,16 @@ export function AdminDashboard({ spaces: initialSpaces, users: initialUsers }: A
           style={{ background: "rgba(10,14,26,0.8)", backdropFilter: "blur(8px)" }}
           onClick={(e) => { if (e.target === e.currentTarget) setEditingUser(null); }}
         >
-          <div className="relative w-[90%] max-w-[500px] rounded-2xl border bg-surface p-6" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="edit-user-title" className="relative w-[90%] max-w-[500px] rounded-2xl border bg-surface p-6" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
             <button onClick={() => setEditingUser(null)} className="absolute top-4 right-4 text-text-muted hover:text-text-secondary" aria-label="Close">
               ✕
             </button>
-            <h3 className="mb-4 font-display text-xl font-light text-text-primary">Edit user</h3>
+            <h3 id="edit-user-title" className="mb-4 font-display text-xl font-light text-text-primary">Edit user</h3>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-[0.75rem] text-text-muted">Name</label>
+                <label htmlFor="admin-user-name" className="mb-1 block text-[0.75rem] text-text-muted">Name</label>
                 <input
+                  id="admin-user-name"
                   type="text"
                   value={editUserName}
                   onChange={(e) => setEditUserName(e.target.value)}
@@ -475,8 +480,9 @@ export function AdminDashboard({ spaces: initialSpaces, users: initialUsers }: A
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[0.75rem] text-text-muted">Email</label>
+                <label htmlFor="admin-user-email" className="mb-1 block text-[0.75rem] text-text-muted">Email</label>
                 <input
+                  id="admin-user-email"
                   type="email"
                   value={editUserEmail}
                   onChange={(e) => setEditUserEmail(e.target.value)}

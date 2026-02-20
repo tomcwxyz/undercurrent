@@ -10,7 +10,7 @@ export function ForgotPasswordForm() {
   if (state.success) {
     return (
       <div className="mt-8">
-        <p className="text-[0.9rem] text-text-secondary leading-relaxed">
+        <p role="alert" className="text-[0.9rem] text-text-secondary leading-relaxed">
           If an account exists with that email, we&apos;ve sent a reset link.
           Check your inbox.
         </p>
@@ -26,15 +26,18 @@ export function ForgotPasswordForm() {
 
   return (
     <form action={action} className="mt-8 space-y-3">
+      <label htmlFor="forgot-email" className="sr-only">Email</label>
       <input
+        id="forgot-email"
         name="email"
         type="email"
         placeholder="Email"
         required
+        aria-describedby="forgot-error"
         className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 py-3 text-[0.88rem] text-text-primary placeholder:text-text-muted outline-none focus:border-white/20 transition-colors"
       />
       {state.error && (
-        <p className="text-[0.8rem] text-warm-1">{state.error}</p>
+        <p id="forgot-error" role="alert" className="text-[0.8rem] text-warm-1">{state.error}</p>
       )}
       <button
         type="submit"

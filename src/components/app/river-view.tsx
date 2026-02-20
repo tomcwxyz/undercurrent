@@ -123,7 +123,7 @@ export function RiverView({ observations, stats, highlightedId, signalsByObserva
           onClick={() => setFiltersOpen(!filtersOpen)}
           className="mb-3 flex items-center gap-2 text-[0.8rem] text-text-secondary transition-colors hover:text-text-primary md:hidden"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
           </svg>
@@ -137,13 +137,16 @@ export function RiverView({ observations, stats, highlightedId, signalsByObserva
           {/* Search input */}
           <div className="relative mb-3">
             <svg
+              aria-hidden="true"
               className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
               width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
             >
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.3-4.3" />
             </svg>
+            <label htmlFor="river-search" className="sr-only">Search observations</label>
             <input
+              id="river-search"
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -181,7 +184,7 @@ export function RiverView({ observations, stats, highlightedId, signalsByObserva
 
         {/* Filtered count */}
         {isFiltered && (
-          <div className="mt-3 text-center text-[0.78rem] text-text-muted">
+          <div aria-live="polite" className="mt-3 text-center text-[0.78rem] text-text-muted">
             Showing {filtered.length} of {observations.length}
           </div>
         )}
@@ -297,6 +300,7 @@ function ObservationCard({
       {obs.hasImage && (
         <div className="mb-3 flex h-[120px] w-full items-center justify-center rounded-[10px] bg-gradient-to-br from-cool-1/10 to-cool-3/10 text-[0.75rem] text-text-muted">
           <svg
+            aria-hidden="true"
             className="mr-2"
             width="20"
             height="20"

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useRef, useTransition } from "react";
+import { useState, useRef, useTransition, useCallback } from "react";
+import { useEscapeKey } from "@/lib/use-escape-key";
+import { useFocusTrap } from "@/lib/use-focus-trap";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -104,6 +106,16 @@ export function AppShell({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
+  const closeNotif = useCallback(() => setNotifOpen(false), []);
+  const closeMore = useCallback(() => setMoreOpen(false), []);
+  const closeSpaceMenu = useCallback(() => setSpaceMenuOpen(false), []);
+  const closeUserMenu = useCallback(() => setUserMenuOpen(false), []);
+
+  useEscapeKey(notifOpen, closeNotif);
+  useEscapeKey(moreOpen, closeMore);
+  useEscapeKey(spaceMenuOpen, closeSpaceMenu);
+  useEscapeKey(userMenuOpen, closeUserMenu);
+
   function switchView(view: View) {
     setActiveView(view);
     setHighlightedObservationId(null);
@@ -135,12 +147,15 @@ export function AppShell({
               <div className="relative">
                 <button
                   onClick={() => setSpaceMenuOpen(!spaceMenuOpen)}
+                  aria-haspopup="true"
+                  aria-expanded={spaceMenuOpen}
+                  aria-controls="space-menu"
                   className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[0.8rem] text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
                 >
                   <span className="max-w-[120px] truncate">
                     {spaces.find((s) => s.id === currentSpaceId)?.name ?? "Space"}
                   </span>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="m6 9 6 6 6-6" />
                   </svg>
                 </button>
@@ -149,6 +164,8 @@ export function AppShell({
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setSpaceMenuOpen(false)} />
                     <div
+                      id="space-menu"
+                      role="menu"
                       className="absolute left-0 top-full z-50 mt-1 min-w-[200px] rounded-xl border border-white/[0.06] p-1.5 backdrop-blur-2xl"
                       style={{ background: "rgba(15,20,35,0.95)" }}
                     >
@@ -156,22 +173,24 @@ export function AppShell({
                         <Link
                           key={space.id}
                           href={`/dashboard/${space.id}`}
+                          role="menuitem"
                           className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] transition-colors hover:bg-white/[0.06] ${
                             space.id === currentSpaceId ? "text-text-primary" : "text-text-secondary"
                           }`}
                         >
                           <span className="flex-1 truncate">{space.name}</span>
                           {space.id === currentSpaceId && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-cool-1" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-cool-1" aria-hidden="true" />
                           )}
                         </Link>
                       ))}
                       <div className="my-1 border-t border-white/[0.06]" />
                       <Link
                         href="/dashboard/new"
+                        role="menuitem"
                         className="flex items-center gap-2 rounded-lg px-3 py-2 text-[0.8rem] text-cool-1 transition-colors hover:bg-white/[0.06]"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                           <line x1="12" y1="5" x2="12" y2="19" />
                           <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
@@ -186,6 +205,7 @@ export function AppShell({
 
           {/* View Navigation */}
           <nav
+            aria-label="Views"
             className="hidden rounded-3xl p-1 md:flex"
             style={{ background: "rgba(255,255,255,0.04)" }}
           >
@@ -193,6 +213,7 @@ export function AppShell({
               <button
                 key={view}
                 onClick={() => switchView(view)}
+                aria-current={activeView === view ? "page" : undefined}
                 className={`rounded-2xl px-5 py-2 font-body text-[0.82rem] tracking-wide transition-all ${
                   activeView === view
                     ? "text-text-primary shadow-md"
@@ -219,8 +240,11 @@ export function AppShell({
                 onClick={() => setNotifOpen(!notifOpen)}
                 className="relative flex h-10 w-10 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
                 aria-label="Notifications"
+                aria-haspopup="true"
+                aria-expanded={notifOpen}
+                aria-controls="notification-dropdown"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
                   <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
                 </svg>
@@ -259,7 +283,7 @@ export function AppShell({
                 className="flex h-10 w-10 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
                 aria-label="Space settings"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
@@ -272,8 +296,11 @@ export function AppShell({
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex h-10 w-10 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
                 aria-label="Account menu"
+                aria-haspopup="true"
+                aria-expanded={userMenuOpen}
+                aria-controls="user-menu"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
@@ -283,16 +310,19 @@ export function AppShell({
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
                   <div
+                    id="user-menu"
+                    role="menu"
                     className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-xl border border-white/[0.06] p-1.5 backdrop-blur-2xl"
                     style={{ background: "rgba(15,20,35,0.95)" }}
                   >
                     {isSuperAdminProp && (
                       <Link
                         href="/admin"
+                        role="menuitem"
                         onClick={() => setUserMenuOpen(false)}
                         className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <path d="M12 4.5a2.5 2.5 0 0 0-4.96-.46 2.5 2.5 0 0 0-1.98 3 2.5 2.5 0 0 0-1.32 4.24 3 3 0 0 0 .34 5.58 2.5 2.5 0 0 0 2.96 3.08A2.5 2.5 0 0 0 12 19.5a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 12 4.5" />
                           <circle cx="12" cy="12" r="3" />
                         </svg>
@@ -301,10 +331,11 @@ export function AppShell({
                     )}
                     <Link
                       href="/referral"
+                      role="menuitem"
                       onClick={() => setUserMenuOpen(false)}
                       className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                         <circle cx="9" cy="7" r="4" />
                         <line x1="19" y1="8" x2="19" y2="14" />
@@ -314,10 +345,11 @@ export function AppShell({
                     </Link>
                     <div className="my-1 border-t border-white/[0.06]" />
                     <button
+                      role="menuitem"
                       onClick={() => { setUserMenuOpen(false); signOut({ callbackUrl: "/sign-in" }); }}
                       className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                         <polyline points="16 17 21 12 16 7" />
                         <line x1="21" y1="12" x2="9" y2="12" />
@@ -367,6 +399,11 @@ export function AppShell({
           <SubscriptionGate reason={subscriptionStatus.reason} />
         )}
 
+        {/* Live region for view changes */}
+        <div className="sr-only" aria-live="polite">
+          {VIEW_LABELS[activeView]} view
+        </div>
+
         {/* Main Content */}
         <main className="flex flex-1 flex-col pb-16 md:pb-0">
           {activeView === "river" && (
@@ -410,6 +447,7 @@ export function AppShell({
 
         {/* Mobile Bottom Tab Bar */}
         <nav
+          aria-label="Views"
           className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t px-2 py-1.5 backdrop-blur-2xl md:hidden"
           style={{
             background: "rgba(10,14,26,0.85)",
@@ -422,7 +460,7 @@ export function AppShell({
             onClick={() => switchView("river")}
           >
             {/* Water/wave icon */}
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
               <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
               <path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
               <path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
@@ -435,7 +473,7 @@ export function AppShell({
             onClick={() => switchView("constellation")}
           >
             {/* Stars icon */}
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           </MobileTab>
@@ -444,9 +482,10 @@ export function AppShell({
           {canCreateObservation(userRole) && subscriptionStatus?.allowed !== false && (
             <button
               onClick={() => setModalOpen(true)}
+              aria-label="Add observation"
               className="flex h-12 w-12 items-center justify-center rounded-full bg-warm-1 shadow-[0_0_24px_rgba(255,107,74,0.4)] transition-transform active:scale-95"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-deep)" strokeWidth="2" strokeLinecap="round">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-deep)" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
@@ -459,7 +498,7 @@ export function AppShell({
             onClick={() => switchView("landscape")}
           >
             {/* Mountain/landscape icon */}
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="m8 3 4 8 5-5 5 15H2L8 3z" />
             </svg>
           </MobileTab>
@@ -470,7 +509,7 @@ export function AppShell({
             onClick={() => switchView("heat")}
           >
             {/* Thermometer/flame icon */}
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
             </svg>
           </MobileTab>
@@ -482,7 +521,7 @@ export function AppShell({
               active={activeView === "reflect" || activeView === "timeline"}
               onClick={() => setMoreOpen(!moreOpen)}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
                 <circle cx="12" cy="5" r="1" />
                 <circle cx="12" cy="12" r="1" />
                 <circle cx="12" cy="19" r="1" />
@@ -493,14 +532,16 @@ export function AppShell({
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
                 <div
+                  role="menu"
                   className="absolute bottom-full right-0 z-50 mb-2 min-w-[140px] rounded-xl border border-white/[0.06] p-1.5 backdrop-blur-2xl"
                   style={{ background: "rgba(15,20,35,0.95)" }}
                 >
                   <button
+                    role="menuitem"
                     onClick={() => { switchView("reflect"); setMoreOpen(false); }}
                     className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] transition-colors hover:bg-white/[0.06] ${activeView === "reflect" ? "text-text-primary" : "text-text-secondary"}`}
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <circle cx="12" cy="12" r="10" />
                       <path d="M12 16v-4" />
                       <path d="M12 8h.01" />
@@ -508,10 +549,11 @@ export function AppShell({
                     Reflect
                   </button>
                   <button
+                    role="menuitem"
                     onClick={() => { switchView("timeline"); setMoreOpen(false); }}
                     className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] transition-colors hover:bg-white/[0.06] ${activeView === "timeline" ? "text-text-primary" : "text-text-secondary"}`}
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M12 20V10" />
                       <path d="M18 20V4" />
                       <path d="M6 20v-4" />
@@ -564,6 +606,8 @@ function NotificationDropdown({
 
   return (
     <div
+      id="notification-dropdown"
+      role="menu"
       className="absolute right-0 top-full z-50 mt-2 w-[340px] max-h-[420px] overflow-y-auto rounded-2xl border border-white/[0.06] p-2 backdrop-blur-2xl"
       style={{ background: "rgba(15,20,35,0.95)" }}
     >
@@ -673,6 +717,7 @@ function MobileTab({
   return (
     <button
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={`flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-[0.6rem] tracking-wide transition-colors ${
         active ? "text-text-primary" : "text-text-muted"
       }`}
@@ -706,6 +751,9 @@ function ObservationModal({
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
   const [nudge] = useState(() => NUDGES[Math.floor(Math.random() * NUDGES.length)]);
+  const trapRef = useFocusTrap(true);
+
+  useEscapeKey(true, onClose);
 
   return (
     <div
@@ -719,6 +767,10 @@ function ObservationModal({
       }}
     >
       <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="observation-modal-title"
         className="relative w-[90%] max-w-[560px] rounded-3xl border bg-surface p-6 md:p-10"
         style={{ borderColor: "rgba(255,255,255,0.06)" }}
       >
@@ -730,7 +782,7 @@ function ObservationModal({
           ✕
         </button>
 
-        <h3 className="font-display text-3xl font-light text-text-primary">
+        <h3 id="observation-modal-title" className="font-display text-3xl font-light text-text-primary">
           What did you notice?
         </h3>
         <p className="mt-1.5 text-[0.85rem] leading-relaxed text-text-secondary">
@@ -751,7 +803,9 @@ function ObservationModal({
           }}
         >
           <input type="hidden" name="spaceId" value={spaceId} />
+          <label htmlFor="observation-text" className="sr-only">Your observation</label>
           <textarea
+            id="observation-text"
             name="text"
             className="mt-4 w-full resize-y rounded-[14px] border bg-white/[0.04] p-4 font-body text-[0.92rem] leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-cool-1/30"
             style={{
@@ -775,6 +829,7 @@ function ObservationModal({
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
+                aria-hidden="true"
               >
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <circle cx="8.5" cy="8.5" r="1.5" />
@@ -793,6 +848,7 @@ function ObservationModal({
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
+                aria-hidden="true"
               >
                 <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
@@ -811,6 +867,7 @@ function ObservationModal({
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
+                aria-hidden="true"
               >
                 <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
               </svg>

@@ -54,22 +54,28 @@ export function SignInForm() {
     <>
       {/* Email + Password */}
       <form action={loginAction} className="mt-8 space-y-3">
+        <label htmlFor="login-email" className="sr-only">Email</label>
         <input
+          id="login-email"
           name="email"
           type="email"
           placeholder="Email"
           required
+          aria-describedby="login-error"
           className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 py-3 text-[0.88rem] text-text-primary placeholder:text-text-muted outline-none focus:border-white/20 transition-colors"
         />
+        <label htmlFor="login-password" className="sr-only">Password</label>
         <input
+          id="login-password"
           name="password"
           type="password"
           placeholder="Password"
           required
+          aria-describedby="login-error"
           className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 py-3 text-[0.88rem] text-text-primary placeholder:text-text-muted outline-none focus:border-white/20 transition-colors"
         />
         {loginState.error && (
-          <p className="text-[0.8rem] text-warm-1">{loginState.error}</p>
+          <p id="login-error" role="alert" className="text-[0.8rem] text-warm-1">{loginState.error}</p>
         )}
         <button
           type="submit"
@@ -92,15 +98,18 @@ export function SignInForm() {
 
       {/* Magic Link */}
       <form action={magicAction} className="space-y-3">
+        <label htmlFor="magic-email" className="sr-only">Email for magic link</label>
         <input
+          id="magic-email"
           name="email"
           type="email"
           placeholder="Email for magic link"
           required
+          aria-describedby="magic-error"
           className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 py-3 text-[0.88rem] text-text-primary placeholder:text-text-muted outline-none focus:border-white/20 transition-colors"
         />
         {magicState.error && (
-          <p className="text-[0.8rem] text-warm-1">{magicState.error}</p>
+          <p id="magic-error" role="alert" className="text-[0.8rem] text-warm-1">{magicState.error}</p>
         )}
         <button
           type="submit"
@@ -118,7 +127,7 @@ export function SignInForm() {
         onClick={() => signIn("google", { redirectTo: "/dashboard" })}
         className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/8 bg-white/[0.04] px-5 py-3 text-[0.88rem] font-medium text-text-primary transition-all hover:border-white/15 hover:bg-white/[0.08]"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
           <path
             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
             fill="#4285F4"

@@ -79,7 +79,7 @@ export function LandscapeView({ signals, observations, signalObservationMaps, on
           onClick={() => setFiltersOpen(!filtersOpen)}
           className="mb-3 flex items-center gap-2 text-[0.8rem] text-text-secondary transition-colors hover:text-text-primary md:hidden"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
           </svg>
@@ -93,13 +93,16 @@ export function LandscapeView({ signals, observations, signalObservationMaps, on
           {/* Search input */}
           <div className="relative mb-3">
             <svg
+              aria-hidden="true"
               className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
               width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
             >
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.3-4.3" />
             </svg>
+            <label htmlFor="landscape-search" className="sr-only">Search signals</label>
             <input
+              id="landscape-search"
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -137,7 +140,7 @@ export function LandscapeView({ signals, observations, signalObservationMaps, on
 
         {/* Filtered count */}
         {isFiltered && (
-          <div className="mt-3 text-center text-[0.78rem] text-text-muted">
+          <div aria-live="polite" className="mt-3 text-center text-[0.78rem] text-text-muted">
             Showing {filtered.length} of {signals.length}
           </div>
         )}
@@ -211,6 +214,7 @@ export function LandscapeView({ signals, observations, signalObservationMaps, on
                 </div>
                 {signal.observationCount} observations · {signal.contributorCount} people
                 <svg
+                  aria-hidden="true"
                   className={`ml-auto h-4 w-4 text-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`}
                   viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
                 >
@@ -464,6 +468,8 @@ function TerrainCanvas() {
     <div className="relative mx-auto max-w-[1100px]">
       <canvas
         ref={canvasRef}
+        role="img"
+        aria-label="Signal terrain visualisation"
         className="h-[220px] w-full cursor-crosshair rounded-2xl md:h-[300px]"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}

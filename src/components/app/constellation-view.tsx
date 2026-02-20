@@ -30,6 +30,7 @@ export function ConstellationView({ nodes }: ConstellationViewProps) {
   const nodesRef = useRef<(ConstellationNodeView & { px: number; py: number; phase: number })[]>([]);
   const hoveredRef = useRef<ConstellationNodeView | null>(null);
   const selectedRef = useRef<ConstellationNodeView | null>(null);
+  const prefersReducedMotion = useRef(false);
 
   const computeNodes = useCallback((data: ConstellationNodeView[]) => {
     const canvas = canvasRef.current;
@@ -51,6 +52,7 @@ export function ConstellationView({ nodes }: ConstellationViewProps) {
     if (!ctx) return;
 
     let raf: number;
+    prefersReducedMotion.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     function resize() {
       const dpr = window.devicePixelRatio || 1;
@@ -125,7 +127,9 @@ export function ConstellationView({ nodes }: ConstellationViewProps) {
         }
       }
 
-      raf = requestAnimationFrame(draw);
+      if (!prefersReducedMotion.current) {
+        raf = requestAnimationFrame(draw);
+      }
     }
 
     resize();
@@ -198,6 +202,8 @@ export function ConstellationView({ nodes }: ConstellationViewProps) {
     <div className="relative flex-1">
       <canvas
         ref={canvasRef}
+        role="img"
+        aria-label="Constellation map showing signal clusters and observation connections"
         className="h-[calc(100svh-72px)] w-full cursor-crosshair"
       />
 
@@ -252,6 +258,7 @@ export function ConstellationView({ nodes }: ConstellationViewProps) {
         <div
           className="absolute right-8 top-8 z-50 w-[280px] rounded-2xl border border-white/[0.06] p-5 backdrop-blur-xl"
           style={{ background: "rgba(20,27,45,0.92)" }}
+          aria-live="polite"
         >
           <div className="mb-3 flex items-start justify-between gap-2">
             <h4 className="font-display text-[1.1rem] font-normal leading-snug text-text-primary">

@@ -10,6 +10,7 @@ export function FilterChip({
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
       className={`rounded-lg px-2.5 py-1 text-[0.72rem] transition-all ${
         active
           ? "bg-cool-1/15 text-cool-1 font-medium"

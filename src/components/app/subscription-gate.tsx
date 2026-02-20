@@ -51,7 +51,7 @@ export function SubscriptionGate({ reason }: SubscriptionGateProps) {
     <div className="flex flex-1 items-center justify-center px-6">
       <div className="max-w-[420px] rounded-2xl border border-white/[0.06] bg-surface p-8 text-center">
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-warm-1/10">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-warm-1">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-warm-1" aria-hidden="true">
             <path d="M12 9v4" />
             <path d="M12 17h.01" />
             <path d="M3.44 18h17.12a1 1 0 0 0 .86-1.5L13.36 3a1.5 1.5 0 0 0-2.72 0L2.58 16.5A1 1 0 0 0 3.44 18z" />
