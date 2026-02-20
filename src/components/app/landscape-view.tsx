@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { SIGNAL_COLORS, seededRandom } from "@/lib/mock-data";
 import { FilterChip } from "@/components/app/filter-chip";
-import type { SignalView } from "@/lib/types";
+import type { SignalView, ObservationView, SignalObservationMaps } from "@/lib/types";
 
 const DIRECTION_LABELS = {
   strengthening: { label: "↑ Strengthening", cls: "bg-cool-1/12 text-cool-1" },
@@ -16,13 +16,22 @@ const DIRECTION_FILTERS = ["All", "Strengthening", "Steady", "New"] as const;
 
 interface LandscapeViewProps {
   signals: SignalView[];
+  observations?: ObservationView[];
+  signalObservationMaps?: SignalObservationMaps;
+  onNavigateToObservation?: (id: string) => void;
 }
 
-export function LandscapeView({ signals }: LandscapeViewProps) {
+export function LandscapeView({ signals, observations, signalObservationMaps, onNavigateToObservation }: LandscapeViewProps) {
   const [search, setSearch] = useState("");
   const [strengthFilter, setStrengthFilter] = useState<string>("All");
   const [directionFilter, setDirectionFilter] = useState<string>("All");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [expandedSignalId, setExpandedSignalId] = useState<string | null>(null);
+
+  const observationById = useMemo(() => {
+    if (!observations) return new Map<string, ObservationView>();
+    return new Map(observations.map((o) => [o.id, o]));
+  }, [observations]);
 
   const filtered = useMemo(() => {
     let result = signals;
@@ -146,11 +155,16 @@ export function LandscapeView({ signals }: LandscapeViewProps) {
               : signal.strength === "emerging"
                 ? 60
                 : 30;
+          const isExpanded = expandedSignalId === signal.id;
+          const linkedObsIds = signalObservationMaps?.bySignal[signal.id] ?? [];
 
           return (
             <div
               key={signal.id}
-              className="group cursor-pointer overflow-hidden rounded-2xl border border-white/[0.04] bg-card p-6 transition-all hover:-translate-y-0.5 hover:bg-card-hover hover:shadow-[0_16px_48px_rgba(0,0,0,0.3)]"
+              className={`group cursor-pointer overflow-hidden rounded-2xl border bg-card p-6 transition-all hover:bg-card-hover hover:shadow-[0_16px_48px_rgba(0,0,0,0.3)] ${
+                isExpanded ? "border-cool-1/20" : "border-white/[0.04] hover:-translate-y-0.5"
+              }`}
+              onClick={() => setExpandedSignalId(isExpanded ? null : signal.id)}
             >
               {/* Strength + Direction row */}
               <div className="mb-3.5 flex items-center gap-2">
@@ -196,7 +210,51 @@ export function LandscapeView({ signals }: LandscapeViewProps) {
                   ))}
                 </div>
                 {signal.observationCount} observations · {signal.contributorCount} people
+                <svg
+                  className={`ml-auto h-4 w-4 text-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
               </div>
+
+              {/* Expanded observation snippets */}
+              {isExpanded && (
+                <div
+                  className="mt-4 space-y-2 border-t border-white/[0.06] pt-4"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {linkedObsIds.length === 0 ? (
+                    <p className="text-[0.78rem] text-text-muted">No linked observations yet</p>
+                  ) : (
+                    linkedObsIds.map((obsId) => {
+                      const obs = observationById.get(obsId);
+                      if (!obs) return null;
+                      return (
+                        <button
+                          key={obsId}
+                          className="group/snippet flex w-full items-start gap-3 rounded-xl border border-white/[0.04] bg-white/[0.02] p-3 text-left transition-all hover:border-white/8 hover:bg-white/[0.04]"
+                          onClick={() => onNavigateToObservation?.(obsId)}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[0.72rem] text-text-muted">
+                              {obs.author} · {obs.time}
+                            </div>
+                            <div className="mt-0.5 text-[0.85rem] leading-relaxed text-text-primary line-clamp-2">
+                              {obs.text}
+                            </div>
+                          </div>
+                          {onNavigateToObservation && (
+                            <span className="mt-1 shrink-0 text-[0.85rem] text-text-muted opacity-0 transition-opacity group-hover/snippet:opacity-100">
+                              &rarr;
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
             </div>
           );
         })}

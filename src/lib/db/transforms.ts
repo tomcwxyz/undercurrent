@@ -2,6 +2,7 @@ import type {
   ObservationView,
   SignalView,
   ConstellationNodeView,
+  SignalObservationMaps,
   SentimentViewData,
   SentimentCell,
   SentimentInsight,
@@ -94,6 +95,29 @@ export function toConstellationNodeView(
     connections: (row.connections as string[]) ?? [],
     text: row.description ?? "",
   };
+}
+
+// --- Signal-observation maps ---
+
+export function toSignalObservationMaps(
+  junctions: { signalId: string; observationId: string }[],
+  signalTitleMap: Record<string, string>
+): SignalObservationMaps {
+  const bySignal: Record<string, string[]> = {};
+  const byObservation: Record<string, { signalId: string; signalTitle: string }[]> = {};
+
+  for (const j of junctions) {
+    const title = signalTitleMap[j.signalId];
+    if (!title) continue;
+
+    if (!bySignal[j.signalId]) bySignal[j.signalId] = [];
+    bySignal[j.signalId].push(j.observationId);
+
+    if (!byObservation[j.observationId]) byObservation[j.observationId] = [];
+    byObservation[j.observationId].push({ signalId: j.signalId, signalTitle: title });
+  }
+
+  return { bySignal, byObservation };
 }
 
 // --- Sentiment transforms ---

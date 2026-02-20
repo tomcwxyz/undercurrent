@@ -19,15 +19,29 @@ interface RiverViewProps {
   observations: ObservationView[];
   stats: SpaceStats;
   highlightedId?: string | null;
+  signalsByObservation?: Record<string, { signalId: string; signalTitle: string }[]>;
 }
 
-export function RiverView({ observations, stats, highlightedId }: RiverViewProps) {
+export function RiverView({ observations, stats, highlightedId, signalsByObservation }: RiverViewProps) {
   const [highlightActive, setHighlightActive] = useState<string | null>(null);
   const scrolledRef = useRef(false);
   const [search, setSearch] = useState("");
   const [strengthFilter, setStrengthFilter] = useState<string>("All");
   const [sentimentFilter, setSentimentFilter] = useState<string>("All");
+  const [signalFilter, setSignalFilter] = useState<{ signalId: string; signalTitle: string } | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Build set of observation IDs belonging to filtered signal
+  const signalObsIds = useMemo(() => {
+    if (!signalFilter || !signalsByObservation) return null;
+    const ids = new Set<string>();
+    for (const [obsId, sigs] of Object.entries(signalsByObservation)) {
+      if (sigs.some((s) => s.signalId === signalFilter.signalId)) {
+        ids.add(obsId);
+      }
+    }
+    return ids;
+  }, [signalFilter, signalsByObservation]);
 
   const filtered = useMemo(() => {
     let result = observations;
@@ -50,30 +64,40 @@ export function RiverView({ observations, stats, highlightedId }: RiverViewProps
       result = result.filter((obs) => obs.sentimentTier === sentimentFilter);
     }
 
-    return result;
-  }, [observations, search, strengthFilter, sentimentFilter]);
+    if (signalObsIds) {
+      result = result.filter((obs) => signalObsIds.has(obs.id));
+    }
 
-  const isFiltered = search || strengthFilter !== "All" || sentimentFilter !== "All";
+    return result;
+  }, [observations, search, strengthFilter, sentimentFilter, signalObsIds]);
+
+  const isFiltered = search || strengthFilter !== "All" || sentimentFilter !== "All" || !!signalFilter;
+
+  // Ensure the highlighted observation is always visible by including it
+  // in the filtered list regardless of active filters
+  const displayList = useMemo(() => {
+    if (!highlightedId) return filtered;
+    if (filtered.some((obs) => obs.id === highlightedId)) return filtered;
+    const highlighted = observations.find((obs) => obs.id === highlightedId);
+    return highlighted ? [highlighted, ...filtered] : filtered;
+  }, [filtered, highlightedId, observations]);
 
   useEffect(() => {
     if (!highlightedId) {
       scrolledRef.current = false;
       return;
     }
-    // Only scroll once per highlightedId
     if (scrolledRef.current) return;
     scrolledRef.current = true;
 
-    const el = document.getElementById(`obs-${highlightedId}`);
-    if (el) {
-      // Small delay to let the view render
-      requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`obs-${highlightedId}`);
+      if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         setHighlightActive(highlightedId);
-        // Remove highlight after 2s
         setTimeout(() => setHighlightActive(null), 2000);
-      });
-    }
+      }
+    });
   }, [highlightedId]);
   return (
     <div className="relative max-h-[calc(100svh-72px)] overflow-y-auto px-6 py-10 md:px-8">
@@ -163,6 +187,21 @@ export function RiverView({ observations, stats, highlightedId }: RiverViewProps
         )}
       </div>
 
+      {/* Signal filter banner */}
+      {signalFilter && (
+        <div className="mx-auto mb-4 flex max-w-[700px] items-center justify-between rounded-xl border border-cool-1/20 bg-cool-1/5 px-4 py-2.5">
+          <span className="text-[0.82rem] text-text-secondary">
+            Showing observations for: <span className="font-medium text-text-primary">{signalFilter.signalTitle}</span>
+          </span>
+          <button
+            onClick={() => setSignalFilter(null)}
+            className="ml-3 text-[0.75rem] text-cool-1 transition-colors hover:text-cool-2"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Stream */}
       <div className="relative mx-auto max-w-[700px] py-5">
         {/* Centre line (desktop) */}
@@ -183,7 +222,7 @@ export function RiverView({ observations, stats, highlightedId }: RiverViewProps
           }}
         />
 
-        {filtered.map((obs, i) => {
+        {displayList.map((obs, i) => {
           const isLeft = i % 2 === 0;
           const dotColor = SIGNAL_COLORS[obs.signalStrength].css;
 
@@ -224,7 +263,13 @@ export function RiverView({ observations, stats, highlightedId }: RiverViewProps
                     : "pl-8 md:pl-[calc(50%+24px)] md:pr-0"
                 }
               >
-                <ObservationCard obs={obs} dotColor={dotColor} highlighted={highlightActive === obs.id} />
+                <ObservationCard
+                  obs={obs}
+                  dotColor={dotColor}
+                  highlighted={highlightActive === obs.id}
+                  signals={signalsByObservation?.[obs.id]}
+                  onSignalClick={(sig) => setSignalFilter(sig)}
+                />
               </div>
             </div>
           );
@@ -238,10 +283,14 @@ function ObservationCard({
   obs,
   dotColor,
   highlighted,
+  signals,
+  onSignalClick,
 }: {
   obs: ObservationView;
   dotColor: string;
   highlighted?: boolean;
+  signals?: { signalId: string; signalTitle: string }[];
+  onSignalClick?: (sig: { signalId: string; signalTitle: string }) => void;
 }) {
   return (
     <div className={`group cursor-pointer rounded-2xl border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-white/8 hover:bg-card-hover hover:shadow-[0_12px_40px_rgba(0,0,0,0.3)] ${highlighted ? "border-cool-1/40 ring-2 ring-cool-1/30" : "border-white/[0.04]"}`}>
@@ -286,6 +335,19 @@ function ObservationCard({
             ◐ Photo attached
           </span>
         )}
+        {signals?.map((sig) => (
+          <button
+            key={sig.signalId}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSignalClick?.(sig);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-[10px] bg-cool-1/8 px-2.5 py-0.5 text-[0.7rem] font-medium text-cool-1 transition-colors hover:bg-cool-1/15"
+          >
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-cool-1" />
+            <span className="max-w-[120px] truncate">{sig.signalTitle}</span>
+          </button>
+        ))}
       </div>
     </div>
   );

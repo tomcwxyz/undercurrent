@@ -4,6 +4,7 @@ import {
   getMemberRole,
   getObservationsForSpace,
   getSignalsForSpace,
+  getSignalObservationsForSpace,
   getConstellationNodesForSpace,
   getSpaceStats,
   hasDemoData,
@@ -21,6 +22,7 @@ import {
   toObservationView,
   toSignalView,
   toConstellationNodeView,
+  toSignalObservationMaps,
   toSentimentViewData,
   toReflectionViewData,
   toNotificationView,
@@ -43,7 +45,7 @@ export default async function SpaceDashboardPage({
   const role = await getMemberRole(session.user.id, spaceId);
   if (!role) redirect("/dashboard");
 
-  const [obsRows, sigRows, nodeRows, stats, hasDemo, sentimentRows, reflectionData, notifRows, unreadCount, snapshotRows, userSpaces] =
+  const [obsRows, sigRows, nodeRows, stats, hasDemo, sentimentRows, reflectionData, notifRows, unreadCount, snapshotRows, userSpaces, junctionRows] =
     await Promise.all([
       getObservationsForSpace(spaceId),
       getSignalsForSpace(spaceId),
@@ -56,6 +58,7 @@ export default async function SpaceDashboardPage({
       getUnreadNotificationCount(session.user.id, spaceId),
       getSignalSnapshotsForSpace(spaceId),
       getSpacesForUser(session.user.id),
+      getSignalObservationsForSpace(spaceId),
     ]);
 
   // Build signal title map for timeline
@@ -63,6 +66,8 @@ export default async function SpaceDashboardPage({
   for (const s of sigRows) {
     signalTitleMap[s.id] = s.title;
   }
+
+  const signalObservationMaps = toSignalObservationMaps(junctionRows, signalTitleMap);
 
   const timelineEvents = toTimelineEvents(
     obsRows,
@@ -115,6 +120,7 @@ export default async function SpaceDashboardPage({
       currentSpaceId={spaceId}
       userRole={role as SpaceRole}
       subscriptionStatus={subscriptionStatus}
+      signalObservationMaps={signalObservationMaps}
     />
   );
 }

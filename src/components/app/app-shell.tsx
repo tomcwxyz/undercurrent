@@ -32,6 +32,7 @@ import type {
   ConstellationNodeView,
   SpaceStats,
   SentimentViewData,
+  SignalObservationMaps,
   ReflectionView,
   NotificationView,
   TimelineEvent,
@@ -67,6 +68,7 @@ interface AppShellProps {
   currentSpaceId?: string;
   userRole?: SpaceRole;
   subscriptionStatus?: { allowed: boolean; reason: string; trialDaysLeft?: number };
+  signalObservationMaps?: SignalObservationMaps;
 }
 
 export function AppShell({
@@ -85,6 +87,7 @@ export function AppShell({
   currentSpaceId,
   userRole = "observer",
   subscriptionStatus,
+  signalObservationMaps,
 }: AppShellProps) {
   const [activeView, setActiveView] = useState<View>("river");
   const [modalOpen, setModalOpen] = useState(false);
@@ -295,12 +298,27 @@ export function AppShell({
         {/* Main Content */}
         <main className="flex flex-1 flex-col pb-16 md:pb-0">
           {activeView === "river" && (
-            <RiverView observations={observations} stats={stats} highlightedId={highlightedObservationId} />
+            <RiverView
+              observations={observations}
+              stats={stats}
+              highlightedId={highlightedObservationId}
+              signalsByObservation={signalObservationMaps?.byObservation}
+            />
           )}
           {activeView === "constellation" && (
             <ConstellationView nodes={nodes} />
           )}
-          {activeView === "landscape" && <LandscapeView signals={signals} />}
+          {activeView === "landscape" && (
+            <LandscapeView
+              signals={signals}
+              observations={observations}
+              signalObservationMaps={signalObservationMaps}
+              onNavigateToObservation={(id) => {
+                setHighlightedObservationId(id);
+                setActiveView("river");
+              }}
+            />
+          )}
           {activeView === "heat" && (
             <SentimentView
               data={sentimentData}

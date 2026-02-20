@@ -150,6 +150,11 @@ export interface SpaceInvitationView {
   accepted: boolean;
 }
 
+export interface SignalObservationMaps {
+  bySignal: Record<string, string[]>;
+  byObservation: Record<string, { signalId: string; signalTitle: string }[]>;
+}
+
 export interface SentimentViewData {
   cells: SentimentCell[];
   distribution: { label: string; pct: number }[];

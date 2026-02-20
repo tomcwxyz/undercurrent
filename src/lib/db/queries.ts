@@ -3,6 +3,7 @@ import { db } from ".";
 import {
   observations,
   signals,
+  signalObservations,
   constellationNodes,
   spaceMemberships,
   spaces,
@@ -43,6 +44,17 @@ export async function getSignalsForSpace(spaceId: string) {
     .from(signals)
     .where(eq(signals.spaceId, spaceId))
     .orderBy(desc(signals.lastUpdated));
+}
+
+export async function getSignalObservationsForSpace(spaceId: string) {
+  return db
+    .select({
+      signalId: signalObservations.signalId,
+      observationId: signalObservations.observationId,
+    })
+    .from(signalObservations)
+    .innerJoin(signals, eq(signals.id, signalObservations.signalId))
+    .where(eq(signals.spaceId, spaceId));
 }
 
 export async function getConstellationNodesForSpace(spaceId: string) {

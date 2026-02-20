@@ -15,12 +15,21 @@ interface ConstellationViewProps {
   nodes: ConstellationNodeView[];
 }
 
+const TYPE_LABELS: Record<string, { label: string; cls: string }> = {
+  strong: { label: "Strong signal", cls: "bg-warm-1/12 text-warm-1" },
+  emerging: { label: "Emerging", cls: "bg-warm-3/12 text-warm-3" },
+  weak: { label: "Weak signal", cls: "bg-cool-2/12 text-cool-2" },
+  single: { label: "Single observation", cls: "bg-cool-3/12 text-cool-3" },
+};
+
 export function ConstellationView({ nodes }: ConstellationViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hovered, setHovered] = useState<ConstellationNodeView | null>(null);
+  const [selectedNode, setSelectedNode] = useState<ConstellationNodeView | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const nodesRef = useRef<(ConstellationNodeView & { px: number; py: number; phase: number })[]>([]);
   const hoveredRef = useRef<ConstellationNodeView | null>(null);
+  const selectedRef = useRef<ConstellationNodeView | null>(null);
 
   const computeNodes = useCallback((data: ConstellationNodeView[]) => {
     const canvas = canvasRef.current;
@@ -68,7 +77,9 @@ export function ConstellationView({ nodes }: ConstellationViewProps) {
           const target = nodeById.get(connId);
           if (!target) continue;
           const c = TYPE_RGB[node.type];
-          const isHov = hov && (hov.id === node.id || hov.id === target.id);
+          const sel = selectedRef.current;
+          const isHov = (hov && (hov.id === node.id || hov.id === target.id)) ||
+            (sel && (sel.id === node.id || sel.id === target.id));
           const alpha = isHov ? 0.4 : 0.08 + Math.sin(t + node.phase) * 0.03;
 
           ctx!.beginPath();
@@ -85,7 +96,8 @@ export function ConstellationView({ nodes }: ConstellationViewProps) {
       // Nodes
       for (const node of currentNodes) {
         const c = TYPE_RGB[node.type];
-        const isHov = hov && hov.id === node.id;
+        const sel = selectedRef.current;
+        const isHov = (hov && hov.id === node.id) || (sel && sel.id === node.id);
         const breathe = 1 + Math.sin(t * 0.8 + node.phase) * 0.08;
         const size = node.size * breathe * (isHov ? 1.3 : 1);
 
@@ -145,12 +157,38 @@ export function ConstellationView({ nodes }: ConstellationViewProps) {
       }
     }
 
+    function onClick(e: MouseEvent) {
+      const rect = canvas!.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      let found: ConstellationNodeView | null = null;
+
+      for (const node of nodesRef.current) {
+        const dx = mx - node.px;
+        const dy = my - node.py;
+        if (Math.sqrt(dx * dx + dy * dy) < node.size + 8) {
+          found = node;
+          break;
+        }
+      }
+
+      if (found && selectedRef.current?.id === found.id) {
+        selectedRef.current = null;
+        setSelectedNode(null);
+      } else {
+        selectedRef.current = found;
+        setSelectedNode(found);
+      }
+    }
+
     const onResize = () => resize();
     canvas.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("click", onClick);
     window.addEventListener("resize", onResize);
 
     return () => {
       canvas.removeEventListener("mousemove", onMouseMove);
+      canvas.removeEventListener("click", onClick);
       window.removeEventListener("resize", onResize);
       cancelAnimationFrame(raf);
     };
@@ -192,8 +230,8 @@ export function ConstellationView({ nodes }: ConstellationViewProps) {
         </div>
       </div>
 
-      {/* Tooltip */}
-      {hovered && (
+      {/* Tooltip (only when no node is selected) */}
+      {hovered && !selectedNode && (
         <div
           className="pointer-events-none absolute z-50 max-w-[260px] rounded-xl border border-white/8 p-3.5 text-[0.82rem] leading-relaxed backdrop-blur-2xl"
           style={{
@@ -206,6 +244,41 @@ export function ConstellationView({ nodes }: ConstellationViewProps) {
             {hovered.label}
           </div>
           <div className="text-text-secondary">{hovered.text}</div>
+        </div>
+      )}
+
+      {/* Detail panel */}
+      {selectedNode && (
+        <div
+          className="absolute right-8 top-8 z-50 w-[280px] rounded-2xl border border-white/[0.06] p-5 backdrop-blur-xl"
+          style={{ background: "rgba(20,27,45,0.92)" }}
+        >
+          <div className="mb-3 flex items-start justify-between gap-2">
+            <h4 className="font-display text-[1.1rem] font-normal leading-snug text-text-primary">
+              {selectedNode.label}
+            </h4>
+            <button
+              onClick={() => { selectedRef.current = null; setSelectedNode(null); }}
+              className="shrink-0 text-[0.85rem] text-text-muted transition-colors hover:text-text-secondary"
+              aria-label="Dismiss"
+            >
+              &times;
+            </button>
+          </div>
+
+          <span className={`inline-block rounded-lg px-2 py-0.5 text-[0.7rem] font-medium ${TYPE_LABELS[selectedNode.type]?.cls ?? ""}`}>
+            {TYPE_LABELS[selectedNode.type]?.label ?? selectedNode.type}
+          </span>
+
+          {selectedNode.text && (
+            <p className="mt-3 text-[0.82rem] leading-relaxed text-text-secondary">
+              {selectedNode.text}
+            </p>
+          )}
+
+          <div className="mt-3 text-[0.72rem] text-text-muted">
+            {selectedNode.connections.length} connection{selectedNode.connections.length !== 1 ? "s" : ""}
+          </div>
         </div>
       )}
     </div>
