@@ -346,7 +346,7 @@ export default function LandingPage() {
 
           <div className="mt-20 space-y-24 md:space-y-32">
             <Reveal className="flex gap-8 md:gap-12">
-              <div className="pt-2 text-sm font-light text-text-muted/50">
+              <div className="pt-2 text-sm font-light text-text-muted">
                 01
               </div>
               <div className="border-l border-warm-1/20 pl-8 md:pl-12">
@@ -362,7 +362,7 @@ export default function LandingPage() {
             </Reveal>
 
             <Reveal className="flex gap-8 md:gap-12" delay={100}>
-              <div className="pt-2 text-sm font-light text-text-muted/50">
+              <div className="pt-2 text-sm font-light text-text-muted">
                 02
               </div>
               <div className="border-l border-warm-3/20 pl-8 md:pl-12">
@@ -378,7 +378,7 @@ export default function LandingPage() {
             </Reveal>
 
             <Reveal className="flex gap-8 md:gap-12" delay={200}>
-              <div className="pt-2 text-sm font-light text-text-muted/50">
+              <div className="pt-2 text-sm font-light text-text-muted">
                 03
               </div>
               <div className="border-l border-cool-1/20 pl-8 md:pl-12">
@@ -610,7 +610,7 @@ export default function LandingPage() {
               </a>
             </div>
           </div>
-          <div className="mt-12 flex flex-col gap-2 text-xs text-text-muted/60 md:flex-row md:justify-between">
+          <div className="mt-12 flex flex-col gap-2 text-xs text-text-muted md:flex-row md:justify-between">
             <p>The Good Ship · tomcw.xyz</p>
             <p>&copy; 2026 Swells. All rights reserved.</p>
           </div>

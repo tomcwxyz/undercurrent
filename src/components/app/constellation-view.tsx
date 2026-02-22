@@ -53,6 +53,12 @@ export function ConstellationView({ nodes }: ConstellationViewProps) {
 
     let raf: number;
     prefersReducedMotion.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const styles = getComputedStyle(document.documentElement);
+    const textPrimary = styles.getPropertyValue("--color-text-primary").trim() || "232,228,223";
+    // Convert hex like #e8e4df to "232,228,223"
+    const labelRgb = textPrimary.startsWith("#")
+      ? [parseInt(textPrimary.slice(1, 3), 16), parseInt(textPrimary.slice(3, 5), 16), parseInt(textPrimary.slice(5, 7), 16)].join(",")
+      : textPrimary;
 
     function resize() {
       const dpr = window.devicePixelRatio || 1;
@@ -121,7 +127,7 @@ export function ConstellationView({ nodes }: ConstellationViewProps) {
         // Label
         if (isHov || node.size > 12) {
           ctx!.font = `${isHov ? 13 : 11}px 'DM Sans', sans-serif`;
-          ctx!.fillStyle = `rgba(232,228,223,${isHov ? 0.9 : 0.5})`;
+          ctx!.fillStyle = `rgba(${labelRgb},${isHov ? 1 : 0.78})`;
           ctx!.textAlign = "center";
           ctx!.fillText(node.label, node.px, node.py - size - 8);
         }

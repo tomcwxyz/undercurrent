@@ -94,7 +94,7 @@ export function LandscapeView({ signals, observations, signalObservationMaps, on
           <div className="relative mb-3">
             <svg
               aria-hidden="true"
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
               width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
             >
               <circle cx="11" cy="11" r="8" />
@@ -113,7 +113,7 @@ export function LandscapeView({ signals, observations, signalObservationMaps, on
 
           {/* Strength chips */}
           <div className="mb-2 flex flex-wrap gap-1.5">
-            <span className="mr-1 self-center text-[0.7rem] text-text-muted">Strength:</span>
+            <span className="mr-1 self-center text-[0.7rem] text-text-secondary">Strength:</span>
             {STRENGTH_FILTERS.map((f) => (
               <FilterChip
                 key={f}
@@ -126,7 +126,7 @@ export function LandscapeView({ signals, observations, signalObservationMaps, on
 
           {/* Direction chips */}
           <div className="flex flex-wrap gap-1.5">
-            <span className="mr-1 self-center text-[0.7rem] text-text-muted">Direction:</span>
+            <span className="mr-1 self-center text-[0.7rem] text-text-secondary">Direction:</span>
             {DIRECTION_FILTERS.map((f) => (
               <FilterChip
                 key={f}
@@ -330,6 +330,13 @@ function TerrainCanvas() {
     const baseY = h - PADDING;
     const layers = layersRef.current;
 
+    // Read text color from CSS token
+    const styles = getComputedStyle(document.documentElement);
+    const mutedHex = styles.getPropertyValue("--color-text-muted").trim() || "#8b8fa4";
+    const mr = parseInt(mutedHex.slice(1, 3), 16);
+    const mg = parseInt(mutedHex.slice(3, 5), 16);
+    const mb = parseInt(mutedHex.slice(5, 7), 16);
+
     // Draw stacked area
     for (let l = layers.length - 1; l >= 0; l--) {
       const layer = layers[l];
@@ -374,7 +381,11 @@ function TerrainCanvas() {
       ctx.beginPath();
       ctx.moveTo(x, PADDING);
       ctx.lineTo(x, baseY);
-      ctx.strokeStyle = "rgba(232,228,223,0.15)";
+      const primaryHex = styles.getPropertyValue("--color-text-primary").trim() || "#e8e4df";
+      const pr = parseInt(primaryHex.slice(1, 3), 16);
+      const pg = parseInt(primaryHex.slice(3, 5), 16);
+      const pb = parseInt(primaryHex.slice(5, 7), 16);
+      ctx.strokeStyle = `rgba(${pr},${pg},${pb},0.15)`;
       ctx.lineWidth = 1;
       ctx.stroke();
 
@@ -396,7 +407,7 @@ function TerrainCanvas() {
 
     // Time labels
     ctx.font = '10px "DM Sans", sans-serif';
-    ctx.fillStyle = "rgba(86,91,114,0.7)";
+    ctx.fillStyle = `rgba(${mr},${mg},${mb},0.9)`;
     ctx.textAlign = "center";
     TIME_LABELS.forEach((label, i, arr) => {
       ctx.fillText(label, PADDING + (i / (arr.length - 1)) * plotW, h - 12);

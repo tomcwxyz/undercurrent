@@ -234,7 +234,7 @@ function PastReflections({ reflections }: { reflections: ReflectionView[] }) {
             return (
               <div
                 key={reflection.id}
-                className="rounded-xl border border-white/[0.03] bg-card/60 p-5 opacity-80"
+                className="rounded-xl border border-white/[0.03] bg-card/60 p-5"
               >
                 <div className="mb-2 flex items-center justify-between">
                   <span className={`inline-flex items-center gap-1 text-[0.7rem] ${loop.color}`}>
