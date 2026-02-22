@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { observations, reflectionResponses } from "@/lib/db/schema";
+import { observations, observationMedia, reflectionResponses } from "@/lib/db/schema";
 import {
   clearDemoData,
   markNotificationRead,
@@ -29,11 +29,23 @@ import type { SpaceRole } from "@/lib/types";
 import { processObservation } from "@/lib/ai/pipeline";
 import { checkSubscriptionAccess, getTierConfig } from "@/lib/stripe";
 import { hasFreeAccess } from "@/lib/account";
+import { getBaseUrl } from "@/lib/env";
 
 const createObservationSchema = z.object({
   text: z.string().min(1).max(5000),
   spaceId: z.string().uuid(),
 });
+
+const mediaRefSchema = z.array(
+  z.object({
+    key: z.string(),
+    url: z.string(),
+    type: z.enum(["image", "voice", "file"]),
+    fileName: z.string(),
+    mimeType: z.string(),
+    fileSize: z.number(),
+  })
+);
 
 export async function createObservation(formData: FormData) {
   const session = await auth();
@@ -43,6 +55,12 @@ export async function createObservation(formData: FormData) {
     text: formData.get("text"),
     spaceId: formData.get("spaceId"),
   });
+
+  // Parse optional media refs
+  const mediaKeysRaw = formData.get("mediaKeys");
+  const mediaRefs = mediaKeysRaw
+    ? mediaRefSchema.parse(JSON.parse(mediaKeysRaw as string))
+    : [];
 
   // Check subscription access
   const access = await checkSubscriptionAccess(session.user.id, session.user.email);
@@ -58,6 +76,8 @@ export async function createObservation(formData: FormData) {
     }
   }
 
+  const hasImage = mediaRefs.some((m) => m.type === "image");
+
   const [inserted] = await db
     .insert(observations)
     .values({
@@ -66,8 +86,24 @@ export async function createObservation(formData: FormData) {
       authorName: session.user.name ?? "Anonymous",
       contentText: parsed.text,
       signalStrength: "single",
+      hasImage,
     })
     .returning({ id: observations.id });
+
+  // Insert media rows
+  if (mediaRefs.length > 0) {
+    await db.insert(observationMedia).values(
+      mediaRefs.map((m) => ({
+        observationId: inserted.id,
+        type: m.type,
+        storageKey: m.key,
+        url: m.url,
+        fileName: m.fileName,
+        mimeType: m.mimeType,
+        fileSize: m.fileSize,
+      }))
+    );
+  }
 
   // Track usage
   if (subscription) {
@@ -200,8 +236,7 @@ export async function inviteToSpaceAction(formData: FormData): Promise<{ link: s
 
   await createInvitation(parsed.spaceId, parsed.email, parsed.role, session.user.id, token, expiresAt);
 
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-  return { link: `${baseUrl}/invite/${token}` };
+  return { link: `${getBaseUrl()}/invite/${token}` };
 }
 
 const memberActionSchema = z.object({

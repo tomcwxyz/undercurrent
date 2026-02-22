@@ -1,3 +1,13 @@
+export interface MediaView {
+  id: string;
+  type: "image" | "voice" | "file";
+  url: string;
+  fileName: string | null;
+  mimeType: string;
+  aiTranscript?: string | null;
+  aiDescription?: string | null;
+}
+
 export interface ObservationView {
   id: string;
   author: string;
@@ -7,6 +17,7 @@ export interface ObservationView {
   hasImage: boolean;
   imageLabel?: string;
   sentimentTier?: string;
+  media: MediaView[];
 }
 
 export interface SignalView {

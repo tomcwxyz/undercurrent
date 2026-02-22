@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { SIGNAL_COLORS } from "@/lib/mock-data";
 import { FilterChip } from "@/components/app/filter-chip";
+import { MediaAttachments } from "@/components/app/media-attachments";
 import type { ObservationView, SpaceStats } from "@/lib/types";
 
 const STRENGTH_LABELS = {
@@ -138,7 +139,7 @@ export function RiverView({ observations, stats, highlightedId, signalsByObserva
           <div className="relative mb-3">
             <svg
               aria-hidden="true"
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
               width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
             >
               <circle cx="11" cy="11" r="8" />
@@ -157,7 +158,7 @@ export function RiverView({ observations, stats, highlightedId, signalsByObserva
 
           {/* Signal strength chips */}
           <div className="mb-2 flex flex-wrap gap-1.5">
-            <span className="mr-1 self-center text-[0.7rem] text-text-muted">Strength:</span>
+            <span className="mr-1 self-center text-[0.7rem] text-text-secondary">Strength:</span>
             {STRENGTH_FILTERS.map((f) => (
               <FilterChip
                 key={f}
@@ -170,7 +171,7 @@ export function RiverView({ observations, stats, highlightedId, signalsByObserva
 
           {/* Sentiment tier chips */}
           <div className="flex flex-wrap gap-1.5">
-            <span className="mr-1 self-center text-[0.7rem] text-text-muted">Mood:</span>
+            <span className="mr-1 self-center text-[0.7rem] text-text-secondary">Mood:</span>
             {SENTIMENT_FILTERS.map((f) => (
               <FilterChip
                 key={f}
@@ -297,7 +298,9 @@ function ObservationCard({
 }) {
   return (
     <div className={`group cursor-pointer rounded-2xl border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-white/8 hover:bg-card-hover hover:shadow-[0_12px_40px_rgba(0,0,0,0.3)] ${highlighted ? "border-cool-1/40 ring-2 ring-cool-1/30" : "border-white/[0.04]"}`}>
-      {obs.hasImage && (
+      {obs.media.length > 0 ? (
+        <MediaAttachments media={obs.media} />
+      ) : obs.hasImage ? (
         <div className="mb-3 flex h-[120px] w-full items-center justify-center rounded-[10px] bg-gradient-to-br from-cool-1/10 to-cool-3/10 text-[0.75rem] text-text-muted">
           <svg
             aria-hidden="true"
@@ -315,7 +318,7 @@ function ObservationCard({
           </svg>
           {obs.imageLabel}
         </div>
-      )}
+      ) : null}
 
       <div className="text-[0.72rem] tracking-wide text-text-muted">
         {obs.time} · {obs.author}
@@ -334,9 +337,9 @@ function ObservationCard({
         >
           {STRENGTH_LABELS[obs.signalStrength]}
         </span>
-        {obs.hasImage && (
+        {obs.media.length > 0 && (
           <span className="inline-flex items-center gap-1 rounded-[10px] bg-cool-3/12 px-2.5 py-0.5 text-[0.7rem] font-medium text-cool-3">
-            ◐ Photo attached
+            ◐ {obs.media.length} {obs.media.length === 1 ? "attachment" : "attachments"}
           </span>
         )}
         {signals?.map((sig) => (

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getStripe } from "@/lib/stripe";
 import { getSubscriptionForUser } from "@/lib/db/queries";
+import { getBaseUrl } from "@/lib/env";
 
 export async function POST() {
   const session = await auth();
@@ -14,7 +15,7 @@ export async function POST() {
     return NextResponse.json({ error: "No subscription found" }, { status: 400 });
   }
 
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const baseUrl = getBaseUrl();
   const stripe = getStripe();
 
   const portalSession = await stripe.billingPortal.sessions.create({

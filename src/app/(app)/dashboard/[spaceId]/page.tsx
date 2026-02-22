@@ -15,6 +15,7 @@ import {
   getSignalSnapshotsForSpace,
   getSpacesForUser,
   getSpaceMemberCount,
+  getMediaForObservations,
 } from "@/lib/db/queries";
 import { checkSubscriptionAccess } from "@/lib/stripe";
 import { isSuperAdmin } from "@/lib/account";
@@ -64,6 +65,16 @@ export default async function SpaceDashboardPage({
       getSignalObservationsForSpace(spaceId),
     ]);
 
+  // Fetch media for all observations
+  const obsIds = obsRows.map((o) => o.id);
+  const mediaRows = await getMediaForObservations(obsIds);
+  const mediaByObservation = new Map<string, typeof mediaRows>();
+  for (const m of mediaRows) {
+    const existing = mediaByObservation.get(m.observationId) ?? [];
+    existing.push(m);
+    mediaByObservation.set(m.observationId, existing);
+  }
+
   // Build signal title map for timeline
   const signalTitleMap: Record<string, string> = {};
   for (const s of sigRows) {
@@ -95,7 +106,7 @@ export default async function SpaceDashboardPage({
 
   return (
     <AppShell
-      observations={obsRows.map(toObservationView)}
+      observations={obsRows.map((row) => toObservationView(row, mediaByObservation.get(row.id)))}
       signals={sigRows.map(toSignalView)}
       nodes={nodeRows.map(toConstellationNodeView)}
       stats={stats}

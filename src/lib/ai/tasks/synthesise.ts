@@ -136,12 +136,6 @@ Generate a signal with:
   }
 
   // Update observation signal strengths
-  const strengthMap: Record<string, "strong" | "emerging" | "weak"> = {
-    strong: "strong",
-    emerging: "emerging",
-    weak: "weak",
-  };
-
   const obsIds = await db
     .select({ observationId: signalObservations.observationId })
     .from(signalObservations)
@@ -150,7 +144,7 @@ Generate a signal with:
   if (obsIds.length > 0) {
     await db
       .update(observations)
-      .set({ signalStrength: strengthMap[result.strength] })
+      .set({ signalStrength: result.strength })
       .where(
         inArray(
           observations.id,

@@ -1,5 +1,6 @@
 import type {
   ObservationView,
+  MediaView,
   SignalView,
   ConstellationNodeView,
   SignalObservationMaps,
@@ -14,6 +15,7 @@ import type {
 } from "@/lib/types";
 import type {
   observations,
+  observationMedia,
   signals,
   constellationNodes,
   reflections,
@@ -23,6 +25,7 @@ import type {
 } from "./schema";
 
 type ObservationRow = typeof observations.$inferSelect;
+type MediaRow = typeof observationMedia.$inferSelect;
 type SignalRow = typeof signals.$inferSelect;
 type ConstellationNodeRow = typeof constellationNodes.$inferSelect;
 type ReflectionRow = typeof reflections.$inferSelect;
@@ -51,12 +54,29 @@ function formatRelativeTime(date: Date): string {
   return `${Math.floor(diffDays / 7)} weeks ago`;
 }
 
-export function toObservationView(row: ObservationRow): ObservationView {
+export function toMediaView(row: MediaRow): MediaView {
+  return {
+    id: row.id,
+    type: row.type,
+    url: row.url,
+    fileName: row.fileName,
+    mimeType: row.mimeType,
+    aiTranscript: row.aiTranscript,
+    aiDescription: row.aiDescription,
+  };
+}
+
+export function toObservationView(
+  row: ObservationRow,
+  mediaRows?: MediaRow[]
+): ObservationView {
   let sentimentTier: string | undefined;
   if (row.aiSentimentData) {
     const idx = sentimentIndex(row.aiSentimentData.energy, row.aiSentimentData.valence);
     sentimentTier = SENTIMENT_TIERS[idx];
   }
+
+  const media = (mediaRows ?? []).map(toMediaView);
 
   return {
     id: row.id,
@@ -67,6 +87,7 @@ export function toObservationView(row: ObservationRow): ObservationView {
     hasImage: row.hasImage ?? false,
     imageLabel: row.imageLabel ?? undefined,
     sentimentTier,
+    media,
   };
 }
 

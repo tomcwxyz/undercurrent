@@ -12,6 +12,8 @@
     "@ai-sdk/anthropic": "^3.0.44",
     "@ai-sdk/openai": "^3.0.29",
     "@auth/drizzle-adapter": "^1.11.1",
+    "@aws-sdk/client-s3": "^3.994.0",
+    "@aws-sdk/s3-request-presigner": "^3.994.0",
     "@neondatabase/serverless": "^1.0.2",
     "ai": "^6.0.86",
     "bcryptjs": "^3.0.3",

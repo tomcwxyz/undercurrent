@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getStripe, getTierConfig, TIER_LABELS, type Tier } from "@/lib/stripe";
 import { getSubscriptionForUser } from "@/lib/db/queries";
+import { getBaseUrl } from "@/lib/env";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -10,11 +11,10 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const tier = body.tier as Tier;
-
-  if (!(tier in TIER_LABELS)) {
+  if (!(body.tier in TIER_LABELS)) {
     return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
   }
+  const tier = body.tier as Tier;
 
   const existing = await getSubscriptionForUser(session.user.id);
   if (existing?.stripeSubscriptionId && existing.status !== "canceled") {
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   }
 
   const config = getTierConfig(tier);
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const baseUrl = getBaseUrl();
   const stripe = getStripe();
 
   const checkoutSession = await stripe.checkout.sessions.create({

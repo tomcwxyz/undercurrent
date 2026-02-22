@@ -126,6 +126,23 @@ export const observations = pgTable("observations", {
   aiProcessedAt: timestamp("ai_processed_at", { mode: "date" }),
 });
 
+export const observationMedia = pgTable("observation_media", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  observationId: uuid("observation_id")
+    .notNull()
+    .references(() => observations.id, { onDelete: "cascade" }),
+  type: text("type").$type<"image" | "voice" | "file">().notNull(),
+  storageKey: text("storage_key").notNull(),
+  url: text("url").notNull(),
+  fileName: text("file_name"),
+  mimeType: text("mime_type").notNull(),
+  fileSize: integer("file_size"),
+  aiTranscript: text("ai_transcript"),
+  aiDescription: text("ai_description"),
+  aiExtractedText: text("ai_extracted_text"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
 export const signals = pgTable("signals", {
   id: uuid("id").defaultRandom().primaryKey(),
   spaceId: uuid("space_id")

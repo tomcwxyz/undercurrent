@@ -10,6 +10,8 @@ import { HeroCanvas } from "@/components/landing/hero-canvas";
 import { RiverView } from "@/components/app/river-view";
 import { DemoBanner } from "@/components/app/demo-banner";
 import { SubscriptionGate } from "@/components/app/subscription-gate";
+import { MediaUploadPreview } from "@/components/app/media-upload-preview";
+import type { PendingMedia } from "@/components/app/media-upload-preview";
 
 function ViewSkeleton() {
   return (
@@ -679,7 +681,7 @@ function NotificationItem({
     <button
       onClick={handleClick}
       className={`flex w-full gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04] ${
-        notification.read ? "opacity-60" : ""
+        notification.read ? "opacity-75" : ""
       }`}
     >
       <span className="mt-0.5 shrink-0 text-[0.85rem] text-cool-1">{icon}</span>
@@ -741,6 +743,43 @@ const NUDGES = [
   "What did you notice that others might have missed?",
 ];
 
+async function uploadMediaItem(
+  file: File | Blob,
+  fileName: string,
+  contentType: string,
+  spaceId: string,
+  onProgress: (pct: number) => void
+): Promise<{ key: string; publicUrl: string; mediaType: "image" | "voice" | "file" }> {
+  const res = await fetch("/api/upload/presign", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fileName, contentType, spaceId }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error ?? "Failed to get upload URL");
+  }
+  const { uploadUrl, key, publicUrl, mediaType } = await res.json();
+
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", uploadUrl);
+    xhr.setRequestHeader("Content-Type", contentType);
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) onProgress((e.loaded / e.total) * 100);
+    });
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error(`Upload failed: ${xhr.status}`));
+    });
+    xhr.addEventListener("error", () => reject(new Error("Upload failed")));
+    xhr.send(file);
+  });
+
+  onProgress(100);
+  return { key, publicUrl, mediaType };
+}
+
 function ObservationModal({
   spaceId,
   onClose,
@@ -749,11 +788,95 @@ function ObservationModal({
   onClose: () => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
+  const [isUploading, setIsUploading] = useState(false);
   const [nudge] = useState(() => NUDGES[Math.floor(Math.random() * NUDGES.length)]);
+  const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([]);
   const trapRef = useFocusTrap(true);
 
   useEscapeKey(true, onClose);
+
+  const addFiles = useCallback((files: FileList | File[], type: "image" | "voice" | "file") => {
+    const newItems: PendingMedia[] = Array.from(files).map((file) => ({
+      id: crypto.randomUUID(),
+      type,
+      file,
+      objectUrl: URL.createObjectURL(file),
+      fileName: file.name,
+      mimeType: file.type,
+      uploadProgress: 0,
+      uploaded: false,
+    }));
+    setPendingMedia((prev) => [...prev, ...newItems]);
+  }, []);
+
+  const removeMedia = useCallback((id: string) => {
+    setPendingMedia((prev) => {
+      const item = prev.find((m) => m.id === id);
+      if (item) URL.revokeObjectURL(item.objectUrl);
+      return prev.filter((m) => m.id !== id);
+    });
+  }, []);
+
+  const handleSubmit = useCallback(async (formData: FormData) => {
+    // Upload all pending media first
+    const mediaRefs: { key: string; url: string; type: string; fileName: string; mimeType: string; fileSize: number }[] = [];
+
+    if (pendingMedia.length > 0) {
+      setIsUploading(true);
+      try {
+        for (const item of pendingMedia) {
+          const result = await uploadMediaItem(
+            item.file,
+            item.fileName,
+            item.mimeType,
+            spaceId,
+            (pct) => {
+              setPendingMedia((prev) =>
+                prev.map((m) => (m.id === item.id ? { ...m, uploadProgress: pct } : m))
+              );
+            }
+          );
+          setPendingMedia((prev) =>
+            prev.map((m) =>
+              m.id === item.id
+                ? { ...m, uploaded: true, storageKey: result.key, publicUrl: result.publicUrl }
+                : m
+            )
+          );
+          mediaRefs.push({
+            key: result.key,
+            url: result.publicUrl,
+            type: result.mediaType,
+            fileName: item.fileName,
+            mimeType: item.mimeType,
+            fileSize: item.file.size,
+          });
+        }
+      } catch {
+        setIsUploading(false);
+        return;
+      }
+      setIsUploading(false);
+    }
+
+    if (mediaRefs.length > 0) {
+      formData.set("mediaKeys", JSON.stringify(mediaRefs));
+    }
+
+    await createObservation(formData);
+
+    // Clean up object URLs
+    for (const item of pendingMedia) {
+      URL.revokeObjectURL(item.objectUrl);
+    }
+
+    onClose();
+  }, [pendingMedia, spaceId, onClose]);
+
+  const busy = isPending || isUploading;
 
   return (
     <div
@@ -796,10 +919,7 @@ function ObservationModal({
         <form
           ref={formRef}
           action={(formData) => {
-            startTransition(async () => {
-              await createObservation(formData);
-              onClose();
-            });
+            startTransition(() => handleSubmit(formData));
           }}
         >
           <input type="hidden" name="spaceId" value={spaceId} />
@@ -817,9 +937,37 @@ function ObservationModal({
             required
           />
 
+          {/* Hidden file inputs */}
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp,image/heic"
+            capture="environment"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.length) addFiles(e.target.files, "image");
+              e.target.value = "";
+            }}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.txt,.csv"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.length) addFiles(e.target.files, "file");
+              e.target.value = "";
+            }}
+          />
+
+          <MediaUploadPreview items={pendingMedia} onRemove={removeMedia} />
+
           <div className="mt-5 flex flex-wrap gap-3">
             <button
               type="button"
+              onClick={() => imageInputRef.current?.click()}
               className="flex items-center gap-2 rounded-xl border border-white/8 px-4 py-2.5 text-[0.82rem] text-text-secondary transition-all hover:bg-white/[0.04] hover:text-text-primary"
             >
               <svg
@@ -858,6 +1006,7 @@ function ObservationModal({
             </button>
             <button
               type="button"
+              onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-2 rounded-xl border border-white/8 px-4 py-2.5 text-[0.82rem] text-text-secondary transition-all hover:bg-white/[0.04] hover:text-text-primary"
             >
               <svg
@@ -876,10 +1025,10 @@ function ObservationModal({
 
             <button
               type="submit"
-              disabled={isPending}
+              disabled={busy}
               className="ml-auto rounded-xl bg-gradient-to-r from-cool-1 to-cool-2 px-7 py-2.5 text-[0.85rem] font-medium text-deep transition-all hover:shadow-[0_4px_24px_rgba(78,205,196,0.3)] hover:-translate-y-px disabled:opacity-50"
             >
-              {isPending ? "Flowing..." : "Flow it in"}
+              {isUploading ? "Uploading..." : isPending ? "Flowing..." : "Flow it in"}
             </button>
           </div>
         </form>

@@ -2,6 +2,7 @@ import { eq, desc, gt, sql, and, isNotNull, inArray } from "drizzle-orm";
 import { db } from ".";
 import {
   observations,
+  observationMedia,
   signals,
   signalObservations,
   constellationNodes,
@@ -37,6 +38,19 @@ export async function getObservationsForSpace(spaceId: string) {
     .from(observations)
     .where(eq(observations.spaceId, spaceId))
     .orderBy(desc(observations.createdAt));
+}
+
+export async function getMediaForObservations(observationIds: string[]) {
+  if (observationIds.length === 0) return [];
+  try {
+    return await db
+      .select()
+      .from(observationMedia)
+      .where(inArray(observationMedia.observationId, observationIds));
+  } catch {
+    // observation_media table may not exist yet (needs drizzle-kit push)
+    return [];
+  }
 }
 
 export async function getSignalsForSpace(spaceId: string) {

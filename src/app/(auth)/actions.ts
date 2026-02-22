@@ -13,6 +13,7 @@ import {
 import { eq } from "drizzle-orm";
 import { Resend } from "resend";
 import { AuthError } from "next-auth";
+import { getBaseUrl } from "@/lib/env";
 
 const registerSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -93,7 +94,7 @@ export async function forgotPassword(
   const user = await getUserByEmail(email);
   if (user) {
     const token = await createPasswordResetToken(email);
-    const resetUrl = `${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/reset-password?token=${token}`;
+    const resetUrl = `${getBaseUrl()}/reset-password?token=${token}`;
 
     const resend = new Resend(process.env.RESEND_API_KEY);
     await resend.emails.send({

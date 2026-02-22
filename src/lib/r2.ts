@@ -1,0 +1,64 @@
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+let _client: S3Client | null = null;
+
+export function getR2Client(): S3Client {
+  if (!_client) {
+    _client = new S3Client({
+      region: "auto",
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+      },
+    });
+  }
+  return _client;
+}
+
+const BUCKET = () => process.env.R2_BUCKET_NAME ?? "swells-media";
+
+/** Generate a presigned PUT URL for direct browser upload */
+export async function generatePresignedUploadUrl(
+  key: string,
+  contentType: string,
+  maxSizeBytes: number
+): Promise<{ uploadUrl: string; key: string }> {
+  const command = new PutObjectCommand({
+    Bucket: BUCKET(),
+    Key: key,
+    ContentType: contentType,
+    ContentLength: maxSizeBytes,
+  });
+
+  const uploadUrl = await getSignedUrl(getR2Client(), command, {
+    expiresIn: 600, // 10 minutes
+  });
+
+  return { uploadUrl, key };
+}
+
+/** Delete an object from R2 */
+export async function deleteObject(key: string): Promise<void> {
+  await getR2Client().send(
+    new DeleteObjectCommand({
+      Bucket: BUCKET(),
+      Key: key,
+    })
+  );
+}
+
+/** Construct the public URL for an R2 object */
+export function getPublicUrl(key: string): string {
+  const bucket = BUCKET();
+  const customDomain = process.env.R2_PUBLIC_DOMAIN;
+  if (customDomain) {
+    return `https://${customDomain}/${key}`;
+  }
+  return `https://${bucket}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
+}

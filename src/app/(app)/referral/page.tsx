@@ -4,6 +4,7 @@ import {
   getSubscriptionForUser,
   getReferralCountForSubscription,
 } from "@/lib/db/queries";
+import { getBaseUrl } from "@/lib/env";
 import { ReferralCard } from "./referral-card";
 
 export default async function ReferralPage() {
@@ -20,7 +21,7 @@ export default async function ReferralPage() {
   }
 
   const referralCount = await getReferralCountForSubscription(subscription.id);
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const baseUrl = getBaseUrl();
   const referralLink = `${baseUrl}/sign-in?ref=${subscription.referralCode}`;
 
   return (
