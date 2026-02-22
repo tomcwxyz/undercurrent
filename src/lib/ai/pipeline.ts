@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { observations } from "@/lib/db/schema";
 import { describeMediaForObservation } from "./tasks/describe-media";
+import { transcribeVoiceForObservation } from "./tasks/transcribe-voice";
 import { embedObservation } from "./tasks/embed";
 import { enrichObservation } from "./tasks/enrich";
 import { clusterObservation } from "./tasks/cluster";
@@ -29,12 +30,18 @@ export async function processObservation(
 ): Promise<void> {
   console.log(`[pipeline] Processing observation ${observationId}`);
 
-  // Step 1: Describe media — non-critical, enriches embed + enrich with image context
-  try {
-    await describeMediaForObservation(observationId);
-    console.log(`[pipeline] Described media for ${observationId}`);
-  } catch (error) {
-    console.error(`[pipeline] Describe media failed for ${observationId} (continuing):`, error);
+  // Step 1: Describe media + transcribe voice — non-critical, enriches embed + enrich
+  const mediaResults = await Promise.allSettled([
+    describeMediaForObservation(observationId),
+    transcribeVoiceForObservation(observationId),
+  ]);
+  for (const [i, result] of mediaResults.entries()) {
+    const label = i === 0 ? "Describe media" : "Transcribe voice";
+    if (result.status === "fulfilled") {
+      console.log(`[pipeline] ${label} done for ${observationId}`);
+    } else {
+      console.error(`[pipeline] ${label} failed for ${observationId} (continuing):`, result.reason);
+    }
   }
 
   // Step 2: Embed — critical path, can't cluster without a vector

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useTransition, useCallback } from "react";
+import { useState, useRef, useTransition, useCallback, useEffect } from "react";
 import { useEscapeKey } from "@/lib/use-escape-key";
 import { useFocusTrap } from "@/lib/use-focus-trap";
+import { useVoiceRecorder } from "@/lib/use-voice-recorder";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -795,6 +796,13 @@ function ObservationModal({
   const [nudge] = useState(() => NUDGES[Math.floor(Math.random() * NUDGES.length)]);
   const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([]);
   const trapRef = useFocusTrap(true);
+  const voice = useVoiceRecorder();
+
+  // Discard recording when modal closes
+  useEffect(() => {
+    return () => voice.discard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEscapeKey(true, onClose);
 
@@ -987,23 +995,53 @@ function ObservationModal({
             </button>
             <button
               type="button"
-              className="flex items-center gap-2 rounded-xl border border-white/8 px-4 py-2.5 text-[0.82rem] text-text-secondary transition-all hover:bg-white/[0.04] hover:text-text-primary"
+              onClick={async () => {
+                if (voice.status === "idle") {
+                  await voice.start();
+                } else {
+                  const blob = await voice.stop();
+                  if (blob && blob.size > 0) {
+                    const ext = blob.type.includes("webm") ? "webm" : "ogg";
+                    const file = new File([blob], `voice-${Date.now()}.${ext}`, {
+                      type: blob.type,
+                    });
+                    addFiles([file], "voice");
+                  }
+                }
+              }}
+              className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[0.82rem] transition-all ${
+                voice.status === "recording"
+                  ? "border-red-500/40 bg-red-500/10 text-red-400"
+                  : "border-white/8 text-text-secondary hover:bg-white/[0.04] hover:text-text-primary"
+              }`}
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" x2="12" y1="19" y2="22" />
-              </svg>
-              Voice
+              {voice.status === "recording" ? (
+                <>
+                  <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
+                  {String(Math.floor(voice.elapsed / 60)).padStart(2, "0")}:{String(voice.elapsed % 60).padStart(2, "0")}
+                </>
+              ) : (
+                <>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" x2="12" y1="19" y2="22" />
+                  </svg>
+                  Voice
+                </>
+              )}
             </button>
+            {voice.error && (
+              <span className="text-[0.75rem] text-red-400">{voice.error}</span>
+            )}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}

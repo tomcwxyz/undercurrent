@@ -36,11 +36,14 @@ export async function enrichObservation(observationId: string): Promise<void> {
     return;
   }
 
-  // Include image descriptions if available
+  // Include image descriptions and voice transcripts if available
   const media = await getMediaForObservation(observationId);
   const imageDescriptions = media
     .filter((m) => m.aiDescription)
     .map((m) => m.aiDescription!);
+  const voiceTranscripts = media
+    .filter((m) => m.aiTranscript)
+    .map((m) => m.aiTranscript!);
 
   let prompt = `Analyse the following observation from a workplace/organisational sensing context. Extract sentiment (energy, valence, arousal as -1 to 1 floats, plus a short label), key themes (1-5 words each), and named entities.
 
@@ -48,6 +51,10 @@ Observation: "${obs.contentText}"`;
 
   if (imageDescriptions.length > 0) {
     prompt += `\n\nAttached images:\n${imageDescriptions.map((d, i) => `Image ${i + 1}: ${d}`).join("\n")}`;
+  }
+
+  if (voiceTranscripts.length > 0) {
+    prompt += `\n\nVoice transcripts:\n${voiceTranscripts.map((t, i) => `Voice ${i + 1}: ${t}`).join("\n")}`;
   }
 
   const { object } = await generateObject({

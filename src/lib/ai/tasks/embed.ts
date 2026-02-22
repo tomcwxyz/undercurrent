@@ -19,11 +19,12 @@ export async function embedObservation(observationId: string): Promise<void> {
     return;
   }
 
-  // Combine text with any image descriptions for richer embeddings
+  // Combine text with image descriptions and voice transcripts for richer embeddings
   const parts = [obs.contentText];
   const media = await getMediaForObservation(observationId);
   for (const m of media) {
     if (m.aiDescription) parts.push(m.aiDescription);
+    if (m.aiTranscript) parts.push(m.aiTranscript);
   }
 
   const { embedding } = await embed({

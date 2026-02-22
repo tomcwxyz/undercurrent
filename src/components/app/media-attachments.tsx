@@ -44,28 +44,35 @@ export function MediaAttachments({ media }: MediaAttachmentsProps) {
 
       {/* Audio players */}
       {audio.map((a) => (
-        <div key={a.id} className="mb-3 flex items-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            className="shrink-0 text-cool-1"
-            aria-hidden="true"
-          >
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            <line x1="12" x2="12" y1="19" y2="22" />
-          </svg>
-          <audio
-            controls
-            preload="none"
-            className="h-8 w-full [&::-webkit-media-controls-panel]:bg-transparent"
-          >
-            <source src={a.url} type={a.mimeType} />
-          </audio>
+        <div key={a.id} className="mb-3">
+          <div className="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="shrink-0 text-cool-1"
+              aria-hidden="true"
+            >
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" x2="12" y1="19" y2="22" />
+            </svg>
+            <audio
+              controls
+              preload="none"
+              className="h-8 w-full [&::-webkit-media-controls-panel]:bg-transparent"
+            >
+              <source src={a.url} type={a.mimeType} />
+            </audio>
+          </div>
+          {a.aiTranscript && (
+            <p className="mt-1.5 px-3 text-[0.78rem] italic leading-relaxed text-text-muted">
+              {a.aiTranscript}
+            </p>
+          )}
         </div>
       ))}
 
