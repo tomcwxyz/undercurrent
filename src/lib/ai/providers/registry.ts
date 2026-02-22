@@ -21,3 +21,7 @@ export function getReflectionModel() {
 export function getAttentionModel() {
   return anthropic(AI_CONFIG.models.attentionAnalysis);
 }
+
+export function getMediaDescriptionModel() {
+  return anthropic(AI_CONFIG.models.mediaDescription);
+}

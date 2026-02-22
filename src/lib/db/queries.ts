@@ -53,6 +53,13 @@ export async function getMediaForObservations(observationIds: string[]) {
   }
 }
 
+export async function getMediaForObservation(observationId: string) {
+  return db
+    .select()
+    .from(observationMedia)
+    .where(eq(observationMedia.observationId, observationId));
+}
+
 export async function getSignalsForSpace(spaceId: string) {
   return db
     .select()

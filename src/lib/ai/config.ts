@@ -7,6 +7,7 @@ export const AI_CONFIG = {
     signalSynthesis: "claude-sonnet-4-5-20250929" as const,
     reflectionPrompts: "claude-sonnet-4-5-20250929" as const,
     attentionAnalysis: "claude-opus-4-5-20250514" as const,
+    mediaDescription: "claude-haiku-4-5-20251001" as const,
   },
 
   embedding: {

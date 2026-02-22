@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { observations } from "@/lib/db/schema";
+import { describeMediaForObservation } from "./tasks/describe-media";
 import { embedObservation } from "./tasks/embed";
 import { enrichObservation } from "./tasks/enrich";
 import { clusterObservation } from "./tasks/cluster";
@@ -12,11 +13,12 @@ import { checkReflectionTriggers } from "./tasks/reflect";
  * Runs asynchronously after the HTTP response via `after()`.
  *
  * Steps:
- * 1. Embed — generate vector embedding (critical — can't cluster without it)
- * 2. Enrich — extract sentiment, themes, entities (non-critical)
- * 3. Cluster — find similar observations / existing signals
- * 4. If clustered → evolve the signal → check reflection triggers
- * 5. If not clustered → try to synthesise new signals from unattached obs
+ * 1. Describe media — generate AI descriptions for image attachments (non-critical)
+ * 2. Embed — generate vector embedding, includes image descriptions (critical)
+ * 3. Enrich — extract sentiment, themes, entities (non-critical)
+ * 4. Cluster — find similar observations / existing signals
+ * 5. If clustered → evolve the signal → check reflection triggers
+ * 6. If not clustered → try to synthesise new signals from unattached obs
  *
  * Each step is independently error-handled so a non-critical failure
  * doesn't block later steps.
@@ -27,7 +29,15 @@ export async function processObservation(
 ): Promise<void> {
   console.log(`[pipeline] Processing observation ${observationId}`);
 
-  // Step 1: Embed — critical path, can't cluster without a vector
+  // Step 1: Describe media — non-critical, enriches embed + enrich with image context
+  try {
+    await describeMediaForObservation(observationId);
+    console.log(`[pipeline] Described media for ${observationId}`);
+  } catch (error) {
+    console.error(`[pipeline] Describe media failed for ${observationId} (continuing):`, error);
+  }
+
+  // Step 2: Embed — critical path, can't cluster without a vector
   try {
     await embedObservation(observationId);
     console.log(`[pipeline] Embedded ${observationId}`);
@@ -37,7 +47,7 @@ export async function processObservation(
     return;
   }
 
-  // Step 2: Enrich — non-critical, clustering uses embeddings not enrichment
+  // Step 3: Enrich — non-critical, clustering uses embeddings not enrichment
   try {
     await enrichObservation(observationId);
     console.log(`[pipeline] Enriched ${observationId}`);
@@ -45,7 +55,7 @@ export async function processObservation(
     console.error(`[pipeline] Enrich failed for ${observationId} (continuing):`, error);
   }
 
-  // Step 3: Cluster
+  // Step 4: Cluster
   let signalId: string | null = null;
   try {
     signalId = await clusterObservation(observationId, spaceId);
@@ -57,7 +67,7 @@ export async function processObservation(
   }
 
   if (signalId) {
-    // Step 4a: Evolve the signal this observation was added to
+    // Step 5a: Evolve the signal this observation was added to
     try {
       await evolveSignal(signalId, spaceId);
       console.log(`[pipeline] Evolved signal ${signalId}`);
@@ -65,7 +75,7 @@ export async function processObservation(
       console.error(`[pipeline] Evolve failed for signal ${signalId}:`, error);
     }
 
-    // Step 4b: Check if this signal should trigger a reflection
+    // Step 5b: Check if this signal should trigger a reflection
     try {
       await checkReflectionTriggers(signalId, spaceId);
       console.log(`[pipeline] Checked reflection triggers for ${signalId}`);
@@ -73,7 +83,7 @@ export async function processObservation(
       console.error(`[pipeline] Reflect failed for signal ${signalId}:`, error);
     }
   } else {
-    // Step 5: Try to form new signals from unattached observations
+    // Step 6: Try to form new signals from unattached observations
     try {
       await synthesiseNewSignals(spaceId);
       console.log(`[pipeline] Synthesised new signals for space ${spaceId}`);

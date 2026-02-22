@@ -2,6 +2,7 @@ import { embed } from "ai";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { observations } from "@/lib/db/schema";
+import { getMediaForObservation } from "@/lib/db/queries";
 import { getEmbeddingModel } from "../providers/registry";
 import { AI_CONFIG } from "../config";
 
@@ -18,9 +19,16 @@ export async function embedObservation(observationId: string): Promise<void> {
     return;
   }
 
+  // Combine text with any image descriptions for richer embeddings
+  const parts = [obs.contentText];
+  const media = await getMediaForObservation(observationId);
+  for (const m of media) {
+    if (m.aiDescription) parts.push(m.aiDescription);
+  }
+
   const { embedding } = await embed({
     model: getEmbeddingModel(),
-    value: obs.contentText,
+    value: parts.join("\n\n"),
     providerOptions: {
       openai: { dimensions: AI_CONFIG.embedding.dimensions },
     },

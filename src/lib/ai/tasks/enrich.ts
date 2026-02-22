@@ -3,6 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { observations } from "@/lib/db/schema";
+import { getMediaForObservation } from "@/lib/db/queries";
 import { getEnrichmentModel } from "../providers/registry";
 import { zodToAISchema } from "../schema";
 
@@ -35,12 +36,24 @@ export async function enrichObservation(observationId: string): Promise<void> {
     return;
   }
 
+  // Include image descriptions if available
+  const media = await getMediaForObservation(observationId);
+  const imageDescriptions = media
+    .filter((m) => m.aiDescription)
+    .map((m) => m.aiDescription!);
+
+  let prompt = `Analyse the following observation from a workplace/organisational sensing context. Extract sentiment (energy, valence, arousal as -1 to 1 floats, plus a short label), key themes (1-5 words each), and named entities.
+
+Observation: "${obs.contentText}"`;
+
+  if (imageDescriptions.length > 0) {
+    prompt += `\n\nAttached images:\n${imageDescriptions.map((d, i) => `Image ${i + 1}: ${d}`).join("\n")}`;
+  }
+
   const { object } = await generateObject({
     model: getEnrichmentModel(),
     schema: zodToAISchema(enrichmentSchema),
-    prompt: `Analyse the following observation from a workplace/organisational sensing context. Extract sentiment (energy, valence, arousal as -1 to 1 floats, plus a short label), key themes (1-5 words each), and named entities.
-
-Observation: "${obs.contentText}"`,
+    prompt,
   });
 
   const result = object as z.infer<typeof enrichmentSchema>;
