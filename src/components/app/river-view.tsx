@@ -300,7 +300,7 @@ function ObservationCard({
     <div className={`group cursor-pointer rounded-2xl border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-white/8 hover:bg-card-hover hover:shadow-[0_12px_40px_rgba(0,0,0,0.3)] ${highlighted ? "border-cool-1/40 ring-2 ring-cool-1/30" : "border-white/[0.04]"}`}>
       {obs.media.length > 0 ? (
         <MediaAttachments media={obs.media} />
-      ) : obs.hasImage ? (
+      ) : obs.imageLabel ? (
         <div className="mb-3 flex h-[120px] w-full items-center justify-center rounded-[10px] bg-gradient-to-br from-cool-1/10 to-cool-3/10 text-[0.75rem] text-text-muted">
           <svg
             aria-hidden="true"

@@ -14,7 +14,6 @@ export interface ObservationView {
   time: string;
   text: string;
   signalStrength: "strong" | "emerging" | "weak" | "single";
-  hasImage: boolean;
   imageLabel?: string;
   sentimentTier?: string;
   media: MediaView[];

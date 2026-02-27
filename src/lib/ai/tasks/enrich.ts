@@ -57,6 +57,13 @@ Observation: "${obs.contentText}"`;
     prompt += `\n\nVoice transcripts:\n${voiceTranscripts.map((t, i) => `Voice ${i + 1}: ${t}`).join("\n")}`;
   }
 
+  const fileTexts = media
+    .filter((m) => m.aiExtractedText)
+    .map((m) => m.aiExtractedText!);
+  if (fileTexts.length > 0) {
+    prompt += `\n\nAttached file content:\n${fileTexts.map((t, i) => `File ${i + 1}: ${t}`).join("\n")}`;
+  }
+
   const { object } = await generateObject({
     model: getEnrichmentModel(),
     schema: zodToAISchema(enrichmentSchema),

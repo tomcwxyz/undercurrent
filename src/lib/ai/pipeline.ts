@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { observations } from "@/lib/db/schema";
 import { describeMediaForObservation } from "./tasks/describe-media";
 import { transcribeVoiceForObservation } from "./tasks/transcribe-voice";
+import { extractFileTextForObservation } from "./tasks/extract-file-text";
 import { embedObservation } from "./tasks/embed";
 import { enrichObservation } from "./tasks/enrich";
 import { clusterObservation } from "./tasks/cluster";
@@ -34,9 +35,11 @@ export async function processObservation(
   const mediaResults = await Promise.allSettled([
     describeMediaForObservation(observationId),
     transcribeVoiceForObservation(observationId),
+    extractFileTextForObservation(observationId),
   ]);
+  const mediaLabels = ["Describe media", "Transcribe voice", "Extract file text"];
   for (const [i, result] of mediaResults.entries()) {
-    const label = i === 0 ? "Describe media" : "Transcribe voice";
+    const label = mediaLabels[i];
     if (result.status === "fulfilled") {
       console.log(`[pipeline] ${label} done for ${observationId}`);
     } else {

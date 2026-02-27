@@ -25,6 +25,7 @@ export async function embedObservation(observationId: string): Promise<void> {
   for (const m of media) {
     if (m.aiDescription) parts.push(m.aiDescription);
     if (m.aiTranscript) parts.push(m.aiTranscript);
+    if (m.aiExtractedText) parts.push(m.aiExtractedText);
   }
 
   const { embedding } = await embed({

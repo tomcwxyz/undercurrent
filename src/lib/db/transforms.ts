@@ -84,7 +84,6 @@ export function toObservationView(
     time: formatRelativeTime(row.createdAt),
     text: row.contentText,
     signalStrength: row.signalStrength ?? "single",
-    hasImage: row.hasImage ?? false,
     imageLabel: row.imageLabel ?? undefined,
     sentimentTier,
     media,

@@ -76,8 +76,6 @@ export async function createObservation(formData: FormData) {
     }
   }
 
-  const hasImage = mediaRefs.some((m) => m.type === "image");
-
   const [inserted] = await db
     .insert(observations)
     .values({
@@ -86,7 +84,6 @@ export async function createObservation(formData: FormData) {
       authorName: session.user.name ?? "Anonymous",
       contentText: parsed.text,
       signalStrength: "single",
-      hasImage,
     })
     .returning({ id: observations.id });
 
