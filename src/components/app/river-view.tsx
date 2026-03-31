@@ -324,7 +324,11 @@ function ObservationCard({
         {obs.time} · {obs.author}
       </div>
       <div className="mt-1.5 text-[0.92rem] leading-relaxed text-text-primary">
-        {obs.text}
+        {obs.text === "[Extracting from image\u2026]" ? (
+          <span className="italic text-text-muted">Extracting text from image\u2026</span>
+        ) : (
+          obs.text
+        )}
       </div>
 
       <div className="mt-2.5 flex flex-wrap gap-2">

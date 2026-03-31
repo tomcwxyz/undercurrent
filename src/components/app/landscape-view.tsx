@@ -245,7 +245,11 @@ export function LandscapeView({ signals, observations, signalObservationMaps, on
                               {obs.author} · {obs.time}
                             </div>
                             <div className="mt-0.5 text-[0.85rem] leading-relaxed text-text-primary line-clamp-2">
-                              {obs.text}
+                              {obs.text === "[Extracting from image\u2026]" ? (
+                                <span className="italic text-text-muted">Extracting text from image\u2026</span>
+                              ) : (
+                                obs.text
+                              )}
                             </div>
                           </div>
                           {onNavigateToObservation && (
