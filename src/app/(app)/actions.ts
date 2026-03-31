@@ -26,13 +26,13 @@ import {
 } from "@/lib/db/queries";
 import { canEditSpace, canManageMembers, canDeleteSpace } from "@/lib/permissions";
 import type { SpaceRole } from "@/lib/types";
-import { processObservation } from "@/lib/ai/pipeline";
+import { processObservation, IMAGE_OBSERVATION_PLACEHOLDER } from "@/lib/ai/pipeline";
 import { checkSubscriptionAccess, getTierConfig } from "@/lib/stripe";
 import { hasFreeAccess } from "@/lib/account";
 import { getBaseUrl } from "@/lib/env";
 
 const createObservationSchema = z.object({
-  text: z.string().min(1).max(5000),
+  text: z.string().max(5000).optional(),
   spaceId: z.string().uuid(),
 });
 
@@ -62,6 +62,13 @@ export async function createObservation(formData: FormData) {
     ? mediaRefSchema.parse(JSON.parse(mediaKeysRaw as string))
     : [];
 
+  // Require text OR at least one image
+  const hasText = !!parsed.text?.trim();
+  const hasImages = mediaRefs.some((m) => m.type === "image");
+  if (!hasText && !hasImages) {
+    throw new Error("Please add some text or attach an image");
+  }
+
   // Check subscription access
   const access = await checkSubscriptionAccess(session.user.id, session.user.email);
   if (!access.allowed) throw new Error(`Subscription ${access.reason}`);
@@ -82,7 +89,7 @@ export async function createObservation(formData: FormData) {
       spaceId: parsed.spaceId,
       authorId: session.user.id,
       authorName: session.user.name ?? "Anonymous",
-      contentText: parsed.text,
+      contentText: hasText ? parsed.text! : IMAGE_OBSERVATION_PLACEHOLDER,
       signalStrength: "single",
     })
     .returning({ id: observations.id });
