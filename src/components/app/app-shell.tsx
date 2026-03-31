@@ -829,6 +829,10 @@ function ObservationModal({
   }, []);
 
   const handleSubmit = useCallback(async (formData: FormData) => {
+    const hasText = (formData.get("text") as string)?.trim().length > 0;
+    const hasImages = pendingMedia.some((m) => m.type === "image");
+    if (!hasText && !hasImages) return;
+
     // Upload all pending media first
     const mediaRefs: { key: string; url: string; type: string; fileName: string; mimeType: string; fileSize: number }[] = [];
 
@@ -885,6 +889,7 @@ function ObservationModal({
   }, [pendingMedia, spaceId, onClose]);
 
   const busy = isPending || isUploading;
+  const hasImages = pendingMedia.some((m) => m.type === "image");
 
   return (
     <div
@@ -940,9 +945,8 @@ function ObservationModal({
               borderColor: "rgba(255,255,255,0.06)",
               minHeight: "120px",
             }}
-            placeholder="I noticed that..."
+            placeholder={hasImages ? "Add context, or just submit the image\u2026" : "I noticed that..."}
             autoFocus
-            required
           />
 
           {/* Hidden file inputs */}
