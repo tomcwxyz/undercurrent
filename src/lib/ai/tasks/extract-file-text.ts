@@ -6,6 +6,13 @@ import { getMediaForObservation } from "@/lib/db/queries";
 import { getMediaDescriptionModel } from "../providers/registry";
 
 const TEXT_MIME_TYPES = new Set(["text/plain", "text/csv"]);
+const IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/heic",
+]);
 const MAX_EXTRACTED_LENGTH = 10_000;
 
 /** Extract text content from file attachments on an observation */
@@ -13,24 +20,26 @@ export async function extractFileTextForObservation(
   observationId: string
 ): Promise<void> {
   const media = await getMediaForObservation(observationId);
-  const files = media.filter(
-    (m) => m.type === "file" && !m.aiExtractedText
+  const items = media.filter(
+    (m) => (m.type === "file" || m.type === "image") && !m.aiExtractedText
   );
 
-  if (files.length === 0) return;
+  if (items.length === 0) return;
 
-  for (const file of files) {
+  for (const item of items) {
     try {
       let extractedText: string | null = null;
 
-      if (TEXT_MIME_TYPES.has(file.mimeType || "")) {
-        extractedText = await extractPlainText(file.url);
-      } else if (file.mimeType === "application/pdf") {
-        extractedText = await extractPdfText(file.url);
+      if (TEXT_MIME_TYPES.has(item.mimeType || "")) {
+        extractedText = await extractPlainText(item.url);
+      } else if (item.mimeType === "application/pdf") {
+        extractedText = await extractPdfText(item.url);
+      } else if (IMAGE_MIME_TYPES.has(item.mimeType || "")) {
+        extractedText = await extractImageText(item.url);
       } else {
         // doc/docx — binary formats need a conversion library, skip for now
         console.log(
-          `[extract-file] Skipping unsupported format ${file.mimeType} for ${file.id}`
+          `[extract-file] Skipping unsupported format ${item.mimeType} for ${item.id}`
         );
         continue;
       }
@@ -39,11 +48,11 @@ export async function extractFileTextForObservation(
         await db
           .update(observationMedia)
           .set({ aiExtractedText: extractedText })
-          .where(eq(observationMedia.id, file.id));
+          .where(eq(observationMedia.id, item.id));
       }
     } catch (error) {
       console.error(
-        `[extract-file] Failed to extract text from ${file.id}:`,
+        `[extract-file] Failed to extract text from ${item.id}:`,
         error
       );
     }
@@ -83,5 +92,29 @@ async function extractPdfText(url: string): Promise<string | null> {
     ],
   });
 
+  return text.slice(0, MAX_EXTRACTED_LENGTH);
+}
+
+async function extractImageText(url: string): Promise<string | null> {
+  const { text } = await generateText({
+    model: getMediaDescriptionModel(),
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Extract all readable text from this image exactly as written. Include handwriting, printed text, labels, sticky notes, whiteboard content, and any other visible text. If there is no readable text, respond with exactly: NO_TEXT",
+          },
+          {
+            type: "image",
+            image: new URL(url),
+          },
+        ],
+      },
+    ],
+  });
+
+  if (text.trim() === "NO_TEXT") return null;
   return text.slice(0, MAX_EXTRACTED_LENGTH);
 }
