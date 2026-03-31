@@ -30,11 +30,11 @@ export async function extractFileTextForObservation(
     try {
       let extractedText: string | null = null;
 
-      if (TEXT_MIME_TYPES.has(item.mimeType || "")) {
+      if (TEXT_MIME_TYPES.has(item.mimeType)) {
         extractedText = await extractPlainText(item.url);
       } else if (item.mimeType === "application/pdf") {
         extractedText = await extractPdfText(item.url);
-      } else if (IMAGE_MIME_TYPES.has(item.mimeType || "")) {
+      } else if (IMAGE_MIME_TYPES.has(item.mimeType)) {
         extractedText = await extractImageText(item.url);
       } else {
         // doc/docx — binary formats need a conversion library, skip for now
@@ -108,7 +108,7 @@ async function extractImageText(url: string): Promise<string | null> {
           },
           {
             type: "image",
-            image: new URL(url),
+            image: url,
           },
         ],
       },
