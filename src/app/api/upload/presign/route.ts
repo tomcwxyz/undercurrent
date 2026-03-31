@@ -101,18 +101,26 @@ export async function POST(req: NextRequest) {
   const sanitized = sanitizeFileName(fileName);
   const key = `spaces/${spaceId}/${fileId}/${sanitized}`;
 
-  const { uploadUrl } = await generatePresignedUploadUrl(
-    key,
-    contentType,
-    maxSize
-  );
-  const publicUrl = getPublicUrl(key);
+  try {
+    const { uploadUrl } = await generatePresignedUploadUrl(
+      key,
+      contentType,
+      maxSize
+    );
+    const publicUrl = getPublicUrl(key);
 
-  return NextResponse.json({
-    uploadUrl,
-    key,
-    publicUrl,
-    mediaType,
-    maxSize,
-  });
+    return NextResponse.json({
+      uploadUrl,
+      key,
+      publicUrl,
+      mediaType,
+      maxSize,
+    });
+  } catch (error) {
+    console.error("Failed to generate presigned URL:", error);
+    return NextResponse.json(
+      { error: "Upload service is currently unavailable" },
+      { status: 503 }
+    );
+  }
 }
