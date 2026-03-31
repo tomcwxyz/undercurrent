@@ -950,7 +950,6 @@ function ObservationModal({
             ref={imageInputRef}
             type="file"
             accept="image/jpeg,image/png,image/gif,image/webp,image/heic"
-            capture="environment"
             multiple
             className="hidden"
             onChange={(e) => {
