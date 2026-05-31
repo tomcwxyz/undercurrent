@@ -92,6 +92,22 @@ export const spaceMemberships = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.spaceId] })]
 );
 
+export const collections = pgTable("collections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  spaceId: uuid("space_id")
+    .notNull()
+    .references(() => spaces.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  token: text("token").notNull().unique(),
+  isOpen: boolean("is_open").default(true).notNull(),
+  closeAt: timestamp("close_at", { mode: "date" }),
+  maxResponses: integer("max_responses"),
+  responseCount: integer("response_count").default(0).notNull(),
+  moderationEnabled: boolean("moderation_enabled").default(false).notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
 export const observations = pgTable("observations", {
   id: uuid("id").defaultRandom().primaryKey(),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
@@ -111,6 +127,13 @@ export const observations = pgTable("observations", {
     .default("single"),
   isAnonymous: boolean("is_anonymous").default(false),
   isDemo: boolean("is_demo").default(false),
+  collectionId: uuid("collection_id").references(() => collections.id, {
+    onDelete: "set null",
+  }),
+  moderationStatus: text("moderation_status")
+    .$type<"approved" | "pending" | "rejected">()
+    .default("approved")
+    .notNull(),
   hasImage: boolean("has_image").default(false),
   imageLabel: text("image_label"),
   aiEmbedding: vector("ai_embedding", { dimensions: 1536 }),
