@@ -46,7 +46,8 @@ export async function generatePresignedUploadUrl(
     Bucket: BUCKET(),
     Key: key,
     ContentType: contentType,
-    ContentLength: maxSizeBytes,
+    // ContentLength intentionally omitted — signing a max size causes 403 when
+    // the browser uploads the actual (smaller) file size
   });
 
   const uploadUrl = await getSignedUrl(getR2Client(), command, {
