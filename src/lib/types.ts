@@ -18,6 +18,8 @@ export interface ObservationView {
   imageLabel?: string;
   sentimentTier?: string;
   media: MediaView[];
+  collectionId?: string | null;
+  moderationStatus?: "approved" | "pending" | "rejected";
 }
 
 export interface SignalView {
@@ -165,6 +167,21 @@ export interface SpaceInvitationView {
 export interface SignalObservationMaps {
   bySignal: Record<string, string[]>;
   byObservation: Record<string, { signalId: string; signalTitle: string }[]>;
+}
+
+export interface CollectionView {
+  id: string;
+  spaceId: string;
+  title: string;
+  description: string | null;
+  token: string;
+  isOpen: boolean;
+  closeAt: string | null; // ISO string
+  maxResponses: number | null;
+  responseCount: number;
+  moderationEnabled: boolean;
+  createdAt: string;
+  shareUrl: string;
 }
 
 export interface SentimentViewData {

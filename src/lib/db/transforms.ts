@@ -3,6 +3,7 @@ import type {
   MediaView,
   SignalView,
   ConstellationNodeView,
+  CollectionView,
   SignalObservationMaps,
   SentimentViewData,
   SentimentCell,
@@ -22,6 +23,7 @@ import type {
   reflectionResponses,
   notifications,
   signalSnapshots,
+  collections,
 } from "./schema";
 
 type ObservationRow = typeof observations.$inferSelect;
@@ -88,6 +90,28 @@ export function toObservationView(
     imageLabel: row.imageLabel ?? undefined,
     sentimentTier,
     media,
+    collectionId: row.collectionId ?? null,
+    moderationStatus: row.moderationStatus ?? "approved",
+  };
+}
+
+export function toCollectionView(
+  row: typeof collections.$inferSelect,
+  baseUrl: string
+): CollectionView {
+  return {
+    id: row.id,
+    spaceId: row.spaceId,
+    title: row.title,
+    description: row.description ?? null,
+    token: row.token,
+    isOpen: row.isOpen,
+    closeAt: row.closeAt ? row.closeAt.toISOString() : null,
+    maxResponses: row.maxResponses ?? null,
+    responseCount: row.responseCount,
+    moderationEnabled: row.moderationEnabled,
+    createdAt: row.createdAt.toISOString(),
+    shareUrl: `${baseUrl}/c/${row.token}`,
   };
 }
 
