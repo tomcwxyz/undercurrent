@@ -11,8 +11,10 @@ import { clusterObservation } from "./tasks/cluster";
 import { evolveSignal, synthesiseNewSignals } from "./tasks/synthesise";
 import { checkReflectionTriggers } from "./tasks/reflect";
 
-/** Placeholder used when user submits an image-only observation */
-export const IMAGE_OBSERVATION_PLACEHOLDER = "[Extracting from image\u2026]";
+/** Placeholder used when user submits a media-only observation (no text) */
+export const IMAGE_OBSERVATION_PLACEHOLDER = "[Processing media\u2026]";
+/** @deprecated use IMAGE_OBSERVATION_PLACEHOLDER */
+export const MEDIA_OBSERVATION_PLACEHOLDER = IMAGE_OBSERVATION_PLACEHOLDER;
 
 /**
  * Full AI processing pipeline for a new observation.
@@ -118,8 +120,8 @@ export async function processObservation(
 }
 
 /**
- * For image-only observations (no user text), replace the placeholder
- * with OCR-extracted text or fall back to the AI image description.
+ * For media-only observations (no user text), replace the placeholder with
+ * AI-extracted content. Priority: voice transcript → image OCR → image description → file text.
  */
 async function backfillContentText(observationId: string): Promise<void> {
   const [obs] = await db
@@ -131,20 +133,28 @@ async function backfillContentText(observationId: string): Promise<void> {
   if (!obs || obs.contentText !== IMAGE_OBSERVATION_PLACEHOLDER) return;
 
   const media = await getMediaForObservation(observationId);
-  const imageMedia = media.filter((m) => m.type === "image");
 
-  // Prefer OCR text, fall back to AI description
-  const ocrText = imageMedia
-    .map((m) => m.aiExtractedText)
-    .filter(Boolean)
+  const transcript = media
+    .filter((m) => m.type === "voice" && m.aiTranscript)
+    .map((m) => m.aiTranscript!)
     .join("\n\n");
 
-  const descriptionText = imageMedia
-    .map((m) => m.aiDescription)
-    .filter(Boolean)
+  const ocrText = media
+    .filter((m) => m.type === "image" && m.aiExtractedText)
+    .map((m) => m.aiExtractedText!)
     .join("\n\n");
 
-  const backfill = ocrText || descriptionText;
+  const imageDescription = media
+    .filter((m) => m.type === "image" && m.aiDescription)
+    .map((m) => m.aiDescription!)
+    .join("\n\n");
+
+  const fileText = media
+    .filter((m) => m.type === "file" && m.aiExtractedText)
+    .map((m) => m.aiExtractedText!)
+    .join("\n\n");
+
+  const backfill = transcript || ocrText || imageDescription || fileText;
   if (!backfill) return;
 
   await db

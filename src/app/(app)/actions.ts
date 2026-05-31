@@ -62,11 +62,11 @@ export async function createObservation(formData: FormData) {
     ? mediaRefSchema.parse(JSON.parse(mediaKeysRaw as string))
     : [];
 
-  // Require text OR at least one image
+  // Require text OR at least one media attachment
   const hasText = !!parsed.text?.trim();
-  const hasImages = mediaRefs.some((m) => m.type === "image");
-  if (!hasText && !hasImages) {
-    throw new Error("Please add some text or attach an image");
+  const hasMedia = mediaRefs.length > 0;
+  if (!hasText && !hasMedia) {
+    throw new Error("Please add some text or attach a recording, image, or file");
   }
 
   // Check subscription access
