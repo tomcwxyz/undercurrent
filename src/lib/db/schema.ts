@@ -191,6 +191,7 @@ export const constellationNodes = pgTable("constellation_nodes", {
   spaceId: uuid("space_id")
     .notNull()
     .references(() => spaces.id, { onDelete: "cascade" }),
+  signalId: uuid("signal_id").references(() => signals.id, { onDelete: "cascade" }),
   label: text("label").notNull(),
   x: real("x").notNull(),
   y: real("y").notNull(),

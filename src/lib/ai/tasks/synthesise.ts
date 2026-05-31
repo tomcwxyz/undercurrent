@@ -7,6 +7,7 @@ import {
   signals,
   signalObservations,
   signalSnapshots,
+  constellationNodes,
 } from "@/lib/db/schema";
 import { notifySpaceMembers } from "@/lib/db/queries";
 import { getSignalSynthesisModel } from "../providers/registry";
@@ -135,6 +136,9 @@ Generate a signal with:
     );
   }
 
+  // Upsert constellation node for this signal
+  await upsertConstellationNode(signalId, resolvedSpaceId!, result.title, result.description, result.strength);
+
   // Update observation signal strengths
   const obsIds = await db
     .select({ observationId: signalObservations.observationId })
@@ -151,6 +155,60 @@ Generate a signal with:
           obsIds.map((o) => o.observationId)
         )
       );
+  }
+}
+
+/** Derive a stable 0–1 position from a UUID segment */
+function hashToPosition(hex: string): number {
+  return parseInt(hex.slice(0, 4), 16) / 0xffff;
+}
+
+const STRENGTH_SIZE: Record<string, number> = {
+  strong: 1.2,
+  emerging: 0.9,
+  weak: 0.6,
+};
+
+/** Create or update the constellation node for a signal */
+async function upsertConstellationNode(
+  signalId: string,
+  spaceId: string,
+  label: string,
+  description: string,
+  strength: string
+): Promise<void> {
+  if (!spaceId) return;
+
+  const [existing] = await db
+    .select({ id: constellationNodes.id })
+    .from(constellationNodes)
+    .where(eq(constellationNodes.signalId, signalId))
+    .limit(1);
+
+  const size = STRENGTH_SIZE[strength] ?? 0.8;
+  const type = strength as "strong" | "emerging" | "weak";
+
+  if (existing) {
+    await db
+      .update(constellationNodes)
+      .set({ label, description, size, type })
+      .where(eq(constellationNodes.id, existing.id));
+  } else {
+    // Derive stable position from signal ID so nodes don't jump on re-runs
+    const x = 0.1 + hashToPosition(signalId.replace(/-/g, "").slice(0, 4)) * 0.8;
+    const y = 0.1 + hashToPosition(signalId.replace(/-/g, "").slice(20, 24)) * 0.8;
+    await db.insert(constellationNodes).values({
+      spaceId,
+      signalId,
+      label,
+      description,
+      x,
+      y,
+      size,
+      type,
+      connections: [],
+      isDemo: false,
+    });
   }
 }
 
