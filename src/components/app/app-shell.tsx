@@ -418,7 +418,11 @@ export function AppShell({
             />
           )}
           {activeView === "constellation" && (
-            <ConstellationView nodes={nodes} />
+            <ConstellationView
+              nodes={nodes}
+              observations={observations}
+              signalObservationMaps={signalObservationMaps}
+            />
           )}
           {activeView === "landscape" && (
             <LandscapeView

@@ -32,6 +32,7 @@ export interface SignalView {
 
 export interface ConstellationNodeView {
   id: string;
+  signalId?: string | null;
   label: string;
   x: number;
   y: number;

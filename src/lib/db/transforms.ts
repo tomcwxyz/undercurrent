@@ -108,6 +108,7 @@ export function toConstellationNodeView(
 ): ConstellationNodeView {
   return {
     id: row.id,
+    signalId: row.signalId ?? null,
     label: row.label,
     x: row.x,
     y: row.y,
