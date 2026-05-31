@@ -9,12 +9,14 @@ import { zodToAISchema } from "../schema";
 
 const enrichmentSchema = z.object({
   sentiment: z.object({
-    energy: z.number().min(-1).max(1),
-    valence: z.number().min(-1).max(1),
-    arousal: z.number().min(-1).max(1),
+    // min/max omitted — Anthropic rejects minimum/maximum constraints on number types
+    energy: z.number(),
+    valence: z.number(),
+    arousal: z.number(),
     label: z.string(),
   }),
-  themes: z.array(z.string()).min(1).max(5),
+  // min/max array constraints omitted — Anthropic rejects minItems/maxItems
+  themes: z.array(z.string()),
   entities: z.array(
     z.object({
       name: z.string(),

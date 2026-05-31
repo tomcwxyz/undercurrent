@@ -21,7 +21,7 @@ export async function clusterObservation(
   spaceId: string
 ): Promise<string | null> {
   // Find similar non-demo observations using pgvector cosine distance
-  const similar = (await db.execute(sql`
+  const similarResult = await db.execute(sql`
     SELECT o.id, so.signal_id, (o.ai_embedding <=> (
       SELECT ai_embedding FROM observations WHERE id = ${observationId}
     )) AS distance
@@ -36,7 +36,8 @@ export async function clusterObservation(
       )) < ${AI_CONFIG.clustering.distanceThreshold}
     ORDER BY distance ASC
     LIMIT 20
-  `)) as unknown as SimilarObservation[];
+  `);
+  const similar = (similarResult.rows ?? similarResult) as unknown as SimilarObservation[];
 
   if (similar.length === 0) return null;
 
@@ -116,7 +117,7 @@ export async function findUnattachedClusters(
     if (assigned.has(obs.id)) continue;
 
     // Find neighbours of this observation among unattached ones
-    const neighbours = (await db.execute(sql`
+    const neighboursResult = await db.execute(sql`
       SELECT o.id, (o.ai_embedding <=> (
         SELECT ai_embedding FROM observations WHERE id = ${obs.id}
       )) AS distance
@@ -131,7 +132,8 @@ export async function findUnattachedClusters(
           SELECT ai_embedding FROM observations WHERE id = ${obs.id}
         )) < ${AI_CONFIG.clustering.distanceThreshold}
       ORDER BY distance ASC
-    `)) as unknown as { id: string; distance: number }[];
+    `);
+    const neighbours = (neighboursResult.rows ?? neighboursResult) as unknown as { id: string; distance: number }[];
 
     const clusterIds = [obs.id, ...neighbours.map((n) => n.id)].filter(
       (id) => !assigned.has(id)
