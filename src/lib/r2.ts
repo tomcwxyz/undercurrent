@@ -26,6 +26,9 @@ export function getR2Client(): S3Client {
         accessKeyId,
         secretAccessKey,
       },
+      // Disable automatic CRC32 checksums — R2 doesn't support them
+      // Types lag behind runtime for these options, hence the cast
+      ...({ requestChecksumCalculation: "when_required", responseChecksumValidation: "when_required" } as object),
     });
   }
   return _client;
