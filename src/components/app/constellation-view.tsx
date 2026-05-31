@@ -11,11 +11,11 @@ const TYPE_RGB: Record<string, { r: number; g: number; b: number }> = {
   single: { r: 108, g: 92, b: 231 },
 };
 
-const TYPE_LABELS: Record<string, { label: string; cls: string }> = {
-  strong: { label: "Strong signal", cls: "bg-warm-1/12 text-warm-1" },
-  emerging: { label: "Emerging", cls: "bg-warm-3/12 text-warm-3" },
-  weak: { label: "Weak signal", cls: "bg-cool-2/12 text-cool-2" },
-  single: { label: "Single observation", cls: "bg-cool-3/12 text-cool-3" },
+const TYPE_LABELS: Record<string, { label: string; dot: string }> = {
+  strong: { label: "Strong signal", dot: "bg-warm-1" },
+  emerging: { label: "Emerging signal", dot: "bg-warm-3" },
+  weak: { label: "Weak signal", dot: "bg-cool-2" },
+  single: { label: "Single observation", dot: "bg-cool-3" },
 };
 
 interface ConstellationViewProps {
@@ -28,16 +28,15 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hovered, setHovered] = useState<ConstellationNodeView | null>(null);
   const [selectedNode, setSelectedNode] = useState<ConstellationNodeView | null>(null);
-  const [zoomedNode, setZoomedNode] = useState<ConstellationNodeView | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const nodesRef = useRef<(ConstellationNodeView & { px: number; py: number; phase: number })[]>([]);
   const hoveredRef = useRef<ConstellationNodeView | null>(null);
   const selectedRef = useRef<ConstellationNodeView | null>(null);
   const prefersReducedMotion = useRef(false);
 
-  // Observations linked to the zoomed signal
-  const linkedObservations = zoomedNode?.signalId && signalObservationMaps
-    ? (signalObservationMaps.bySignal[zoomedNode.signalId] ?? [])
+  // Observations linked to the selected signal
+  const linkedObservations: ObservationView[] = selectedNode?.signalId && signalObservationMaps
+    ? (signalObservationMaps.bySignal[selectedNode.signalId] ?? [])
         .map((id) => observations.find((o) => o.id === id))
         .filter((o): o is ObservationView => Boolean(o))
     : [];
@@ -84,6 +83,7 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
       const t = Date.now() * 0.001;
       const currentNodes = nodesRef.current;
       const hov = hoveredRef.current;
+      const sel = selectedRef.current;
       const nodeById = new Map(currentNodes.map((n) => [n.id, n]));
 
       // Connections
@@ -92,7 +92,6 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
           const target = nodeById.get(connId);
           if (!target) continue;
           const c = TYPE_RGB[node.type];
-          const sel = selectedRef.current;
           const isHov = (hov && (hov.id === node.id || hov.id === target.id)) ||
             (sel && (sel.id === node.id || sel.id === target.id));
           const alpha = isHov ? 0.4 : 0.08 + Math.sin(t + node.phase) * 0.03;
@@ -110,29 +109,43 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
       // Nodes
       for (const node of currentNodes) {
         const c = TYPE_RGB[node.type];
-        const sel = selectedRef.current;
-        const isHov = (hov && hov.id === node.id) || (sel && sel.id === node.id);
+        const isSelected = sel && sel.id === node.id;
+        const isHov = (hov && hov.id === node.id) || !!isSelected;
         const breathe = 1 + Math.sin(t * 0.8 + node.phase) * 0.08;
         const size = node.size * breathe * (isHov ? 1.3 : 1);
 
-        const grad = ctx!.createRadialGradient(node.px, node.py, 0, node.px, node.py, size * 3);
-        grad.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${isHov ? 0.25 : 0.1})`);
+        // Outer ring for selected node
+        if (isSelected) {
+          const ringSize = size * 2.4 + Math.sin(t * 1.2) * 3;
+          ctx!.beginPath();
+          ctx!.arc(node.px, node.py, ringSize, 0, Math.PI * 2);
+          ctx!.strokeStyle = `rgba(${c.r},${c.g},${c.b},${0.35 + Math.sin(t * 1.2) * 0.1})`;
+          ctx!.lineWidth = 1.5;
+          ctx!.stroke();
+        }
+
+        // Glow
+        const glowSize = isSelected ? size * 5 : size * 3;
+        const grad = ctx!.createRadialGradient(node.px, node.py, 0, node.px, node.py, glowSize);
+        grad.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${isSelected ? 0.35 : isHov ? 0.25 : 0.1})`);
         grad.addColorStop(1, `rgba(${c.r},${c.g},${c.b},0)`);
         ctx!.beginPath();
-        ctx!.arc(node.px, node.py, size * 3, 0, Math.PI * 2);
+        ctx!.arc(node.px, node.py, glowSize, 0, Math.PI * 2);
         ctx!.fillStyle = grad;
         ctx!.fill();
 
+        // Core
         ctx!.beginPath();
         ctx!.arc(node.px, node.py, size * 0.5, 0, Math.PI * 2);
         ctx!.fillStyle = `rgba(${c.r},${c.g},${c.b},${isHov ? 1 : 0.8})`;
         ctx!.fill();
 
+        // Label
         if (isHov || node.size > 12) {
-          ctx!.font = `${isHov ? 13 : 11}px 'DM Sans', sans-serif`;
-          ctx!.fillStyle = `rgba(${labelRgb},${isHov ? 1 : 0.78})`;
+          ctx!.font = `${isSelected ? 14 : isHov ? 13 : 11}px 'DM Sans', sans-serif`;
+          ctx!.fillStyle = `rgba(${labelRgb},${isSelected ? 1 : isHov ? 1 : 0.78})`;
           ctx!.textAlign = "center";
-          ctx!.fillText(node.label, node.px, node.py - size - 8);
+          ctx!.fillText(node.label, node.px, node.py - size - 10);
         }
       }
 
@@ -145,6 +158,7 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
     draw();
 
     function onMouseMove(e: MouseEvent) {
+      if (selectedRef.current) return; // freeze hover while panel open
       const rect = canvas!.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
@@ -172,23 +186,27 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
         const dy = my - node.py;
         if (Math.sqrt(dx * dx + dy * dy) < node.size + 8) { found = node; break; }
       }
-
       if (found) {
         if (selectedRef.current?.id === found.id) {
-          // Second click on same node — deselect
           selectedRef.current = null;
           setSelectedNode(null);
-          setZoomedNode(null);
         } else {
           selectedRef.current = found;
           setSelectedNode(found);
-          setZoomedNode(found);
+          hoveredRef.current = null;
+          setHovered(null);
         }
-      } else {
-        // Click on empty space — deselect
+      } else if (selectedRef.current) {
+        // Clicking dim area closes panel
         selectedRef.current = null;
         setSelectedNode(null);
-        setZoomedNode(null);
+      }
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && selectedRef.current) {
+        selectedRef.current = null;
+        setSelectedNode(null);
       }
     }
 
@@ -196,56 +214,40 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
     canvas.addEventListener("mousemove", onMouseMove);
     canvas.addEventListener("click", onClick);
     window.addEventListener("resize", onResize);
+    window.addEventListener("keydown", onKeyDown);
     return () => {
       canvas.removeEventListener("mousemove", onMouseMove);
       canvas.removeEventListener("click", onClick);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("keydown", onKeyDown);
       cancelAnimationFrame(raf);
     };
   }, [computeNodes, nodes]);
 
-  function dismiss() {
-    selectedRef.current = null;
-    setSelectedNode(null);
-    setZoomedNode(null);
-  }
-
-  const zoomTransform = zoomedNode
-    ? { transformOrigin: `${zoomedNode.x * 100}% ${zoomedNode.y * 100}%`, transform: "scale(2.2)" }
-    : { transform: "scale(1)" };
-
   return (
     <div className="relative flex-1 overflow-hidden">
 
-      {/* Canvas — CSS-zoomed toward selected node */}
-      <div
-        style={{ ...zoomTransform, transition: "transform 0.55s cubic-bezier(0.16, 1, 0.3, 1)", willChange: "transform" }}
-        className="h-full w-full"
-      >
-        <canvas
-          ref={canvasRef}
-          role="img"
-          aria-label="Constellation map showing signal clusters and observation connections"
-          className="h-[calc(100svh-72px)] w-full cursor-crosshair"
-        />
-      </div>
+      {/* Canvas */}
+      <canvas
+        ref={canvasRef}
+        role="img"
+        aria-label="Constellation map showing signal clusters and observation connections"
+        className="h-[calc(100svh-72px)] w-full cursor-crosshair transition-opacity duration-500"
+        style={{ opacity: selectedNode ? 0.22 : 1 }}
+      />
 
-      {/* Back button — shown when zoomed */}
-      {zoomedNode && (
-        <button
-          onClick={dismiss}
-          className="absolute left-6 top-6 z-50 flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-[0.78rem] text-text-secondary backdrop-blur-xl transition-colors hover:bg-white/[0.06] hover:text-text-primary"
-          style={{ background: "rgba(20,27,45,0.85)" }}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <path d="M19 12H5M5 12l7 7M5 12l7-7" />
-          </svg>
-          Zoom out
-        </button>
+      {/* Dim overlay — click to close */}
+      {selectedNode && (
+        <div
+          className="absolute inset-0"
+          style={{ cursor: "pointer" }}
+          onClick={() => { selectedRef.current = null; setSelectedNode(null); }}
+          aria-hidden="true"
+        />
       )}
 
-      {/* Legend — hidden when zoomed */}
-      {!zoomedNode && (
+      {/* Legend — hidden when panel open */}
+      {!selectedNode && (
         <div
           className="absolute bottom-8 left-8 rounded-2xl border border-white/[0.06] p-5 text-[0.78rem] backdrop-blur-xl"
           style={{ background: "rgba(20,27,45,0.85)" }}
@@ -270,8 +272,8 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
         </div>
       )}
 
-      {/* Hover tooltip — hidden when zoomed */}
-      {hovered && !zoomedNode && (
+      {/* Hover tooltip */}
+      {hovered && !selectedNode && (
         <div
           className="pointer-events-none absolute z-50 max-w-[260px] rounded-xl border border-white/8 p-3.5 text-[0.82rem] leading-relaxed backdrop-blur-2xl"
           style={{ left: tooltipPos.x, top: tooltipPos.y, background: "rgba(20,27,45,0.92)" }}
@@ -281,77 +283,139 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
         </div>
       )}
 
-      {/* Observation drawer — slides up when zoomed */}
+      {/* Detail panel — slides in from right */}
       <div
-        className="absolute inset-x-0 bottom-0 z-50 transition-transform duration-500"
-        style={{ transform: zoomedNode ? "translateY(0)" : "translateY(100%)" }}
+        className="pointer-events-none absolute inset-y-0 right-0 z-50 w-full max-w-[460px] transition-transform duration-500"
+        style={{
+          transform: selectedNode ? "translateX(0)" : "translateX(100%)",
+          transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+          pointerEvents: selectedNode ? "auto" : "none",
+        }}
         aria-live="polite"
       >
         <div
-          className="rounded-t-3xl border-t border-x border-white/[0.06] p-6 pb-8"
-          style={{ background: "rgba(10,14,26,0.94)", backdropFilter: "blur(24px)" }}
+          className="flex h-full flex-col border-l border-white/[0.07]"
+          style={{ background: "rgba(8,11,22,0.97)", backdropFilter: "blur(32px)" }}
         >
-          {/* Drag handle */}
-          <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-white/10" />
+          {selectedNode && (
+            <>
+              {/* Header */}
+              <div className="shrink-0 px-8 pb-6 pt-8">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  {/* Signal type dot */}
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${TYPE_LABELS[selectedNode.type]?.dot ?? "bg-cool-1"}`}
+                      style={{ boxShadow: `0 0 6px currentColor` }}
+                    />
+                    <span className="text-[0.7rem] uppercase tracking-widest text-text-muted">
+                      {TYPE_LABELS[selectedNode.type]?.label ?? selectedNode.type}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => { selectedRef.current = null; setSelectedNode(null); }}
+                    className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-white/[0.06] hover:text-text-primary"
+                    aria-label="Close"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
 
-          {/* Signal header */}
-          {zoomedNode && (
-            <div className="mb-5 flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-display text-xl font-normal leading-snug text-text-primary">
-                  {zoomedNode.label}
-                </h3>
-                {zoomedNode.text && (
-                  <p className="mt-1.5 text-[0.82rem] leading-relaxed text-text-secondary line-clamp-2">
-                    {zoomedNode.text}
+                <h2 className="font-display text-[1.75rem] font-light leading-tight text-text-primary">
+                  {selectedNode.label}
+                </h2>
+
+                {selectedNode.text && (
+                  <p className="mt-3 text-[0.85rem] leading-relaxed text-text-secondary">
+                    {selectedNode.text}
+                  </p>
+                )}
+
+                {linkedObservations.length > 0 && (
+                  <p className="mt-4 text-[0.72rem] uppercase tracking-widest text-text-muted">
+                    {linkedObservations.length} observation{linkedObservations.length !== 1 ? "s" : ""}
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className={`inline-block rounded-lg px-2.5 py-1 text-[0.7rem] font-medium ${TYPE_LABELS[zoomedNode.type]?.cls ?? ""}`}>
-                  {TYPE_LABELS[zoomedNode.type]?.label ?? zoomedNode.type}
-                </span>
-                <button
-                  onClick={dismiss}
-                  className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-white/[0.06] hover:text-text-secondary"
-                  aria-label="Close"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                    <path d="M18 6 6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          )}
 
-          {/* Observations */}
-          {linkedObservations.length > 0 ? (
-            <>
-              <p className="mb-3 text-[0.72rem] uppercase tracking-wider text-text-muted">
-                {linkedObservations.length} observation{linkedObservations.length !== 1 ? "s" : ""}
-              </p>
-              <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none]">
-                {linkedObservations.map((obs) => (
-                  <div
-                    key={obs.id}
-                    className="w-[260px] shrink-0 rounded-2xl border border-white/[0.06] p-4"
-                    style={{ background: "rgba(255,255,255,0.03)" }}
-                  >
-                    <p className="mb-2 text-[0.82rem] leading-relaxed text-text-primary line-clamp-4">
-                      {obs.text}
-                    </p>
-                    <div className="flex items-center justify-between text-[0.7rem] text-text-muted">
-                      <span>{obs.author}</span>
-                      <span>{obs.time}</span>
-                    </div>
+              {/* Divider */}
+              <div className="mx-8 border-t border-white/[0.06]" />
+
+              {/* Observations — scrollable */}
+              <div className="flex-1 overflow-y-auto px-8 py-2 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.1)_transparent]">
+                {linkedObservations.length > 0 ? (
+                  <div className="py-4">
+                    {linkedObservations.map((obs, i) => {
+                      const images = obs.media.filter((m) => m.type === "image");
+                      const audio = obs.media.filter((m) => m.type === "voice");
+
+                      return (
+                        <div
+                          key={obs.id}
+                          className={`py-6 ${i < linkedObservations.length - 1 ? "border-b border-white/[0.05]" : ""}`}
+                        >
+                          {/* Observation text as italic display quote */}
+                          <p className="font-display text-[1.05rem] font-light italic leading-relaxed text-text-primary">
+                            &ldquo;{obs.text}&rdquo;
+                          </p>
+
+                          {/* Images */}
+                          {images.length > 0 && (
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              {images.map((img) => (
+                                <img
+                                  key={img.id}
+                                  src={img.url}
+                                  alt={img.aiDescription ?? img.fileName ?? "Attached image"}
+                                  className="h-[110px] w-auto max-w-[180px] rounded-xl object-cover opacity-90 transition-opacity hover:opacity-100"
+                                  loading="lazy"
+                                />
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Audio players */}
+                          {audio.map((a) => (
+                            <div key={a.id} className="mt-3">
+                              <div className="flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0 text-cool-1" aria-hidden="true">
+                                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                  <line x1="12" x2="12" y1="19" y2="22" />
+                                </svg>
+                                <audio controls preload="none" className="h-7 w-full [&::-webkit-media-controls-panel]:bg-transparent">
+                                  <source src={a.url} type={a.mimeType} />
+                                </audio>
+                              </div>
+                              {a.aiTranscript && (
+                                <p className="mt-2 px-1 text-[0.75rem] italic leading-relaxed text-text-muted">
+                                  {a.aiTranscript}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+
+                          {/* Author + time */}
+                          <div className="mt-4 flex items-center gap-2 text-[0.72rem] text-text-muted">
+                            <span className="font-medium text-text-secondary">{obs.author}</span>
+                            <span>·</span>
+                            <span>{obs.time}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
+                ) : (
+                  <div className="flex h-40 items-center justify-center text-[0.82rem] text-text-muted">
+                    {selectedNode.signalId
+                      ? "No observations linked yet."
+                      : "Demo node — add real observations to see them here."}
+                  </div>
+                )}
               </div>
             </>
-          ) : (
-            <p className="text-[0.82rem] text-text-muted">
-              {zoomedNode?.signalId ? "No observations linked yet." : "Select a signal node to see linked observations."}
-            </p>
           )}
         </div>
       </div>
