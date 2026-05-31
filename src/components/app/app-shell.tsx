@@ -794,6 +794,7 @@ function ObservationModal({
   const audioInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [isUploading, setIsUploading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [nudge] = useState(() => NUDGES[Math.floor(Math.random() * NUDGES.length)]);
   const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([]);
   const trapRef = useFocusTrap(true);
@@ -830,6 +831,7 @@ function ObservationModal({
   }, []);
 
   const handleSubmit = useCallback(async (formData: FormData) => {
+    setSubmitError(null);
     const hasText = (formData.get("text") as string)?.trim().length > 0;
     const hasMedia = pendingMedia.length > 0;
     if (!hasText && !hasMedia) return;
@@ -879,7 +881,12 @@ function ObservationModal({
       formData.set("mediaKeys", JSON.stringify(mediaRefs));
     }
 
-    await createObservation(formData);
+    try {
+      await createObservation(formData);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      return;
+    }
 
     // Clean up object URLs
     for (const item of pendingMedia) {
@@ -1105,6 +1112,9 @@ function ObservationModal({
               {isUploading ? "Uploading..." : isPending ? "Flowing..." : "Flow it in"}
             </button>
           </div>
+          {submitError && (
+            <p className="mt-3 text-[0.78rem] text-red-400">{submitError}</p>
+          )}
         </form>
       </div>
     </div>
