@@ -1,4 +1,4 @@
-import { eq, desc, gt, sql, and, isNotNull, inArray } from "drizzle-orm";
+import { eq, desc, gt, sql, and, isNotNull, inArray, ne } from "drizzle-orm";
 import { db } from ".";
 import {
   observations,
@@ -17,6 +17,7 @@ import {
   subscriptions,
   usageRecords,
   referrals,
+  collections,
 } from "./schema";
 import type { SpaceStats } from "@/lib/types";
 
@@ -682,4 +683,74 @@ export async function resetDemoAccount(userId: string): Promise<void> {
 
   // Delete their subscription so onboarding can re-create
   await db.delete(subscriptions).where(eq(subscriptions.userId, userId));
+}
+
+// ── Collection queries ──
+
+export async function getCollectionsForSpace(spaceId: string) {
+  return db
+    .select()
+    .from(collections)
+    .where(eq(collections.spaceId, spaceId))
+    .orderBy(desc(collections.createdAt));
+}
+
+export async function getCollectionByToken(token: string) {
+  const [row] = await db
+    .select()
+    .from(collections)
+    .where(eq(collections.token, token))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function createCollection(data: {
+  spaceId: string;
+  title: string;
+  description?: string | null;
+  token: string;
+  closeAt?: Date | null;
+  maxResponses?: number | null;
+  moderationEnabled?: boolean;
+}) {
+  const [row] = await db.insert(collections).values(data).returning();
+  return row;
+}
+
+export async function updateCollection(
+  id: string,
+  data: Partial<{
+    title: string;
+    description: string | null;
+    isOpen: boolean;
+    closeAt: Date | null;
+    maxResponses: number | null;
+    moderationEnabled: boolean;
+  }>
+) {
+  await db.update(collections).set(data).where(eq(collections.id, id));
+}
+
+export async function deleteCollection(id: string) {
+  await db.delete(collections).where(eq(collections.id, id));
+}
+
+export async function incrementCollectionResponseCount(id: string) {
+  await db
+    .update(collections)
+    .set({ responseCount: sql`${collections.responseCount} + 1` })
+    .where(eq(collections.id, id));
+}
+
+export async function getObservationsForCollection(collectionId: string) {
+  return db
+    .select()
+    .from(observations)
+    .where(
+      and(
+        eq(observations.collectionId, collectionId),
+        ne(observations.moderationStatus, "rejected")
+      )
+    )
+    .orderBy(desc(observations.createdAt));
 }
