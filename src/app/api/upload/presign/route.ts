@@ -33,9 +33,11 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 function getMediaType(
   contentType: string
 ): "image" | "voice" | "file" | null {
-  if (ALLOWED_IMAGE_TYPES.has(contentType)) return "image";
-  if (ALLOWED_AUDIO_TYPES.has(contentType)) return "voice";
-  if (ALLOWED_FILE_TYPES.has(contentType)) return "file";
+  // Strip codec parameters (e.g. "audio/webm;codecs=opus" → "audio/webm")
+  const baseType = contentType.split(";")[0].trim();
+  if (ALLOWED_IMAGE_TYPES.has(baseType)) return "image";
+  if (ALLOWED_AUDIO_TYPES.has(baseType)) return "voice";
+  if (ALLOWED_FILE_TYPES.has(baseType)) return "file";
   return null;
 }
 

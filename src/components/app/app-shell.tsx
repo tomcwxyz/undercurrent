@@ -1022,7 +1022,7 @@ function ObservationModal({
                 } else {
                   const blob = await voice.stop();
                   if (blob && blob.size > 0) {
-                    const ext = blob.type.includes("webm") ? "webm" : "ogg";
+                    const ext = blob.type.includes("webm") ? "webm" : blob.type.includes("mp4") ? "mp4" : "ogg";
                     const file = new File([blob], `voice-${Date.now()}.${ext}`, {
                       type: blob.type,
                     });
