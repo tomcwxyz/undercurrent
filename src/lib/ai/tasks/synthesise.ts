@@ -163,10 +163,11 @@ function hashToPosition(hex: string): number {
   return parseInt(hex.slice(0, 4), 16) / 0xffff;
 }
 
+// Canvas renders node at size*0.5 px radius; label only shows when size > 12
 const STRENGTH_SIZE: Record<string, number> = {
-  strong: 1.2,
-  emerging: 0.9,
-  weak: 0.6,
+  strong: 18,
+  emerging: 14,
+  weak: 10,
 };
 
 /** Create or update the constellation node for a signal */
