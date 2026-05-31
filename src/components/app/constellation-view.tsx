@@ -18,6 +18,22 @@ const TYPE_LABELS: Record<string, { label: string; dot: string }> = {
   single: { label: "Single observation", dot: "bg-cool-3" },
 };
 
+interface Satellite {
+  ox: number; // origin (node centre)
+  oy: number;
+  tx: number; // target position
+  ty: number;
+  startMs: number;
+  c: { r: number; g: number; b: number };
+}
+
+// Spring-like ease — flies out and settles with a slight overshoot
+function easeOutBack(t: number): number {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
 interface ConstellationViewProps {
   nodes: ConstellationNodeView[];
   observations: ObservationView[];
@@ -32,9 +48,14 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
   const nodesRef = useRef<(ConstellationNodeView & { px: number; py: number; phase: number })[]>([]);
   const hoveredRef = useRef<ConstellationNodeView | null>(null);
   const selectedRef = useRef<ConstellationNodeView | null>(null);
+  const satellitesRef = useRef<Satellite[]>([]);
+  const signalObsMapsRef = useRef(signalObservationMaps);
   const prefersReducedMotion = useRef(false);
 
-  // Observations linked to the selected signal
+  // Keep signalObsMapsRef in sync so onClick always has fresh data
+  useEffect(() => { signalObsMapsRef.current = signalObservationMaps; }, [signalObservationMaps]);
+
+  // Observations linked to the selected signal (for the panel)
   const linkedObservations: ObservationView[] = selectedNode?.signalId && signalObservationMaps
     ? (signalObservationMaps.bySignal[selectedNode.signalId] ?? [])
         .map((id) => observations.find((o) => o.id === id))
@@ -53,6 +74,28 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
       phase: Math.random() * Math.PI * 2,
     }));
   }, []);
+
+  function spawnSatellites(node: ConstellationNodeView & { px: number; py: number }) {
+    const signalId = node.signalId;
+    const obsIds = signalId && signalObsMapsRef.current
+      ? (signalObsMapsRef.current.bySignal[signalId] ?? []).slice(0, 12)
+      : [];
+    if (obsIds.length === 0) { satellitesRef.current = []; return; }
+
+    const c = TYPE_RGB[node.type] ?? TYPE_RGB.single;
+    const radius = node.size * 4.5 + 55;
+    const now = Date.now();
+    satellitesRef.current = obsIds.map((_, i) => {
+      const angle = (i / obsIds.length) * Math.PI * 2 - Math.PI / 2;
+      return {
+        ox: node.px, oy: node.py,
+        tx: node.px + Math.cos(angle) * radius,
+        ty: node.py + Math.sin(angle) * radius,
+        startMs: now + i * 55,
+        c,
+      };
+    });
+  }
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -81,6 +124,7 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
       const h = canvas!.offsetHeight;
       ctx!.clearRect(0, 0, w, h);
       const t = Date.now() * 0.001;
+      const now = Date.now();
       const currentNodes = nodesRef.current;
       const hov = hoveredRef.current;
       const sel = selectedRef.current;
@@ -106,7 +150,43 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
         }
       }
 
-      // Nodes
+      // Satellite spokes + dots
+      for (const sat of satellitesRef.current) {
+        const elapsed = now - sat.startMs;
+        if (elapsed < 0) continue; // not started yet (stagger)
+        const rawT = Math.min(1, elapsed / 580);
+        const eased = easeOutBack(rawT);
+        const x = sat.ox + (sat.tx - sat.ox) * eased;
+        const y = sat.oy + (sat.ty - sat.oy) * eased;
+        const alpha = Math.min(1, rawT * 2); // fade in quickly
+
+        // Spoke from node to satellite
+        ctx!.beginPath();
+        ctx!.moveTo(sat.ox, sat.oy);
+        ctx!.lineTo(x, y);
+        ctx!.strokeStyle = `rgba(${sat.c.r},${sat.c.g},${sat.c.b},${alpha * 0.2})`;
+        ctx!.lineWidth = 0.75;
+        ctx!.setLineDash([3, 5]);
+        ctx!.stroke();
+        ctx!.setLineDash([]);
+
+        // Glow halo
+        const gGrad = ctx!.createRadialGradient(x, y, 0, x, y, 14);
+        gGrad.addColorStop(0, `rgba(${sat.c.r},${sat.c.g},${sat.c.b},${alpha * 0.25})`);
+        gGrad.addColorStop(1, `rgba(${sat.c.r},${sat.c.g},${sat.c.b},0)`);
+        ctx!.beginPath();
+        ctx!.arc(x, y, 14, 0, Math.PI * 2);
+        ctx!.fillStyle = gGrad;
+        ctx!.fill();
+
+        // Core dot
+        ctx!.beginPath();
+        ctx!.arc(x, y, 3.5, 0, Math.PI * 2);
+        ctx!.fillStyle = `rgba(${sat.c.r},${sat.c.g},${sat.c.b},${alpha * 0.85})`;
+        ctx!.fill();
+      }
+
+      // Signal nodes
       for (const node of currentNodes) {
         const c = TYPE_RGB[node.type];
         const isSelected = sel && sel.id === node.id;
@@ -114,7 +194,7 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
         const breathe = 1 + Math.sin(t * 0.8 + node.phase) * 0.08;
         const size = node.size * breathe * (isHov ? 1.3 : 1);
 
-        // Outer ring for selected node
+        // Animated outer ring on selected node
         if (isSelected) {
           const ringSize = size * 2.4 + Math.sin(t * 1.2) * 3;
           ctx!.beginPath();
@@ -158,7 +238,7 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
     draw();
 
     function onMouseMove(e: MouseEvent) {
-      if (selectedRef.current) return; // freeze hover while panel open
+      if (selectedRef.current) return;
       const rect = canvas!.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
@@ -176,11 +256,17 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
       }
     }
 
+    function deselect() {
+      selectedRef.current = null;
+      satellitesRef.current = [];
+      setSelectedNode(null);
+    }
+
     function onClick(e: MouseEvent) {
       const rect = canvas!.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      let found: ConstellationNodeView | null = null;
+      let found: typeof nodesRef.current[number] | null = null;
       for (const node of nodesRef.current) {
         const dx = mx - node.px;
         const dy = my - node.py;
@@ -188,26 +274,21 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
       }
       if (found) {
         if (selectedRef.current?.id === found.id) {
-          selectedRef.current = null;
-          setSelectedNode(null);
+          deselect();
         } else {
           selectedRef.current = found;
           setSelectedNode(found);
           hoveredRef.current = null;
           setHovered(null);
+          spawnSatellites(found);
         }
       } else if (selectedRef.current) {
-        // Clicking dim area closes panel
-        selectedRef.current = null;
-        setSelectedNode(null);
+        deselect();
       }
     }
 
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && selectedRef.current) {
-        selectedRef.current = null;
-        setSelectedNode(null);
-      }
+      if (e.key === "Escape" && selectedRef.current) deselect();
     }
 
     const onResize = () => resize();
@@ -227,21 +308,21 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
   return (
     <div className="relative flex-1 overflow-hidden">
 
-      {/* Canvas */}
+      {/* Canvas — dims slightly when panel open so panel is readable */}
       <canvas
         ref={canvasRef}
         role="img"
         aria-label="Constellation map showing signal clusters and observation connections"
         className="h-[calc(100svh-72px)] w-full cursor-crosshair transition-opacity duration-500"
-        style={{ opacity: selectedNode ? 0.22 : 1 }}
+        style={{ opacity: selectedNode ? 0.5 : 1 }}
       />
 
-      {/* Dim overlay — click to close */}
+      {/* Click-to-close overlay over the canvas area left of panel */}
       {selectedNode && (
         <div
-          className="absolute inset-0"
+          className="absolute inset-y-0 left-0 right-[460px]"
           style={{ cursor: "pointer" }}
-          onClick={() => { selectedRef.current = null; setSelectedNode(null); }}
+          onClick={() => { selectedRef.current = null; satellitesRef.current = []; setSelectedNode(null); }}
           aria-hidden="true"
         />
       )}
@@ -302,18 +383,14 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
               {/* Header */}
               <div className="shrink-0 px-8 pb-6 pt-8">
                 <div className="mb-4 flex items-start justify-between gap-3">
-                  {/* Signal type dot */}
                   <div className="flex items-center gap-2.5">
-                    <div
-                      className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${TYPE_LABELS[selectedNode.type]?.dot ?? "bg-cool-1"}`}
-                      style={{ boxShadow: `0 0 6px currentColor` }}
-                    />
+                    <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${TYPE_LABELS[selectedNode.type]?.dot ?? "bg-cool-1"}`} />
                     <span className="text-[0.7rem] uppercase tracking-widest text-text-muted">
                       {TYPE_LABELS[selectedNode.type]?.label ?? selectedNode.type}
                     </span>
                   </div>
                   <button
-                    onClick={() => { selectedRef.current = null; setSelectedNode(null); }}
+                    onClick={() => { selectedRef.current = null; satellitesRef.current = []; setSelectedNode(null); }}
                     className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-white/[0.06] hover:text-text-primary"
                     aria-label="Close"
                   >
@@ -340,7 +417,6 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
                 )}
               </div>
 
-              {/* Divider */}
               <div className="mx-8 border-t border-white/[0.06]" />
 
               {/* Observations — scrollable */}
@@ -350,18 +426,15 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
                     {linkedObservations.map((obs, i) => {
                       const images = obs.media.filter((m) => m.type === "image");
                       const audio = obs.media.filter((m) => m.type === "voice");
-
                       return (
                         <div
                           key={obs.id}
                           className={`py-6 ${i < linkedObservations.length - 1 ? "border-b border-white/[0.05]" : ""}`}
                         >
-                          {/* Observation text as italic display quote */}
                           <p className="font-display text-[1.05rem] font-light italic leading-relaxed text-text-primary">
                             &ldquo;{obs.text}&rdquo;
                           </p>
 
-                          {/* Images */}
                           {images.length > 0 && (
                             <div className="mt-4 flex flex-wrap gap-2">
                               {images.map((img) => (
@@ -376,7 +449,6 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
                             </div>
                           )}
 
-                          {/* Audio players */}
                           {audio.map((a) => (
                             <div key={a.id} className="mt-3">
                               <div className="flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2">
@@ -397,7 +469,6 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
                             </div>
                           ))}
 
-                          {/* Author + time */}
                           <div className="mt-4 flex items-center gap-2 text-[0.72rem] text-text-muted">
                             <span className="font-medium text-text-secondary">{obs.author}</span>
                             <span>·</span>
