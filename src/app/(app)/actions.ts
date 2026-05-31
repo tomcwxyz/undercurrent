@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { observations, observationMedia, reflectionResponses } from "@/lib/db/schema";
+import { observations, observationMedia, reflectionResponses, collections } from "@/lib/db/schema";
 import {
   clearDemoData,
   markNotificationRead,
@@ -23,13 +23,23 @@ import {
   getObservationCountThisMonth,
   incrementObservationCount,
   getSpaceMemberCount,
+  createCollection,
+  updateCollection,
+  deleteCollection,
+  incrementCollectionResponseCount,
 } from "@/lib/db/queries";
+import { toCollectionView } from "@/lib/db/transforms";
+import { eq } from "drizzle-orm";
 import { canEditSpace, canManageMembers, canDeleteSpace } from "@/lib/permissions";
 import type { SpaceRole } from "@/lib/types";
 import { processObservation, IMAGE_OBSERVATION_PLACEHOLDER } from "@/lib/ai/pipeline";
 import { checkSubscriptionAccess, getTierConfig } from "@/lib/stripe";
 import { hasFreeAccess } from "@/lib/account";
 import { getBaseUrl } from "@/lib/env";
+
+function generateCollectionToken(): string {
+  return randomBytes(9).toString("base64url"); // 12 URL-safe chars
+}
 
 const createObservationSchema = z.object({
   text: z.string().max(5000).optional(),
@@ -310,4 +320,114 @@ export async function createSpaceAction(formData: FormData) {
 
   const spaceId = await createSpace(parsed.name, parsed.description ?? null, session.user.id);
   redirect(`/dashboard/${spaceId}`);
+}
+
+// ── Collection actions ──
+
+const createCollectionSchema = z.object({
+  spaceId: z.string().uuid(),
+  title: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  closeAt: z.string().datetime().optional(),
+  maxResponses: z.coerce.number().int().positive().optional(),
+  moderationEnabled: z.coerce.boolean().optional(),
+});
+
+export async function createCollectionAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not authenticated");
+
+  const parsed = createCollectionSchema.parse(Object.fromEntries(formData));
+  const role = await getMemberRole(session.user.id, parsed.spaceId);
+  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Permission denied");
+
+  const baseUrl = getBaseUrl();
+  const row = await createCollection({
+    spaceId: parsed.spaceId,
+    title: parsed.title,
+    description: parsed.description ?? null,
+    token: generateCollectionToken(),
+    closeAt: parsed.closeAt ? new Date(parsed.closeAt) : null,
+    maxResponses: parsed.maxResponses ?? null,
+    moderationEnabled: parsed.moderationEnabled ?? false,
+  });
+
+  revalidatePath(`/dashboard/${parsed.spaceId}`);
+  return toCollectionView(row, baseUrl);
+}
+
+const updateCollectionSchema = z.object({
+  id: z.string().uuid(),
+  spaceId: z.string().uuid(),
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().max(1000).optional(),
+  isOpen: z.coerce.boolean().optional(),
+  closeAt: z.string().datetime().optional().nullable(),
+  maxResponses: z.coerce.number().int().positive().optional().nullable(),
+  moderationEnabled: z.coerce.boolean().optional(),
+});
+
+export async function updateCollectionAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not authenticated");
+
+  const parsed = updateCollectionSchema.parse(Object.fromEntries(formData));
+  const role = await getMemberRole(session.user.id, parsed.spaceId);
+  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Permission denied");
+
+  await updateCollection(parsed.id, {
+    title: parsed.title,
+    description: parsed.description,
+    isOpen: parsed.isOpen,
+    closeAt: parsed.closeAt
+      ? new Date(parsed.closeAt)
+      : parsed.closeAt === null
+      ? null
+      : undefined,
+    maxResponses: parsed.maxResponses,
+    moderationEnabled: parsed.moderationEnabled,
+  });
+
+  revalidatePath(`/dashboard/${parsed.spaceId}`);
+}
+
+export async function deleteCollectionAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not authenticated");
+
+  const id = z.string().uuid().parse(formData.get("id"));
+  const spaceId = z.string().uuid().parse(formData.get("spaceId"));
+  const role = await getMemberRole(session.user.id, spaceId);
+  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Permission denied");
+
+  await deleteCollection(id);
+  revalidatePath(`/dashboard/${spaceId}`);
+}
+
+export async function moderateObservationAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not authenticated");
+
+  const obsId = z.string().uuid().parse(formData.get("observationId"));
+  const spaceId = z.string().uuid().parse(formData.get("spaceId"));
+  const collectionId = z.string().uuid().parse(formData.get("collectionId"));
+  const action = z.enum(["approve", "reject"]).parse(formData.get("action"));
+
+  const role = await getMemberRole(session.user.id, spaceId);
+  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Permission denied");
+
+  const newStatus = action === "approve" ? "approved" : "rejected";
+  await db
+    .update(observations)
+    .set({ moderationStatus: newStatus })
+    .where(eq(observations.id, obsId));
+
+  if (action === "approve") {
+    await incrementCollectionResponseCount(collectionId);
+    after(async () => {
+      await processObservation(obsId, spaceId);
+    });
+  }
+
+  revalidatePath(`/dashboard/${spaceId}`);
 }
