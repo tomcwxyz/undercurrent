@@ -16,8 +16,10 @@ export const AI_CONFIG = {
   },
 
   clustering: {
-    /** Cosine similarity threshold — observations above this are considered similar */
-    similarityThreshold: 0.82,
+    /** Cosine similarity threshold — observations above this are considered similar.
+     *  Real-world related observations sit at 0.55–0.70 similarity; unrelated at <0.40.
+     *  0.55 captures thematically related observations without over-clustering. */
+    similarityThreshold: 0.55,
     /** pgvector uses distance (1 - similarity), so threshold for <=> operator */
     get distanceThreshold() {
       return 1 - this.similarityThreshold;

@@ -45,11 +45,11 @@ export async function clusterObservation(
   const withSignal = similar.find((s) => s.signal_id !== null);
 
   if (withSignal) {
-    // Attach this observation to the existing signal
+    // Attach this observation to the existing signal (ignore if already attached)
     await db.insert(signalObservations).values({
       signalId: withSignal.signal_id!,
       observationId,
-    });
+    }).onConflictDoNothing();
 
     // Update signal counts
     await updateSignalCounts(withSignal.signal_id!);
