@@ -63,6 +63,7 @@ export function toMediaView(row: MediaRow): MediaView {
     mimeType: row.mimeType,
     aiTranscript: row.aiTranscript,
     aiDescription: row.aiDescription,
+    aiExtractedText: row.aiExtractedText,
   };
 }
 

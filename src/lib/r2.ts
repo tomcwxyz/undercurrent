@@ -21,7 +21,7 @@ export function getR2Client(): S3Client {
 
     _client = new S3Client({
       region: "auto",
-      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      endpoint: `https://${accountId}.eu.r2.cloudflarestorage.com`,
       credentials: {
         accessKeyId,
         secretAccessKey,
@@ -31,7 +31,7 @@ export function getR2Client(): S3Client {
   return _client;
 }
 
-const BUCKET = () => process.env.R2_BUCKET_NAME ?? "swells-media";
+const BUCKET = () => process.env.R2_BUCKET_NAME ?? "swells";
 
 /** Generate a presigned PUT URL for direct browser upload */
 export async function generatePresignedUploadUrl(

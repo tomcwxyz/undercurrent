@@ -1,11 +1,26 @@
-import { generateText } from "ai";
+import { generateObject } from "ai";
+import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { observationMedia } from "@/lib/db/schema";
 import { getMediaForObservation } from "@/lib/db/queries";
 import { getMediaDescriptionModel } from "../providers/registry";
+import { zodToAISchema } from "../schema";
 
-/** Generate AI descriptions for image attachments on an observation */
+const imageAnalysisSchema = z.object({
+  description: z
+    .string()
+    .describe(
+      "2-3 sentence visual description of the image focusing on what is visible and relevant"
+    ),
+  extractedText: z
+    .string()
+    .describe(
+      "All readable text visible in the image (whiteboards, documents, signs, handwriting, etc). Empty string if no meaningful text is present."
+    ),
+});
+
+/** Generate AI description and OCR text for image attachments on an observation */
 export async function describeMediaForObservation(
   observationId: string
 ): Promise<void> {
@@ -16,15 +31,16 @@ export async function describeMediaForObservation(
 
   for (const image of images) {
     try {
-      const { text } = await generateText({
+      const { object } = await generateObject({
         model: getMediaDescriptionModel(),
+        schema: zodToAISchema(imageAnalysisSchema),
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Describe this image attached to a workplace observation. Focus on what's visible and relevant — people, objects, text, charts, whiteboards, environments. Be concise (2-3 sentences).",
+                text: "Analyse this image attached to a workplace observation. Provide a visual description and extract any readable text.",
               },
               {
                 type: "image",
@@ -35,16 +51,20 @@ export async function describeMediaForObservation(
         ],
       });
 
+      const result = object as z.infer<typeof imageAnalysisSchema>;
+
       await db
         .update(observationMedia)
-        .set({ aiDescription: text })
+        .set({
+          aiDescription: result.description,
+          aiExtractedText: result.extractedText || null,
+        })
         .where(eq(observationMedia.id, image.id));
     } catch (error) {
       console.error(
-        `[describe-media] Failed to describe image ${image.id}:`,
+        `[describe-media] Failed to analyse image ${image.id}:`,
         error
       );
-      // Continue with remaining images — don't let one failure block others
     }
   }
 }

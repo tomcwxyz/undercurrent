@@ -6,6 +6,7 @@ export interface MediaView {
   mimeType: string;
   aiTranscript?: string | null;
   aiDescription?: string | null;
+  aiExtractedText?: string | null;
 }
 
 export interface ObservationView {

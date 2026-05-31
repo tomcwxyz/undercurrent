@@ -57,8 +57,15 @@ Observation: "${obs.contentText}"`;
     prompt += `\n\nVoice transcripts:\n${voiceTranscripts.map((t, i) => `Voice ${i + 1}: ${t}`).join("\n")}`;
   }
 
+  const imageOcrTexts = media
+    .filter((m) => m.type === "image" && m.aiExtractedText)
+    .map((m) => m.aiExtractedText!);
+  if (imageOcrTexts.length > 0) {
+    prompt += `\n\nText extracted from images:\n${imageOcrTexts.map((t, i) => `Image ${i + 1}: ${t}`).join("\n")}`;
+  }
+
   const fileTexts = media
-    .filter((m) => m.aiExtractedText)
+    .filter((m) => m.type === "file" && m.aiExtractedText)
     .map((m) => m.aiExtractedText!);
   if (fileTexts.length > 0) {
     prompt += `\n\nAttached file content:\n${fileTexts.map((t, i) => `File ${i + 1}: ${t}`).join("\n")}`;

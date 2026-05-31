@@ -791,6 +791,7 @@ function ObservationModal({
   const formRef = useRef<HTMLFormElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [isUploading, setIsUploading] = useState(false);
   const [nudge] = useState(() => NUDGES[Math.floor(Math.random() * NUDGES.length)]);
@@ -972,6 +973,17 @@ function ObservationModal({
               e.target.value = "";
             }}
           />
+          <input
+            ref={audioInputRef}
+            type="file"
+            accept="audio/mpeg,audio/wav,audio/mp4,audio/ogg,audio/webm,audio/x-m4a,.mp3,.wav,.m4a,.ogg"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.length) addFiles(e.target.files, "voice");
+              e.target.value = "";
+            }}
+          />
 
           <MediaUploadPreview items={pendingMedia} onRemove={removeMedia} />
 
@@ -1044,6 +1056,21 @@ function ObservationModal({
             </button>
             {voice.error && (
               <span className="text-[0.75rem] text-red-400">{voice.error}</span>
+            )}
+            {voice.status === "idle" && (
+              <button
+                type="button"
+                onClick={() => audioInputRef.current?.click()}
+                className="flex items-center gap-1.5 rounded-xl border border-white/8 px-3 py-2.5 text-[0.78rem] text-text-muted transition-all hover:bg-white/[0.04] hover:text-text-secondary"
+                aria-label="Upload audio file"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" x2="12" y1="3" y2="15" />
+                </svg>
+                Upload
+              </button>
             )}
             <button
               type="button"

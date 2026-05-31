@@ -18,27 +18,39 @@ export function MediaAttachments({ media }: MediaAttachmentsProps) {
 
   return (
     <>
-      {/* Image thumbnails */}
+      {/* Image thumbnails + OCR text */}
       {images.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-2">
-          {images.map((img) => (
-            <button
-              key={img.id}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setLightboxUrl(img.url);
-              }}
-              className="overflow-hidden rounded-[10px] transition-transform hover:scale-[1.02]"
-            >
-              <img
-                src={img.url}
-                alt={img.aiDescription ?? img.fileName ?? "Attached image"}
-                className="h-[120px] w-auto max-w-[200px] rounded-[10px] object-cover"
-                loading="lazy"
-              />
-            </button>
-          ))}
+        <div className="mb-3">
+          <div className="flex flex-wrap gap-2">
+            {images.map((img) => (
+              <button
+                key={img.id}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxUrl(img.url);
+                }}
+                className="overflow-hidden rounded-[10px] transition-transform hover:scale-[1.02]"
+              >
+                <img
+                  src={img.url}
+                  alt={img.aiDescription ?? img.fileName ?? "Attached image"}
+                  className="h-[120px] w-auto max-w-[200px] rounded-[10px] object-cover"
+                  loading="lazy"
+                />
+              </button>
+            ))}
+          </div>
+          {images.map((img) =>
+            img.aiExtractedText ? (
+              <p
+                key={`ocr-${img.id}`}
+                className="mt-1.5 px-1 text-[0.78rem] italic leading-relaxed text-text-muted"
+              >
+                {img.aiExtractedText}
+              </p>
+            ) : null
+          )}
         </div>
       )}
 
