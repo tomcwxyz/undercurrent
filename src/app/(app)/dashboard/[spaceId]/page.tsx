@@ -30,6 +30,7 @@ import {
   toNotificationView,
   toTimelineEvents,
   toCollectionView,
+  toLandscapeTerrain,
 } from "@/lib/db/transforms";
 import { getBaseUrl } from "@/lib/env";
 import { AppShell } from "@/components/app/app-shell";
@@ -124,6 +125,7 @@ export default async function SpaceDashboardPage({
     <AppShell
       observations={approvedObsRows.map((row) => toObservationView(row, mediaByObservation.get(row.id)))}
       pendingObservations={pendingObsRows.map((row) => toObservationView(row, mediaByObservation.get(row.id)))}
+      terrain={toLandscapeTerrain(approvedObsRows)}
       signals={sigRows.map(toSignalView)}
       nodes={nodeRows.map(toConstellationNodeView)}
       stats={stats}

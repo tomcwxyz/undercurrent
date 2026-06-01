@@ -50,6 +50,14 @@ export interface SpaceStats {
   signalCount: number;
 }
 
+/** One band in the Signals "landscape" terrain — a theme's daily observation
+ *  counts over the trailing window. */
+export interface LandscapeTerrainLayer {
+  label: string;      // theme name
+  color: string;      // "r,g,b"
+  data: number[];     // daily counts, oldest → newest (length = window days)
+}
+
 export interface ObservationSnippet {
   id: string;
   text: string;           // truncated to ~120 chars

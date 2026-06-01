@@ -47,6 +47,7 @@ import type {
   SpaceView,
   SpaceRole,
   CollectionView,
+  LandscapeTerrainLayer,
 } from "@/lib/types";
 import { canEditSpace, canCreateObservation } from "@/lib/permissions";
 
@@ -65,6 +66,7 @@ const VIEW_LABELS: Record<View, string> = {
 interface AppShellProps {
   observations: ObservationView[];
   pendingObservations?: ObservationView[];
+  terrain?: LandscapeTerrainLayer[];
   signals: SignalView[];
   nodes: ConstellationNodeView[];
   stats: SpaceStats;
@@ -88,6 +90,7 @@ interface AppShellProps {
 export function AppShell({
   observations,
   pendingObservations,
+  terrain,
   signals,
   nodes,
   stats,
@@ -439,6 +442,7 @@ export function AppShell({
               observations={observations}
               signalObservationMaps={signalObservationMaps}
               collections={collections}
+              terrain={terrain}
               onNavigateToObservation={(id) => {
                 setHighlightedObservationId(id);
                 setActiveView("river");

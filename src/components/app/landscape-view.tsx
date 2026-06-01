@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { SIGNAL_COLORS, seededRandom } from "@/lib/mock-data";
+import { SIGNAL_COLORS } from "@/lib/mock-data";
 import { FilterChip } from "@/components/app/filter-chip";
 import { SourceFilter, matchesSource, type SourceFilterValue } from "@/components/app/source-filter";
-import type { SignalView, ObservationView, SignalObservationMaps, CollectionView } from "@/lib/types";
+import type { SignalView, ObservationView, SignalObservationMaps, CollectionView, LandscapeTerrainLayer } from "@/lib/types";
 
 const DIRECTION_LABELS = {
   strengthening: { label: "↑ Strengthening", cls: "bg-cool-1/12 text-cool-1" },
@@ -21,9 +21,10 @@ interface LandscapeViewProps {
   signalObservationMaps?: SignalObservationMaps;
   onNavigateToObservation?: (id: string) => void;
   collections?: CollectionView[];
+  terrain?: LandscapeTerrainLayer[];
 }
 
-export function LandscapeView({ signals, observations, signalObservationMaps, onNavigateToObservation, collections }: LandscapeViewProps) {
+export function LandscapeView({ signals, observations, signalObservationMaps, onNavigateToObservation, collections, terrain }: LandscapeViewProps) {
   const [search, setSearch] = useState("");
   const [strengthFilter, setStrengthFilter] = useState<string>("All");
   const [directionFilter, setDirectionFilter] = useState<string>("All");
@@ -86,8 +87,8 @@ export function LandscapeView({ signals, observations, signalObservationMaps, on
           Signal landscape
         </h2>
         <p className="mx-auto mt-2 max-w-[500px] text-[0.9rem] leading-relaxed text-text-secondary">
-          The terrain of what your organisation is sensing. Peaks form where
-          observations converge into meaning.
+          The terrain of what your organisation is sensing — your most common
+          themes rising and falling across the last 30 days.
         </p>
       </div>
 
@@ -177,7 +178,7 @@ export function LandscapeView({ signals, observations, signalObservationMaps, on
         )}
       </div>
 
-      <TerrainCanvas />
+      <TerrainCanvas layers={terrain ?? []} />
 
       <div className="mx-auto mt-8 grid max-w-[1100px] gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((signal) => {
@@ -302,46 +303,22 @@ export function LandscapeView({ signals, observations, signalObservationMaps, on
   );
 }
 
-/* ── Terrain layer type ── */
-interface Layer {
-  color: string;
-  label: string;
-  data: number[];
-}
-
-const LAYER_DEFS = [
-  { color: "255,107,74", label: "Power & strategy" },
-  { color: "255,209,102", label: "Community energy" },
-  { color: "78,205,196", label: "Participation" },
-  { color: "69,183,209", label: "Relationships" },
-  { color: "108,92,231", label: "Process questions" },
-];
-
 const DAYS = 30;
 const PADDING = 40;
 const TIME_LABELS = ["4 weeks ago", "3 weeks ago", "2 weeks ago", "Last week", "Now"];
 
-function generateLayers(): Layer[] {
-  return LAYER_DEFS.map((def, li) => {
-    const data: number[] = [];
-    let val = seededRandom(li * 100) * 20 + 10;
-    for (let i = 0; i < DAYS; i++) {
-      val += (seededRandom(li * 100 + i + 1) - 0.45) * 8;
-      val = Math.max(5, Math.min(50, val));
-      data.push(val);
-    }
-    if (li === 0) return { ...def, data: data.map((v, i) => v + (i / DAYS) * 20) };
-    if (li === 1) return { ...def, data: data.map((v, i) => v + (i / DAYS) * 12) };
-    return { ...def, data };
-  });
-}
-
-function TerrainCanvas() {
+/**
+ * Stacked-area "terrain" of theme activity over the trailing 30 days. Each band
+ * is a recurring theme; its height on a given day is the number of observations
+ * carrying that theme. Driven entirely by real data (see toLandscapeTerrain).
+ */
+function TerrainCanvas({ layers }: { layers: LandscapeTerrainLayer[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const layersRef = useRef<Layer[]>(generateLayers());
+  const layersRef = useRef<LandscapeTerrainLayer[]>(layers);
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
+    canvasW: number;
     day: number;
     layers: { label: string; color: string; value: number }[];
   } | null>(null);
@@ -363,7 +340,22 @@ function TerrainCanvas() {
     const plotW = w - PADDING * 2;
     const plotH = h - PADDING * 2;
     const baseY = h - PADDING;
-    const layers = layersRef.current;
+    const terrain = layersRef.current;
+
+    // Scale to the busiest day's stacked total (with headroom) so sparse and
+    // dense spaces both fill the chart sensibly.
+    let peak = 1;
+    for (let i = 0; i < DAYS; i++) {
+      let stack = 0;
+      for (const ly of terrain) stack += ly.data[i] ?? 0;
+      if (stack > peak) peak = stack;
+    }
+    const scaleTop = peak * 1.15;
+    const stackAt = (upto: number, day: number) => {
+      let sum = 0;
+      for (let l = 0; l <= upto; l++) sum += terrain[l].data[day] ?? 0;
+      return sum;
+    };
 
     // Read text color from CSS token
     const styles = getComputedStyle(document.documentElement);
@@ -373,22 +365,20 @@ function TerrainCanvas() {
     const mb = parseInt(mutedHex.slice(5, 7), 16);
 
     // Draw stacked area
-    for (let l = layers.length - 1; l >= 0; l--) {
-      const layer = layers[l];
+    for (let l = terrain.length - 1; l >= 0; l--) {
+      const layer = terrain[l];
       ctx.beginPath();
       ctx.moveTo(PADDING, baseY);
 
       for (let i = 0; i < DAYS; i++) {
         const x = PADDING + (i / (DAYS - 1)) * plotW;
-        const stack = layers.slice(0, l + 1).reduce((sum, ly) => sum + ly.data[i], 0);
-        const y = baseY - (stack / 200) * plotH;
+        const y = baseY - (stackAt(l, i) / scaleTop) * plotH;
 
         if (i === 0) {
           ctx.lineTo(x, y);
         } else {
           const prevX = PADDING + ((i - 1) / (DAYS - 1)) * plotW;
-          const prevStack = layers.slice(0, l + 1).reduce((sum, ly) => sum + ly.data[i - 1], 0);
-          const prevY = baseY - (prevStack / 200) * plotH;
+          const prevY = baseY - (stackAt(l, i - 1) / scaleTop) * plotH;
           const cpx = (prevX + x) / 2;
           ctx.bezierCurveTo(cpx, prevY, cpx, y, x, y);
         }
@@ -425,10 +415,9 @@ function TerrainCanvas() {
       ctx.stroke();
 
       // Dots at each layer boundary
-      for (let l = 0; l < layers.length; l++) {
-        const stack = layers.slice(0, l + 1).reduce((sum, ly) => sum + ly.data[highlightDay], 0);
-        const y = baseY - (stack / 200) * plotH;
-        const c = layers[l].color;
+      for (let l = 0; l < terrain.length; l++) {
+        const y = baseY - (stackAt(l, highlightDay) / scaleTop) * plotH;
+        const c = terrain[l].color;
 
         ctx.beginPath();
         ctx.arc(x, y, 4, 0, Math.PI * 2);
@@ -449,9 +438,11 @@ function TerrainCanvas() {
     });
   }, []);
 
+  // Keep the ref in sync with the latest data and redraw.
   useEffect(() => {
+    layersRef.current = layers;
     draw(hoveredDay);
-  }, [draw, hoveredDay]);
+  }, [layers, draw, hoveredDay]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -480,17 +471,17 @@ function TerrainCanvas() {
       return;
     }
 
-    const layers = layersRef.current;
-    const layerValues = layers.map((l) => ({
+    const layerValues = layersRef.current.map((l) => ({
       label: l.label,
       color: l.color,
-      value: Math.round(l.data[day]),
+      value: Math.round(l.data[day] ?? 0),
     }));
 
     setHoveredDay(day);
     setTooltip({
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
+      canvasW: w,
       day,
       layers: layerValues,
     });
@@ -499,6 +490,18 @@ function TerrainCanvas() {
   function handleMouseLeave() {
     setTooltip(null);
     setHoveredDay(null);
+  }
+
+  // No themes yet → honest empty state instead of a fabricated terrain.
+  if (layers.length === 0) {
+    return (
+      <div className="mx-auto flex h-[220px] max-w-[1100px] items-center justify-center rounded-2xl border border-white/[0.04] bg-white/[0.015] md:h-[300px]">
+        <p className="max-w-[360px] px-6 text-center text-[0.85rem] leading-relaxed text-text-muted">
+          The landscape forms here as themes emerge across your observations. Add a
+          few observations and the terrain will start to take shape.
+        </p>
+      </div>
+    );
   }
 
   const weeksAgo = tooltip ? Math.floor((DAYS - 1 - tooltip.day) / 7) : 0;
@@ -515,7 +518,7 @@ function TerrainCanvas() {
       <canvas
         ref={canvasRef}
         role="img"
-        aria-label="Signal terrain visualisation"
+        aria-label="Theme activity over the last 30 days"
         className="h-[220px] w-full cursor-crosshair rounded-2xl md:h-[300px]"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
@@ -526,7 +529,7 @@ function TerrainCanvas() {
         <div
           className="pointer-events-none absolute z-50 min-w-[180px] rounded-xl border border-white/8 p-3.5 text-[0.78rem] backdrop-blur-2xl"
           style={{
-            left: Math.min(tooltip.x + 16, (canvasRef.current?.offsetWidth ?? 400) - 210),
+            left: Math.min(tooltip.x + 16, tooltip.canvasW - 210),
             top: Math.max(tooltip.y - 20, 8),
             background: "rgba(20,27,45,0.92)",
           }}
@@ -551,9 +554,9 @@ function TerrainCanvas() {
         </div>
       )}
 
-      {/* Legend below chart */}
+      {/* Legend below chart — the actual themes driving the terrain */}
       <div className="mt-3 flex flex-wrap justify-center gap-x-5 gap-y-1 text-[0.72rem] text-text-muted">
-        {LAYER_DEFS.map((l) => (
+        {layers.map((l) => (
           <div key={l.label} className="flex items-center gap-1.5">
             <span
               className="inline-block h-2 w-2 rounded-full"

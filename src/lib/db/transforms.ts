@@ -4,6 +4,7 @@ import type {
   SignalView,
   ConstellationNodeView,
   CollectionView,
+  LandscapeTerrainLayer,
   SignalObservationMaps,
   SentimentViewData,
   SentimentCell,
@@ -176,6 +177,58 @@ export function toSignalObservationMaps(
   }
 
   return { bySignal, byObservation };
+}
+
+// --- Landscape terrain transform ---
+
+/** Colours for terrain bands, by theme rank (matches the app palette). */
+const TERRAIN_PALETTE = [
+  "255,107,74",  // warm-1
+  "255,209,102", // warm-3
+  "78,205,196",  // cool-1
+  "69,183,209",  // cool-2
+  "108,92,231",  // cool-3 / violet
+];
+
+const TERRAIN_DAYS = 30;
+const TERRAIN_MAX_LAYERS = 5;
+
+/**
+ * Build the Signals "landscape" from real observations: the most common themes
+ * become bands, each band's height is the count of observations carrying that
+ * theme per day over the trailing window. Returns [] when there's nothing yet.
+ */
+export function toLandscapeTerrain(
+  rows: Pick<ObservationRow, "aiThemes" | "createdAt">[],
+  days: number = TERRAIN_DAYS
+): LandscapeTerrainLayer[] {
+  const now = new Date();
+
+  // Rank themes by overall frequency.
+  const freq = new Map<string, number>();
+  for (const row of rows) {
+    for (const theme of row.aiThemes ?? []) {
+      freq.set(theme, (freq.get(theme) ?? 0) + 1);
+    }
+  }
+  const topThemes = [...freq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, TERRAIN_MAX_LAYERS)
+    .map(([theme]) => theme);
+
+  if (topThemes.length === 0) return [];
+
+  return topThemes.map((theme, rank) => {
+    const data = new Array<number>(days).fill(0);
+    for (const row of rows) {
+      if (!(row.aiThemes ?? []).includes(theme)) continue;
+      const daysAgo = Math.floor((now.getTime() - row.createdAt.getTime()) / 86400000);
+      if (daysAgo >= 0 && daysAgo < days) {
+        data[days - 1 - daysAgo] += 1; // oldest → newest
+      }
+    }
+    return { label: theme, color: TERRAIN_PALETTE[rank % TERRAIN_PALETTE.length], data };
+  });
 }
 
 // --- Sentiment transforms ---
