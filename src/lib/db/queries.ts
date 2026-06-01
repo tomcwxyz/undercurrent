@@ -525,6 +525,22 @@ export async function getObservationCountThisMonth(spaceId: string): Promise<num
   return result[0]?.count ?? 0;
 }
 
+/**
+ * Total observations counted against a subscription this month, summed across
+ * all of the account's spaces. The monthly observation limit is per-account,
+ * so this is what the limit is checked against.
+ */
+export async function getObservationCountForSubscription(subscriptionId: string): Promise<number> {
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  const [row] = await db
+    .select({ total: sql<number>`coalesce(sum(${usageRecords.observationCount}), 0)` })
+    .from(usageRecords)
+    .where(and(eq(usageRecords.subscriptionId, subscriptionId), eq(usageRecords.month, month)));
+  return Number(row?.total ?? 0);
+}
+
 export async function incrementObservationCount(subscriptionId: string, spaceId: string) {
   const now = new Date();
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;

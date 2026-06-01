@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getMemberRole, getSubscriptionForUser, getObservationCountThisMonth } from "@/lib/db/queries";
+import { getMemberRole, getSubscriptionForUser, getObservationCountForSubscription } from "@/lib/db/queries";
 import { getTierConfig } from "@/lib/stripe";
 import type { SpaceRole } from "@/lib/types";
 import { canDeleteSpace } from "@/lib/permissions";
@@ -26,7 +26,8 @@ export async function GET(
   }
 
   const config = getTierConfig(subscription.tier);
-  const observationCount = await getObservationCountThisMonth(spaceId);
+  // Usage is counted per account (across all the user's spaces), matching the limit.
+  const observationCount = await getObservationCountForSubscription(subscription.id);
 
   return NextResponse.json({
     tier: subscription.tier,

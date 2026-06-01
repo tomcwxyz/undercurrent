@@ -20,7 +20,7 @@ import {
   deleteSpace,
   createSpace,
   getSubscriptionForUser,
-  getObservationCountThisMonth,
+  getObservationCountForSubscription,
   incrementObservationCount,
   getSpaceMemberCount,
   createCollection,
@@ -85,11 +85,12 @@ export async function createObservation(formData: FormData) {
   const access = await checkSubscriptionAccess(session.user.id, session.user.email);
   if (!access.allowed) throw new Error(`Subscription ${access.reason}`);
 
-  // Check observation limits (skip for free-access accounts)
+  // Check observation limits — per account, across all the user's spaces
+  // (skip for free-access accounts).
   const subscription = await getSubscriptionForUser(session.user.id);
   if (subscription && !hasFreeAccess(session.user.email)) {
     const config = getTierConfig(subscription.tier);
-    const count = await getObservationCountThisMonth(parsed.spaceId);
+    const count = await getObservationCountForSubscription(subscription.id);
     if (count >= config.observationLimit) {
       throw new Error("Monthly observation limit reached");
     }
@@ -173,7 +174,7 @@ export async function submitReflectionResponse(formData: FormData) {
   const subscription = await getSubscriptionForUser(session.user.id);
   if (subscription && !hasFreeAccess(session.user.email)) {
     const config = getTierConfig(subscription.tier);
-    const count = await getObservationCountThisMonth(spaceId);
+    const count = await getObservationCountForSubscription(subscription.id);
     if (count >= config.observationLimit) {
       throw new Error("Monthly observation limit reached");
     }
