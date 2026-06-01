@@ -1,88 +1,51 @@
+import { randomBytes } from "crypto";
+import { eq } from "drizzle-orm";
 import { db } from ".";
 import {
   spaces,
   spaceMemberships,
   observations,
+  observationMedia,
   signals,
   signalObservations,
+  signalSnapshots,
   constellationNodes,
+  collections,
+  reflections,
 } from "./schema";
 import {
-  OBSERVATIONS,
-  SIGNALS,
-  CONSTELLATION_NODES,
-} from "@/lib/mock-data";
+  SEED_IMAGES,
+  SEED_SIGNALS,
+  SEED_OBSERVATIONS,
+  SEED_NODES,
+  SEED_COLLECTIONS,
+  SEED_REFLECTIONS,
+  SEED_SNAPSHOTS,
+  type SeedSentiment,
+} from "./seed-data";
 
-/** Plausible AI sentiment data for demo observations, keyed by mock ID. */
-const DEMO_SENTIMENT: Record<string, {
-  aiSentimentData: { energy: number; valence: number; arousal: number; label: string };
-  aiThemes: string[];
-}> = {
-  "1": {
-    aiSentimentData: { energy: 0.4, valence: 0.5, arousal: 0.6, label: "Energised" },
-    aiThemes: ["group dynamics", "momentum", "culture shift"],
-  },
-  "2": {
-    aiSentimentData: { energy: 0.2, valence: -0.1, arousal: 0.3, label: "Warm" },
-    aiThemes: ["community voice", "participation", "power dynamics"],
-  },
-  "3": {
-    aiSentimentData: { energy: 0.7, valence: -0.3, arousal: 0.8, label: "Urgent" },
-    aiThemes: ["budget", "strategy", "institutional challenge"],
-  },
-  "4": {
-    aiSentimentData: { energy: -0.1, valence: 0.3, arousal: 0.1, label: "Calm" },
-    aiThemes: ["communication", "partnership", "tone shift"],
-  },
-  "5": {
-    aiSentimentData: { energy: 0.35, valence: 0.4, arousal: 0.5, label: "Energised" },
-    aiThemes: ["community space", "engagement", "grassroots energy"],
-  },
-  "6": {
-    aiSentimentData: { energy: -0.3, valence: -0.1, arousal: 0.2, label: "Reflective" },
-    aiThemes: ["process", "innovation", "accidental discovery"],
-  },
-  "7": {
-    aiSentimentData: { energy: 0.6, valence: -0.2, arousal: 0.7, label: "Urgent" },
-    aiThemes: ["systemic patterns", "partnership", "frustration"],
-  },
-};
+/** A date `daysAgo` days back, at the given hour. */
+function dateFrom(daysAgo: number, hour = 10): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  d.setHours(hour, Math.floor((daysAgo * 7) % 60), 0, 0);
+  return d;
+}
 
-/** Parse relative time strings from mock data into real dates. */
-function relativeDate(timeStr: string): Date {
-  const now = new Date();
-  if (timeStr.startsWith("Today")) {
-    const match = timeStr.match(/(\d+):(\d+)(am|pm)/);
-    if (match) {
-      let h = parseInt(match[1]);
-      if (match[3] === "pm" && h !== 12) h += 12;
-      if (match[3] === "am" && h === 12) h = 0;
-      now.setHours(h, parseInt(match[2]), 0, 0);
-    }
-    return now;
-  }
-  if (timeStr.startsWith("Yesterday")) {
-    now.setDate(now.getDate() - 1);
-    const match = timeStr.match(/(\d+):(\d+)(am|pm)/);
-    if (match) {
-      let h = parseInt(match[1]);
-      if (match[3] === "pm" && h !== 12) h += 12;
-      if (match[3] === "am" && h === 12) h = 0;
-      now.setHours(h, parseInt(match[2]), 0, 0);
-    }
-    return now;
-  }
-  const daysMatch = timeStr.match(/(\d+) days? ago/);
-  if (daysMatch) {
-    now.setDate(now.getDate() - parseInt(daysMatch[1]));
-    now.setHours(10, 0, 0, 0);
-    return now;
-  }
-  return now;
+const imageByKey = new Map(SEED_IMAGES.map((img) => [img.key, img]));
+
+/** Shape collected for each observation we're about to insert. */
+interface ObsPlan {
+  values: typeof observations.$inferInsert;
+  author: string;
+  createdAt: Date;
+  signalKeys: string[]; // signals to link (empty if none / unprocessed)
+  image?: string;
+  linkToSignals: boolean; // false for pending (unmoderated) submissions
 }
 
 export async function seedDemoData(userId: string): Promise<string> {
-  // 1. Create space
+  // 1. Space + owner membership
   const [space] = await db
     .insert(spaces)
     .values({
@@ -93,131 +56,250 @@ export async function seedDemoData(userId: string): Promise<string> {
       environment: "stars",
     })
     .returning({ id: spaces.id });
-
   const spaceId = space.id;
 
-  // 2. Create owner membership
-  await db.insert(spaceMemberships).values({
-    userId,
-    spaceId,
-    role: "owner",
+  await db.insert(spaceMemberships).values({ userId, spaceId, role: "owner" });
+
+  // 2. Signals (counts/firstSeen filled in once observations are linked)
+  const sigRows = await db
+    .insert(signals)
+    .values(
+      SEED_SIGNALS.map((s) => ({
+        spaceId,
+        title: s.title,
+        description: s.description,
+        strength: s.strength,
+        direction: s.direction,
+        observationCount: 0,
+        contributorCount: 0,
+        firstSeen: dateFrom(45),
+        lastUpdated: new Date(),
+        aiGenerated: true,
+        isDemo: true,
+      }))
+    )
+    .returning({ id: signals.id });
+  const sigId = new Map(SEED_SIGNALS.map((s, i) => [s.key, sigRows[i].id]));
+
+  // 3. Collections (responseCount = approved submissions)
+  const colRows = await db
+    .insert(collections)
+    .values(
+      SEED_COLLECTIONS.map((c) => ({
+        spaceId,
+        title: c.title,
+        description: c.description,
+        token: randomBytes(9).toString("base64url"),
+        isOpen: c.isOpen,
+        closeAt: c.closeAtDaysFromNow != null ? dateFrom(-c.closeAtDaysFromNow) : null,
+        maxResponses: c.maxResponses ?? null,
+        responseCount: c.submissions.filter((s) => s.moderationStatus !== "pending").length,
+        moderationEnabled: c.moderationEnabled,
+        createdAt: dateFrom(c.createdDaysAgo),
+      }))
+    )
+    .returning({ id: collections.id });
+  const colId = new Map(SEED_COLLECTIONS.map((c, i) => [c.key, colRows[i].id]));
+
+  // 4. Reflections (signalIds resolved to UUIDs)
+  const reflRows = await db
+    .insert(reflections)
+    .values(
+      SEED_REFLECTIONS.map((r) => ({
+        spaceId,
+        type: "prompted" as const,
+        prompt: r.prompt,
+        signalIds: r.signals.map((k) => sigId.get(k)!).filter(Boolean),
+        learningLoop: r.learningLoop,
+        triggerType: r.triggerType,
+        createdAt: dateFrom(r.createdDaysAgo),
+        isDemo: true,
+      }))
+    )
+    .returning({ id: reflections.id });
+  const reflId = new Map(SEED_REFLECTIONS.map((r, i) => [r.key, reflRows[i].id]));
+
+  // 5. Assemble every observation: core + collection submissions + reflection responses
+  const plans: ObsPlan[] = [];
+
+  const processed = (sentiment: SeedSentiment, themes: string[], createdAt: Date) => ({
+    aiSentimentData: sentiment,
+    aiThemes: themes,
+    aiProcessedAt: createdAt,
   });
 
-  // 3. Insert observations
-  const obsIdMap = new Map<string, string>();
-  for (const obs of OBSERVATIONS) {
-    const sentiment = DEMO_SENTIMENT[obs.id];
-    const createdAt = relativeDate(obs.time);
-    const [row] = await db
-      .insert(observations)
-      .values({
+  for (const o of SEED_OBSERVATIONS) {
+    const createdAt = dateFrom(o.daysAgo, o.hour);
+    const img = o.image ? imageByKey.get(o.image) : undefined;
+    plans.push({
+      values: {
         spaceId,
-        authorName: obs.author,
-        contentText: obs.text,
-        signalStrength: obs.signalStrength,
-        hasImage: obs.hasImage ?? false,
-        imageLabel: obs.imageLabel ?? null,
+        authorName: o.author,
+        contentText: o.text,
+        signalStrength: o.signalStrength,
+        hasImage: !!img,
+        imageLabel: img?.label ?? null,
         createdAt,
         isDemo: true,
-        ...(sentiment && {
-          aiSentimentData: sentiment.aiSentimentData,
-          aiThemes: sentiment.aiThemes,
-          aiProcessedAt: createdAt,
-        }),
-      })
-      .returning({ id: observations.id });
-    obsIdMap.set(obs.id, row.id);
+        ...processed(o.sentiment, o.themes, createdAt),
+      },
+      author: o.author,
+      createdAt,
+      signalKeys: o.signals,
+      image: o.image,
+      linkToSignals: true,
+    });
   }
 
-  // 4. Insert signals
-  const sigIdMap = new Map<string, string>();
-  for (const sig of SIGNALS) {
-    const weeksAgo = SIGNALS.indexOf(sig);
-    const firstSeen = new Date();
-    firstSeen.setDate(firstSeen.getDate() - (weeksAgo + 2) * 7);
-
-    const [row] = await db
-      .insert(signals)
-      .values({
-        spaceId,
-        title: sig.title,
-        description: sig.description,
-        strength: sig.strength,
-        direction: sig.direction,
-        observationCount: sig.observationCount,
-        contributorCount: sig.contributorCount,
-        firstSeen,
-        lastUpdated: new Date(),
-        isDemo: true,
-      })
-      .returning({ id: signals.id });
-    sigIdMap.set(sig.id, row.id);
+  for (const c of SEED_COLLECTIONS) {
+    for (const s of c.submissions) {
+      const createdAt = dateFrom(s.daysAgo, 12);
+      const pending = s.moderationStatus === "pending";
+      const img = s.image ? imageByKey.get(s.image) : undefined;
+      plans.push({
+        values: {
+          spaceId,
+          collectionId: colId.get(c.key)!,
+          authorName: s.author ?? "Anonymous",
+          contentText: s.text,
+          signalStrength: "single",
+          moderationStatus: pending ? "pending" : "approved",
+          hasImage: !!img,
+          imageLabel: img?.label ?? null,
+          createdAt,
+          isDemo: true,
+          // Pending submissions are awaiting review → not yet processed.
+          ...(pending ? {} : processed(s.sentiment, s.themes, createdAt)),
+        },
+        author: s.author ?? "Anonymous",
+        createdAt,
+        signalKeys: s.signals,
+        image: s.image,
+        linkToSignals: !pending,
+      });
+    }
   }
 
-  // 5. Create signal_observations junction records
-  // Map observations to signals by thematic relevance:
-  //   obs 0 (Sarah – group energy shifted)   → s1 power dynamics, s2 community energy
-  //   obs 1 (Marcus – post-its, want asked)  → s3 want to be asked, s1 power dynamics
-  //   obs 2 (Priya – budget → strategy)      → s1 power dynamics, s3 want to be asked
-  //   obs 3 (Tom – email tone changed)       → s4 relationships less formal, s2 community energy
-  //   obs 4 (Aisha – community space busy)   → s2 community energy, s4 relationships less formal
-  //   obs 5 (James – accidental innovation)  → s5 process as barrier, s3 want to be asked
-  //   obs 6 (Sarah – systemic frustration)   → s1 power dynamics, s5 process as barrier, s4 relationships
-  const obsIds = Array.from(obsIdMap.values());
-  const sigIds = Array.from(sigIdMap.values());
-  const junctionPairs: [number, number][] = [
-    // s1: Power dynamics (obs 0, 1, 2, 6)
-    [0, 0], [0, 1], [0, 2], [0, 6],
-    // s2: Community energy (obs 0, 3, 4)
-    [1, 0], [1, 3], [1, 4],
-    // s3: People want to be asked (obs 1, 2, 5)
-    [2, 1], [2, 2], [2, 5],
-    // s4: Relationships less formal (obs 3, 4, 6)
-    [3, 3], [3, 4], [3, 6],
-    // s5: Process as barrier (obs 5, 6)
-    [4, 5], [4, 6],
-  ];
-  const junctions = junctionPairs
-    .filter(([s, o]) => sigIds[s] && obsIds[o])
-    .map(([s, o]) => ({ signalId: sigIds[s], observationId: obsIds[o] }));
+  for (const r of SEED_REFLECTIONS) {
+    for (const resp of r.responses) {
+      const createdAt = dateFrom(resp.daysAgo, 16);
+      plans.push({
+        values: {
+          spaceId,
+          reflectionId: reflId.get(r.key)!,
+          authorId: userId,
+          authorName: resp.author,
+          contentText: resp.text,
+          signalStrength: "single",
+          createdAt,
+          isDemo: true,
+          ...processed(resp.sentiment, resp.themes, createdAt),
+        },
+        author: resp.author,
+        createdAt,
+        signalKeys: r.signals,
+        linkToSignals: true,
+      });
+    }
+  }
 
+  // 6. Insert all observations in one go; ids come back in input order.
+  const obsRows = await db
+    .insert(observations)
+    .values(plans.map((p) => p.values))
+    .returning({ id: observations.id });
+  plans.forEach((p, i) => ((p as ObsPlan & { id: string }).id = obsRows[i].id));
+  const planId = (p: ObsPlan) => (p as ObsPlan & { id: string }).id;
+
+  // 7. Media rows for observations with an image
+  const mediaRows = plans
+    .filter((p) => p.image)
+    .map((p) => {
+      const img = imageByKey.get(p.image!)!;
+      return {
+        observationId: planId(p),
+        type: "image" as const,
+        storageKey: `demo/${img.key}.svg`,
+        url: `/demo/${img.key}.svg`,
+        fileName: `${img.key}.svg`,
+        mimeType: "image/svg+xml",
+        fileSize: 2048,
+        aiDescription: img.description,
+        createdAt: p.createdAt,
+      };
+    });
+  if (mediaRows.length > 0) await db.insert(observationMedia).values(mediaRows);
+
+  // 8. Signal ↔ observation links, plus per-signal counts and first-seen.
+  const junctions: { signalId: string; observationId: string }[] = [];
+  const stats = new Map<string, { obs: Set<string>; authors: Set<string>; first: Date }>();
+  for (const p of plans) {
+    if (!p.linkToSignals) continue;
+    for (const key of p.signalKeys) {
+      const id = sigId.get(key);
+      if (!id) continue;
+      junctions.push({ signalId: id, observationId: planId(p) });
+      const stat = stats.get(key) ?? { obs: new Set(), authors: new Set(), first: p.createdAt };
+      stat.obs.add(planId(p));
+      stat.authors.add(p.author);
+      if (p.createdAt < stat.first) stat.first = p.createdAt;
+      stats.set(key, stat);
+    }
+  }
   if (junctions.length > 0) {
-    await db.insert(signalObservations).values(junctions);
+    await db.insert(signalObservations).values(junctions).onConflictDoNothing();
   }
 
-  // 6. Insert constellation nodes with UUID connection mapping
-  const nodeIdMap = new Map<number, string>();
-  for (const node of CONSTELLATION_NODES) {
-    const [row] = await db
-      .insert(constellationNodes)
-      .values({
-        spaceId,
-        label: node.label,
-        x: node.x,
-        y: node.y,
-        size: node.size,
-        type: node.type,
-        connections: [], // placeholder, will update after all inserted
-        description: node.text,
-        isDemo: true,
+  for (const [key, stat] of stats) {
+    await db
+      .update(signals)
+      .set({
+        observationCount: stat.obs.size,
+        contributorCount: stat.authors.size,
+        firstSeen: stat.first,
       })
-      .returning({ id: constellationNodes.id });
-    nodeIdMap.set(node.id, row.id);
+      .where(eq(signals.id, sigId.get(key)!));
   }
 
-  // Update connections with real UUIDs
-  const { eq } = await import("drizzle-orm");
-  for (const node of CONSTELLATION_NODES) {
-    const nodeUuid = nodeIdMap.get(node.id)!;
-    const connUuids = node.connections
-      .map((connId) => nodeIdMap.get(connId))
-      .filter(Boolean) as string[];
+  // 9. Constellation nodes, then wire up connections by key.
+  const nodeRows = await db
+    .insert(constellationNodes)
+    .values(
+      SEED_NODES.map((n) => ({
+        spaceId,
+        signalId: n.signal ? sigId.get(n.signal) ?? null : null,
+        label: n.label,
+        x: n.x,
+        y: n.y,
+        size: n.size,
+        type: n.type,
+        connections: [],
+        description: n.text,
+        isDemo: true,
+      }))
+    )
+    .returning({ id: constellationNodes.id });
+  const nodeId = new Map(SEED_NODES.map((n, i) => [n.key, nodeRows[i].id]));
 
+  for (const n of SEED_NODES) {
+    const conns = n.connections.map((k) => nodeId.get(k)).filter(Boolean) as string[];
+    if (conns.length === 0) continue;
     await db
       .update(constellationNodes)
-      .set({ connections: connUuids })
-      .where(eq(constellationNodes.id, nodeUuid));
+      .set({ connections: conns })
+      .where(eq(constellationNodes.id, nodeId.get(n.key)!));
   }
+
+  // 10. Signal snapshots for the Timeline / trend.
+  const snapshotRows = SEED_SNAPSHOTS.map((s) => ({
+    signalId: sigId.get(s.signal)!,
+    snapshotAt: dateFrom(s.daysAgo),
+    strength: s.strength,
+    direction: s.direction,
+    observationCount: s.observationCount,
+    contributorCount: s.contributorCount,
+  })).filter((s) => s.signalId);
+  if (snapshotRows.length > 0) await db.insert(signalSnapshots).values(snapshotRows);
 
   return spaceId;
 }
