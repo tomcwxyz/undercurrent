@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Pricing** — Individual £10/mo, Team £30/mo, Organisation £50/mo, each with a
+  30-day free trial and no card required. Plans differ by team size and monthly
+  observation volume, not features.
 - **Fill a new space with sample data** — when creating a space you can opt in to
   populate it with example observations, signals, collections and reflections, so
   you can explore every view immediately. The sample content is marked as demo
@@ -34,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- **Your monthly observation allowance is now per account**, shared across all
+  your spaces, rather than counted separately for each space.
 - **The Signals landscape now reflects real data** — the terrain shows your most
   common themes rising and falling over the last 30 days, instead of an
   illustrative graphic.

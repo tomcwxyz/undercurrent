@@ -230,13 +230,24 @@ in one tap.
 
 ## Plans and limits
 
-Swells is offered in tiers (Individual, Team, and Organisation) that differ in
-how many people can share a space and how many observations you can add each
-month. New accounts start with a trial; a banner reminds you when it's running
-low, and you can upgrade or manage billing from there.
+Swells comes in three tiers. Every account starts with a **30-day free trial —
+no card required** — and a banner reminds you when it's running low so you can
+upgrade or manage billing from there.
 
-Reflection responses and collection submissions count as observations against
-your monthly allowance, since they become part of your space's sensing.
+| Plan | Price / month | Members | Observations / month |
+|------|---------------|---------|----------------------|
+| **Individual** | £10 | 1 | 200 |
+| **Team** | £30 | up to 10 | 1,000 |
+| **Organisation** | £50 | up to 50 | 5,000 |
+
+A few things to know:
+
+- The **observation allowance is per account**, shared across all your spaces —
+  not per space.
+- **Reflection responses and collection submissions count as observations**
+  against your monthly allowance, since they become part of your space's sensing.
+- All plans include every view, all environments, and the full AI sense-making
+  pipeline — the tiers differ on team size and monthly volume, not features.
 
 ---
 
