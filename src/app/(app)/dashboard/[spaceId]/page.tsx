@@ -16,6 +16,7 @@ import {
   getSpacesForUser,
   getSpaceMemberCount,
   getMediaForObservations,
+  getCollectionsForSpace,
 } from "@/lib/db/queries";
 import { checkSubscriptionAccess } from "@/lib/stripe";
 import { isSuperAdmin } from "@/lib/account";
@@ -28,7 +29,9 @@ import {
   toReflectionViewData,
   toNotificationView,
   toTimelineEvents,
+  toCollectionView,
 } from "@/lib/db/transforms";
+import { getBaseUrl } from "@/lib/env";
 import { AppShell } from "@/components/app/app-shell";
 import type { SpaceView, SpaceRole } from "@/lib/types";
 
@@ -75,6 +78,14 @@ export default async function SpaceDashboardPage({
     mediaByObservation.set(m.observationId, existing);
   }
 
+  // Split observations by moderation status. Pending submissions (from a
+  // moderated collection) only surface in the Collect tab's review queue;
+  // rejected ones are hidden everywhere. Everything else flows to all views.
+  const approvedObsRows = obsRows.filter(
+    (o) => (o.moderationStatus ?? "approved") === "approved"
+  );
+  const pendingObsRows = obsRows.filter((o) => o.moderationStatus === "pending");
+
   // Build signal title map for timeline
   const signalTitleMap: Record<string, string> = {};
   for (const s of sigRows) {
@@ -84,7 +95,7 @@ export default async function SpaceDashboardPage({
   const signalObservationMaps = toSignalObservationMaps(junctionRows, signalTitleMap);
 
   const timelineEvents = toTimelineEvents(
-    obsRows,
+    approvedObsRows,
     snapshotRows,
     reflectionData.reflections,
     signalTitleMap,
@@ -104,9 +115,15 @@ export default async function SpaceDashboardPage({
   // Compute subscription status
   const subscriptionStatus = await checkSubscriptionAccess(session.user.id, session.user.email);
 
+  // Fetch collections for this space (used by the Collect tab)
+  const collectionsRaw = await getCollectionsForSpace(spaceId);
+  const baseUrl = getBaseUrl();
+  const collections = collectionsRaw.map((c) => toCollectionView(c, baseUrl));
+
   return (
     <AppShell
-      observations={obsRows.map((row) => toObservationView(row, mediaByObservation.get(row.id)))}
+      observations={approvedObsRows.map((row) => toObservationView(row, mediaByObservation.get(row.id)))}
+      pendingObservations={pendingObsRows.map((row) => toObservationView(row, mediaByObservation.get(row.id)))}
       signals={sigRows.map(toSignalView)}
       nodes={nodeRows.map(toConstellationNodeView)}
       stats={stats}
@@ -128,6 +145,7 @@ export default async function SpaceDashboardPage({
       signalObservationMaps={signalObservationMaps}
       userEmail={session.user.email}
       isSuperAdmin={isSuperAdmin(session.user.email)}
+      collections={collections}
     />
   );
 }

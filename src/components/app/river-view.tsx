@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { SIGNAL_COLORS } from "@/lib/mock-data";
 import { FilterChip } from "@/components/app/filter-chip";
 import { MediaAttachments } from "@/components/app/media-attachments";
-import type { ObservationView, SpaceStats } from "@/lib/types";
+import { SourceFilter, matchesSource, type SourceFilterValue } from "@/components/app/source-filter";
+import type { ObservationView, SpaceStats, CollectionView } from "@/lib/types";
 
 const STRENGTH_LABELS = {
   strong: "● Strong signal",
@@ -21,14 +22,16 @@ interface RiverViewProps {
   stats: SpaceStats;
   highlightedId?: string | null;
   signalsByObservation?: Record<string, { signalId: string; signalTitle: string }[]>;
+  collections?: CollectionView[];
 }
 
-export function RiverView({ observations, stats, highlightedId, signalsByObservation }: RiverViewProps) {
+export function RiverView({ observations, stats, highlightedId, signalsByObservation, collections }: RiverViewProps) {
   const [highlightActive, setHighlightActive] = useState<string | null>(null);
   const scrolledRef = useRef(false);
   const [search, setSearch] = useState("");
   const [strengthFilter, setStrengthFilter] = useState<string>("All");
   const [sentimentFilter, setSentimentFilter] = useState<string>("All");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilterValue>("all");
   const [signalFilter, setSignalFilter] = useState<{ signalId: string; signalTitle: string } | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -65,14 +68,18 @@ export function RiverView({ observations, stats, highlightedId, signalsByObserva
       result = result.filter((obs) => obs.sentimentTier === sentimentFilter);
     }
 
+    if (sourceFilter !== "all") {
+      result = result.filter((obs) => matchesSource(obs, sourceFilter));
+    }
+
     if (signalObsIds) {
       result = result.filter((obs) => signalObsIds.has(obs.id));
     }
 
     return result;
-  }, [observations, search, strengthFilter, sentimentFilter, signalObsIds]);
+  }, [observations, search, strengthFilter, sentimentFilter, sourceFilter, signalObsIds]);
 
-  const isFiltered = search || strengthFilter !== "All" || sentimentFilter !== "All" || !!signalFilter;
+  const isFiltered = search || strengthFilter !== "All" || sentimentFilter !== "All" || sourceFilter !== "all" || !!signalFilter;
 
   // Ensure the highlighted observation is always visible by including it
   // in the filtered list regardless of active filters
@@ -181,6 +188,17 @@ export function RiverView({ observations, stats, highlightedId, signalsByObserva
               />
             ))}
           </div>
+
+          {/* Source dropdown (only shown when collections exist) */}
+          {collections && collections.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <SourceFilter
+                collections={collections}
+                value={sourceFilter}
+                onChange={setSourceFilter}
+              />
+            </div>
+          )}
         </div>
 
         {/* Filtered count */}

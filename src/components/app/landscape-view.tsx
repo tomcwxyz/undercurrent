@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { SIGNAL_COLORS, seededRandom } from "@/lib/mock-data";
 import { FilterChip } from "@/components/app/filter-chip";
-import type { SignalView, ObservationView, SignalObservationMaps } from "@/lib/types";
+import { SourceFilter, matchesSource, type SourceFilterValue } from "@/components/app/source-filter";
+import type { SignalView, ObservationView, SignalObservationMaps, CollectionView } from "@/lib/types";
 
 const DIRECTION_LABELS = {
   strengthening: { label: "↑ Strengthening", cls: "bg-cool-1/12 text-cool-1" },
@@ -19,12 +20,14 @@ interface LandscapeViewProps {
   observations?: ObservationView[];
   signalObservationMaps?: SignalObservationMaps;
   onNavigateToObservation?: (id: string) => void;
+  collections?: CollectionView[];
 }
 
-export function LandscapeView({ signals, observations, signalObservationMaps, onNavigateToObservation }: LandscapeViewProps) {
+export function LandscapeView({ signals, observations, signalObservationMaps, onNavigateToObservation, collections }: LandscapeViewProps) {
   const [search, setSearch] = useState("");
   const [strengthFilter, setStrengthFilter] = useState<string>("All");
   const [directionFilter, setDirectionFilter] = useState<string>("All");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilterValue>("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedSignalId, setExpandedSignalId] = useState<string | null>(null);
 
@@ -55,10 +58,21 @@ export function LandscapeView({ signals, observations, signalObservationMaps, on
       result = result.filter((s) => s.direction === key);
     }
 
-    return result;
-  }, [signals, search, strengthFilter, directionFilter]);
+    // Keep signals that have at least one linked observation matching the source
+    if (sourceFilter !== "all") {
+      result = result.filter((s) => {
+        const obsIds = signalObservationMaps?.bySignal[s.id] ?? [];
+        return obsIds.some((id) => {
+          const obs = observationById.get(id);
+          return obs ? matchesSource(obs, sourceFilter) : false;
+        });
+      });
+    }
 
-  const isFiltered = search || strengthFilter !== "All" || directionFilter !== "All";
+    return result;
+  }, [signals, search, strengthFilter, directionFilter, sourceFilter, signalObservationMaps, observationById]);
+
+  const isFiltered = search || strengthFilter !== "All" || directionFilter !== "All" || sourceFilter !== "all";
 
   return (
     <div className="max-h-[calc(100svh-72px)] overflow-y-auto px-6 py-10 md:px-8">
@@ -136,6 +150,17 @@ export function LandscapeView({ signals, observations, signalObservationMaps, on
               />
             ))}
           </div>
+
+          {/* Source dropdown (only shown when collections exist) */}
+          {collections && collections.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <SourceFilter
+                collections={collections}
+                value={sourceFilter}
+                onChange={setSourceFilter}
+              />
+            </div>
+          )}
         </div>
 
         {/* Filtered count */}

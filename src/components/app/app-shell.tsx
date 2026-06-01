@@ -28,6 +28,7 @@ const SentimentView = dynamic(() => import("@/components/app/sentiment-view").th
 const ReflectionViewComponent = dynamic(() => import("@/components/app/reflection-view").then((m) => m.ReflectionViewComponent), { loading: ViewSkeleton });
 const TimelineView = dynamic(() => import("@/components/app/timeline-view").then((m) => m.TimelineView), { loading: ViewSkeleton });
 const SpaceSettings = dynamic(() => import("@/components/app/space-settings").then((m) => m.SpaceSettings));
+const CollectView = dynamic(() => import("@/components/app/collect-view").then((m) => m.CollectView), { loading: ViewSkeleton });
 import {
   createObservation,
   markNotificationReadAction,
@@ -45,10 +46,11 @@ import type {
   TimelineEvent,
   SpaceView,
   SpaceRole,
+  CollectionView,
 } from "@/lib/types";
 import { canEditSpace, canCreateObservation } from "@/lib/permissions";
 
-type View = "river" | "constellation" | "landscape" | "heat" | "reflect" | "timeline";
+type View = "river" | "constellation" | "landscape" | "heat" | "reflect" | "timeline" | "collect";
 
 const VIEW_LABELS: Record<View, string> = {
   river: "River",
@@ -57,10 +59,12 @@ const VIEW_LABELS: Record<View, string> = {
   heat: "Sentiment",
   reflect: "Reflect",
   timeline: "Timeline",
+  collect: "Collect",
 };
 
 interface AppShellProps {
   observations: ObservationView[];
+  pendingObservations?: ObservationView[];
   signals: SignalView[];
   nodes: ConstellationNodeView[];
   stats: SpaceStats;
@@ -78,10 +82,12 @@ interface AppShellProps {
   signalObservationMaps?: SignalObservationMaps;
   userEmail?: string | null;
   isSuperAdmin?: boolean;
+  collections?: CollectionView[];
 }
 
 export function AppShell({
   observations,
+  pendingObservations,
   signals,
   nodes,
   stats,
@@ -99,6 +105,7 @@ export function AppShell({
   signalObservationMaps,
   userEmail,
   isSuperAdmin: isSuperAdminProp,
+  collections,
 }: AppShellProps) {
   const [activeView, setActiveView] = useState<View>("river");
   const [modalOpen, setModalOpen] = useState(false);
@@ -415,6 +422,7 @@ export function AppShell({
               stats={stats}
               highlightedId={highlightedObservationId}
               signalsByObservation={signalObservationMaps?.byObservation}
+              collections={collections}
             />
           )}
           {activeView === "constellation" && (
@@ -422,6 +430,7 @@ export function AppShell({
               nodes={nodes}
               observations={observations}
               signalObservationMaps={signalObservationMaps}
+              collections={collections}
             />
           )}
           {activeView === "landscape" && (
@@ -429,6 +438,7 @@ export function AppShell({
               signals={signals}
               observations={observations}
               signalObservationMaps={signalObservationMaps}
+              collections={collections}
               onNavigateToObservation={(id) => {
                 setHighlightedObservationId(id);
                 setActiveView("river");
@@ -449,6 +459,15 @@ export function AppShell({
           )}
           {activeView === "timeline" && (
             <TimelineView timelineEvents={timelineEvents} />
+          )}
+          {activeView === "collect" && (
+            <CollectView
+              collections={collections ?? []}
+              observations={observations}
+              pendingObservations={pendingObservations ?? []}
+              spaceId={spaceId}
+              canManage={canEditSpace(userRole)}
+            />
           )}
         </main>
 
@@ -525,7 +544,7 @@ export function AppShell({
           <div className="relative">
             <MobileTab
               label="More"
-              active={activeView === "reflect" || activeView === "timeline"}
+              active={activeView === "reflect" || activeView === "timeline" || activeView === "collect"}
               onClick={() => setMoreOpen(!moreOpen)}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
@@ -566,6 +585,20 @@ export function AppShell({
                       <path d="M6 20v-4" />
                     </svg>
                     Timeline
+                  </button>
+                  <button
+                    role="menuitem"
+                    onClick={() => { switchView("collect"); setMoreOpen(false); }}
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] transition-colors hover:bg-white/[0.06] ${activeView === "collect" ? "text-text-primary" : "text-text-secondary"}`}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                      <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                      <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                      <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                      <rect x="7" y="7" width="10" height="10" rx="1" />
+                    </svg>
+                    Collect
                   </button>
                 </div>
               </>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { SIGNAL_COLORS } from "@/lib/mock-data";
-import type { ConstellationNodeView, ObservationView, SignalObservationMaps } from "@/lib/types";
+import { SourceFilter, matchesSource, type SourceFilterValue } from "@/components/app/source-filter";
+import type { ConstellationNodeView, ObservationView, SignalObservationMaps, CollectionView } from "@/lib/types";
 
 const TYPE_RGB: Record<string, { r: number; g: number; b: number }> = {
   strong: { r: 255, g: 107, b: 74 },
@@ -38,12 +39,30 @@ interface ConstellationViewProps {
   nodes: ConstellationNodeView[];
   observations: ObservationView[];
   signalObservationMaps?: SignalObservationMaps;
+  collections?: CollectionView[];
 }
 
-export function ConstellationView({ nodes, observations, signalObservationMaps }: ConstellationViewProps) {
+export function ConstellationView({ nodes, observations, signalObservationMaps, collections }: ConstellationViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hovered, setHovered] = useState<ConstellationNodeView | null>(null);
   const [selectedNode, setSelectedNode] = useState<ConstellationNodeView | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilterValue>("all");
+
+  // Only render nodes whose linked observations match the active source filter.
+  const observationById = useMemo(
+    () => new Map(observations.map((o) => [o.id, o])),
+    [observations]
+  );
+  const visibleNodes = useMemo(() => {
+    if (sourceFilter === "all") return nodes;
+    return nodes.filter((node) => {
+      const obsIds = node.signalId ? signalObservationMaps?.bySignal[node.signalId] ?? [] : [];
+      return obsIds.some((id) => {
+        const obs = observationById.get(id);
+        return obs ? matchesSource(obs, sourceFilter) : false;
+      });
+    });
+  }, [nodes, sourceFilter, signalObservationMaps, observationById]);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const nodesRef = useRef<(ConstellationNodeView & { px: number; py: number; phase: number })[]>([]);
   const hoveredRef = useRef<ConstellationNodeView | null>(null);
@@ -54,6 +73,15 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
 
   // Keep signalObsMapsRef in sync so onClick always has fresh data
   useEffect(() => { signalObsMapsRef.current = signalObservationMaps; }, [signalObservationMaps]);
+
+  // Changing the source filter clears any selection — the selected node may no
+  // longer be on screen. Handled here (not in an effect) to avoid cascading renders.
+  function handleSourceChange(value: SourceFilterValue) {
+    selectedRef.current = null;
+    satellitesRef.current = [];
+    setSelectedNode(null);
+    setSourceFilter(value);
+  }
 
   // Observations linked to the selected signal (for the panel)
   const linkedObservations: ObservationView[] = selectedNode?.signalId && signalObservationMaps
@@ -116,7 +144,7 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
       canvas!.width = canvas!.offsetWidth * dpr;
       canvas!.height = canvas!.offsetHeight * dpr;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-      computeNodes(nodes);
+      computeNodes(visibleNodes);
     }
 
     function draw() {
@@ -303,10 +331,24 @@ export function ConstellationView({ nodes, observations, signalObservationMaps }
       window.removeEventListener("keydown", onKeyDown);
       cancelAnimationFrame(raf);
     };
-  }, [computeNodes, nodes]);
+  }, [computeNodes, visibleNodes]);
 
   return (
     <div className="relative flex-1 overflow-hidden">
+
+      {/* Source filter — floating top-left, hidden while a node is selected */}
+      {collections && collections.length > 0 && !selectedNode && (
+        <div
+          className="absolute left-8 top-6 z-40 rounded-xl border border-white/[0.06] px-3 py-2 backdrop-blur-xl"
+          style={{ background: "rgba(20,27,45,0.85)" }}
+        >
+          <SourceFilter
+            collections={collections}
+            value={sourceFilter}
+            onChange={handleSourceChange}
+          />
+        </div>
+      )}
 
       {/* Canvas — dims slightly when panel open so panel is readable */}
       <canvas

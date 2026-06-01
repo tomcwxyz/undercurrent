@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { observations, observationMedia, reflectionResponses, collections } from "@/lib/db/schema";
+import { observations, observationMedia, reflectionResponses } from "@/lib/db/schema";
 import {
   clearDemoData,
   markNotificationRead,
