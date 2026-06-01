@@ -458,7 +458,7 @@ export function AppShell({
             <ReflectionViewComponent reflections={reflections} />
           )}
           {activeView === "timeline" && (
-            <TimelineView timelineEvents={timelineEvents} />
+            <TimelineView timelineEvents={timelineEvents} collections={collections} />
           )}
           {activeView === "collect" && (
             <CollectView

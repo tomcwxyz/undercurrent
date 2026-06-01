@@ -374,7 +374,10 @@ export function toReflectionViewData(
       .map((id) => signalTitleMap[id])
       .filter((t): t is string => !!t);
 
-    const isActive = row.createdAt > sevenDaysAgo && responses.length === 0;
+    // "Active" means recent enough to still invite a response. It used to also
+    // require zero responses, which made a reflection vanish into the collapsed
+    // "Past" section the instant someone answered — hiding their own response.
+    const isActive = row.createdAt > sevenDaysAgo;
 
     return {
       id: row.id,
@@ -414,6 +417,7 @@ export function toTimelineEvents(
         ? obs.contentText.slice(0, 140) + "\u2026"
         : obs.contentText,
       author: obs.authorName ?? "Anonymous",
+      collectionId: obs.collectionId ?? null,
     });
   }
 

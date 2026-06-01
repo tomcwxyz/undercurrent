@@ -246,8 +246,20 @@ function PastReflections({ reflections }: { reflections: ReflectionView[] }) {
                   {reflection.prompt}
                 </p>
                 {reflection.responses.length > 0 && (
-                  <div className="mt-3 text-[0.72rem] text-text-muted">
-                    {reflection.responses.length} response{reflection.responses.length !== 1 ? "s" : ""}
+                  <div className="mt-4 border-t border-white/[0.04] pt-4">
+                    <div className="mb-2 text-[0.72rem] uppercase tracking-[0.1em] text-text-muted">
+                      {reflection.responses.length} response{reflection.responses.length !== 1 ? "s" : ""}
+                    </div>
+                    {reflection.responses.map((resp) => (
+                      <div key={resp.id} className="mb-2 rounded-xl bg-white/[0.03] p-3">
+                        <div className="mb-1 text-[0.7rem] text-text-muted">
+                          {resp.authorName} · {resp.time}
+                        </div>
+                        <p className="text-[0.85rem] leading-relaxed text-text-secondary">
+                          {resp.text}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

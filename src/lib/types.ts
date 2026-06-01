@@ -108,6 +108,7 @@ export interface ObservationTimelineEvent {
   time: string;      // relative for display
   text: string;
   author: string;
+  collectionId?: string | null;
 }
 
 export interface SignalTimelineEvent {

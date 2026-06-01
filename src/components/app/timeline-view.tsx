@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { TimelineEvent } from "@/lib/types";
+import { SourceFilter, type SourceFilterValue } from "@/components/app/source-filter";
+import type { TimelineEvent, CollectionView } from "@/lib/types";
 
 const LOOP_LABELS = {
   single: "Single loop",
@@ -29,6 +30,7 @@ const DIRECTION_LABELS: Record<string, string> = {
 
 interface TimelineViewProps {
   timelineEvents: TimelineEvent[];
+  collections?: CollectionView[];
 }
 
 function formatDateGroup(isoDate: string): string {
@@ -53,25 +55,46 @@ function groupByDate(events: TimelineEvent[]): [string, TimelineEvent[]][] {
   return Array.from(groups.entries());
 }
 
-export function TimelineView({ timelineEvents }: TimelineViewProps) {
+export function TimelineView({ timelineEvents, collections }: TimelineViewProps) {
   const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilterValue>("all");
 
   const filtered = useMemo(() => {
-    if (!search) return timelineEvents;
-    const q = search.toLowerCase();
-    return timelineEvents.filter((event) => {
-      if (event.type === "observation") {
-        return event.text.toLowerCase().includes(q) || event.author.toLowerCase().includes(q);
-      }
-      if (event.type === "signal") {
-        return event.signalTitle.toLowerCase().includes(q);
-      }
-      if (event.type === "reflection") {
-        return event.prompt.toLowerCase().includes(q);
-      }
-      return false;
-    });
-  }, [timelineEvents, search]);
+    let result = timelineEvents;
+
+    // Source filter applies to observation events by their collection. Signal
+    // and reflection events are space-wide, so they're kept for "all" and
+    // "Direct only" but hidden when focusing on collection responses.
+    if (sourceFilter !== "all") {
+      result = result.filter((event) => {
+        if (event.type === "observation") {
+          if (sourceFilter === "exclude") return !event.collectionId;
+          if (sourceFilter === "collections") return !!event.collectionId;
+          return event.collectionId === sourceFilter;
+        }
+        // non-observation events: only kept when not narrowing to collections
+        return sourceFilter === "exclude";
+      });
+    }
+
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((event) => {
+        if (event.type === "observation") {
+          return event.text.toLowerCase().includes(q) || event.author.toLowerCase().includes(q);
+        }
+        if (event.type === "signal") {
+          return event.signalTitle.toLowerCase().includes(q);
+        }
+        if (event.type === "reflection") {
+          return event.prompt.toLowerCase().includes(q);
+        }
+        return false;
+      });
+    }
+
+    return result;
+  }, [timelineEvents, search, sourceFilter]);
 
   const groups = useMemo(() => groupByDate(filtered), [filtered]);
 
@@ -108,7 +131,16 @@ export function TimelineView({ timelineEvents }: TimelineViewProps) {
             className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] py-2.5 pl-9 pr-4 text-[0.85rem] text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-cool-1/30"
           />
         </div>
-        {search && (
+        {collections && collections.length > 0 && (
+          <div className="mt-3 flex justify-center">
+            <SourceFilter
+              collections={collections}
+              value={sourceFilter}
+              onChange={setSourceFilter}
+            />
+          </div>
+        )}
+        {(search || sourceFilter !== "all") && (
           <div className="mt-2 text-center text-[0.78rem] text-text-muted">
             Showing {filtered.length} of {timelineEvents.length}
           </div>

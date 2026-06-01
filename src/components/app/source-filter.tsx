@@ -31,6 +31,11 @@ export function SourceFilter({
   // No collections in this space → nothing to filter by, hide the control.
   if (collections.length === 0) return null;
 
+  // Native <option> popups render with an OS-default (white) background, so we
+  // set a solid dark surface + light text explicitly on every option to match
+  // the app chrome. `--color-surface` is the same fill used by the app's menus.
+  const optionStyle = { background: "#141b2d", color: "#e8e4df" };
+
   return (
     <label className="flex items-center gap-1.5">
       <span className="text-[0.7rem] text-text-secondary">Source:</span>
@@ -38,13 +43,14 @@ export function SourceFilter({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-label="Filter by source"
-        className="rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-1 text-[0.75rem] text-text-secondary outline-none transition-colors focus:border-cool-1/30"
+        className="rounded-lg border border-white/[0.08] px-2.5 py-1 text-[0.75rem] text-text-secondary outline-none transition-colors focus:border-cool-1/30"
+        style={{ background: "var(--color-surface)" }}
       >
-        <option value="all">All sources</option>
-        <option value="exclude">Direct only (exclude collections)</option>
-        <option value="collections">Collections only</option>
+        <option value="all" style={optionStyle}>All sources</option>
+        <option value="exclude" style={optionStyle}>Direct only (exclude collections)</option>
+        <option value="collections" style={optionStyle}>Collections only</option>
         {collections.map((c) => (
-          <option key={c.id} value={c.id}>
+          <option key={c.id} value={c.id} style={optionStyle}>
             {c.title}
           </option>
         ))}
