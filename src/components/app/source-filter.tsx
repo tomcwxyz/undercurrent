@@ -5,17 +5,19 @@ import type { CollectionView, ObservationView } from "@/lib/types";
 /**
  * Source filter value:
  *  - "all"              → every observation
- *  - "exclude"          → only observations not from a collection
+ *  - "exclude"          → direct only: not from a collection or a reflection
  *  - "collections"      → only observations from any collection
+ *  - "reflections"      → only observations that came from a reflection response
  *  - <collection id>    → only observations from that specific collection
  */
-export type SourceFilterValue = "all" | "exclude" | "collections" | string;
+export type SourceFilterValue = "all" | "exclude" | "collections" | "reflections" | string;
 
 /** Returns true if the observation passes the given source filter. */
 export function matchesSource(obs: ObservationView, value: SourceFilterValue): boolean {
   if (value === "all") return true;
-  if (value === "exclude") return !obs.collectionId;
+  if (value === "exclude") return !obs.collectionId && !obs.reflectionId;
   if (value === "collections") return !!obs.collectionId;
+  if (value === "reflections") return !!obs.reflectionId;
   return obs.collectionId === value;
 }
 
@@ -23,13 +25,15 @@ export function SourceFilter({
   collections,
   value,
   onChange,
+  hasReflections = false,
 }: {
   collections: CollectionView[];
   value: SourceFilterValue;
   onChange: (value: SourceFilterValue) => void;
+  hasReflections?: boolean;
 }) {
-  // No collections in this space → nothing to filter by, hide the control.
-  if (collections.length === 0) return null;
+  // Nothing to filter by → hide the control entirely.
+  if (collections.length === 0 && !hasReflections) return null;
 
   // Native <option> popups render with an OS-default (white) background, so we
   // set a solid dark surface + light text explicitly on every option to match
@@ -47,8 +51,13 @@ export function SourceFilter({
         style={{ background: "var(--color-surface)" }}
       >
         <option value="all" style={optionStyle}>All sources</option>
-        <option value="exclude" style={optionStyle}>Direct only (exclude collections)</option>
-        <option value="collections" style={optionStyle}>Collections only</option>
+        <option value="exclude" style={optionStyle}>Direct only</option>
+        {collections.length > 0 && (
+          <option value="collections" style={optionStyle}>Collections only</option>
+        )}
+        {hasReflections && (
+          <option value="reflections" style={optionStyle}>Reflections only</option>
+        )}
         {collections.map((c) => (
           <option key={c.id} value={c.id} style={optionStyle}>
             {c.title}

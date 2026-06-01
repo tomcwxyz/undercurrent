@@ -53,6 +53,10 @@ export function ConstellationView({ nodes, observations, signalObservationMaps, 
     () => new Map(observations.map((o) => [o.id, o])),
     [observations]
   );
+  const hasReflections = useMemo(
+    () => observations.some((o) => o.reflectionId),
+    [observations]
+  );
   const visibleNodes = useMemo(() => {
     if (sourceFilter === "all") return nodes;
     return nodes.filter((node) => {
@@ -337,13 +341,14 @@ export function ConstellationView({ nodes, observations, signalObservationMaps, 
     <div className="relative flex-1 overflow-hidden">
 
       {/* Source filter — floating top-left, hidden while a node is selected */}
-      {collections && collections.length > 0 && !selectedNode && (
+      {(((collections && collections.length > 0) || hasReflections)) && !selectedNode && (
         <div
           className="absolute left-8 top-6 z-40 rounded-xl border border-white/[0.06] px-3 py-2 backdrop-blur-xl"
           style={{ background: "rgba(20,27,45,0.85)" }}
         >
           <SourceFilter
-            collections={collections}
+            collections={collections ?? []}
+            hasReflections={hasReflections}
             value={sourceFilter}
             onChange={handleSourceChange}
           />

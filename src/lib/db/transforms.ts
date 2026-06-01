@@ -431,6 +431,7 @@ export function toTimelineEvents(
         : obs.contentText,
       author: obs.authorName ?? "Anonymous",
       collectionId: obs.collectionId ?? null,
+      reflectionId: obs.reflectionId ?? null,
     });
   }
 

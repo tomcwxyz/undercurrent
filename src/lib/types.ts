@@ -110,6 +110,7 @@ export interface ObservationTimelineEvent {
   text: string;
   author: string;
   collectionId?: string | null;
+  reflectionId?: string | null;
 }
 
 export interface SignalTimelineEvent {

@@ -35,6 +35,11 @@ export function RiverView({ observations, stats, highlightedId, signalsByObserva
   const [signalFilter, setSignalFilter] = useState<{ signalId: string; signalTitle: string } | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  const hasReflections = useMemo(
+    () => observations.some((obs) => obs.reflectionId),
+    [observations]
+  );
+
   // Build set of observation IDs belonging to filtered signal
   const signalObsIds = useMemo(() => {
     if (!signalFilter || !signalsByObservation) return null;
@@ -189,11 +194,12 @@ export function RiverView({ observations, stats, highlightedId, signalsByObserva
             ))}
           </div>
 
-          {/* Source dropdown (only shown when collections exist) */}
-          {collections && collections.length > 0 && (
+          {/* Source dropdown (shown when collections or reflections exist) */}
+          {((collections && collections.length > 0) || hasReflections) && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               <SourceFilter
-                collections={collections}
+                collections={collections ?? []}
+                hasReflections={hasReflections}
                 value={sourceFilter}
                 onChange={setSourceFilter}
               />

@@ -62,17 +62,18 @@ export function TimelineView({ timelineEvents, collections }: TimelineViewProps)
   const filtered = useMemo(() => {
     let result = timelineEvents;
 
-    // Source filter applies to observation events by their collection. Signal
-    // and reflection events are space-wide, so they're kept for "all" and
-    // "Direct only" but hidden when focusing on collection responses.
+    // Source filter applies to observation events by their origin. Signal and
+    // reflection-prompt events are space-wide, so they're kept for "all" and
+    // "Direct only" but hidden when focusing on a specific source.
     if (sourceFilter !== "all") {
       result = result.filter((event) => {
         if (event.type === "observation") {
-          if (sourceFilter === "exclude") return !event.collectionId;
+          if (sourceFilter === "exclude") return !event.collectionId && !event.reflectionId;
           if (sourceFilter === "collections") return !!event.collectionId;
+          if (sourceFilter === "reflections") return !!event.reflectionId;
           return event.collectionId === sourceFilter;
         }
-        // non-observation events: only kept when not narrowing to collections
+        // non-observation events: only kept in the "Direct only" view
         return sourceFilter === "exclude";
       });
     }
@@ -95,6 +96,11 @@ export function TimelineView({ timelineEvents, collections }: TimelineViewProps)
 
     return result;
   }, [timelineEvents, search, sourceFilter]);
+
+  const hasReflections = useMemo(
+    () => timelineEvents.some((e) => e.type === "observation" && e.reflectionId),
+    [timelineEvents]
+  );
 
   const groups = useMemo(() => groupByDate(filtered), [filtered]);
 
@@ -131,10 +137,11 @@ export function TimelineView({ timelineEvents, collections }: TimelineViewProps)
             className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] py-2.5 pl-9 pr-4 text-[0.85rem] text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-cool-1/30"
           />
         </div>
-        {collections && collections.length > 0 && (
+        {((collections && collections.length > 0) || hasReflections) && (
           <div className="mt-3 flex justify-center">
             <SourceFilter
-              collections={collections}
+              collections={collections ?? []}
+              hasReflections={hasReflections}
               value={sourceFilter}
               onChange={setSourceFilter}
             />
