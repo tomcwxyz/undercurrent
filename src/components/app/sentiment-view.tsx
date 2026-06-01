@@ -3,7 +3,6 @@
 import { useState, useMemo } from "react";
 import type { SentimentViewData, SentimentCell, ObservationSnippet } from "@/lib/types";
 import { SENTIMENT_TIERS } from "@/lib/db/transforms";
-import { seededRandom } from "@/lib/mock-data";
 
 const WARM_COLORS = [
   "rgba(108, 92, 231, 0.3)",  // cool/reflective
@@ -15,32 +14,6 @@ const WARM_COLORS = [
 ];
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-const SYNTHETIC_THEMES = [
-  {
-    gradient: "linear-gradient(90deg, var(--color-warm-1), var(--color-warm-2))",
-    title: "What\u2019s running hot",
-    text: "Observations about power, decision-making, and strategy carry the most energy right now. People feel strongly that things need to change.",
-  },
-  {
-    gradient: "linear-gradient(90deg, var(--color-warm-3), var(--color-cool-1))",
-    title: "Where energy is building",
-    text: "Community engagement and grassroots activity. Warm but not urgent \u2014 a slow build of positive momentum that feels organic and unforced.",
-  },
-  {
-    gradient: "linear-gradient(90deg, var(--color-cool-2), var(--color-cool-3))",
-    title: "Cool and uncertain",
-    text: "Internal processes and formal structures. People observe these with detachment or mild frustration. Not crisis \u2014 more like quiet questioning.",
-  },
-] as const;
-
-const SYNTHETIC_BAR = [
-  { pct: 28, color: "var(--color-warm-1)", opacity: 0.8 },
-  { pct: 22, color: "var(--color-warm-3)", opacity: 0.7 },
-  { pct: 30, color: "var(--color-cool-1)", opacity: 0.6 },
-  { pct: 12, color: "var(--color-cool-2)", opacity: 0.7 },
-  { pct: 8, color: "var(--color-cool-3)", opacity: 0.6 },
-];
 
 const INSIGHT_GRADIENTS: Record<string, string> = {
   hot: "linear-gradient(90deg, var(--color-warm-1), var(--color-warm-2))",
@@ -130,32 +103,6 @@ function aggregateWeekly(dailyCells: DisplayCell[]): DisplayCell[] {
   return weeks;
 }
 
-/** Build synthetic daily DisplayCells (no real data) */
-function buildSyntheticDailyCells(): DisplayCell[] {
-  const result: DisplayCell[] = [];
-  for (let w = 0; w < 4; w++) {
-    for (let d = 0; d < 7; d++) {
-      let idx = Math.floor(seededRandom(w * 7 + d + 42) * WARM_COLORS.length);
-      if (w >= 2) idx = Math.min(idx + 1, WARM_COLORS.length - 1);
-      if (w >= 3 && d < 5) idx = Math.min(idx + 1, WARM_COLORS.length - 1);
-      if (d >= 5) idx = Math.max(0, idx - 2);
-
-      const count = Math.floor(seededRandom(w * 7 + d + 99) * 6) + (d < 5 ? 2 : 0);
-      result.push({
-        color: WARM_COLORS[idx],
-        label: SENTIMENT_TIERS[idx],
-        count,
-        colorIndex: idx,
-        bottomLabel: DAY_LABELS[d],
-        dateHeading: "",
-        observations: [],
-        isReal: false,
-      });
-    }
-  }
-  return result;
-}
-
 interface SentimentViewProps {
   data: SentimentViewData;
   onNavigateToObservation?: (id: string) => void;
@@ -167,16 +114,7 @@ export function SentimentView({ data, onNavigateToObservation }: SentimentViewPr
   // selectedGrid tracks which grid the selection is in (for compare mode)
   const [selectedGrid, setSelectedGrid] = useState<"current" | "comparison">("current");
 
-  const useReal = data.hasData;
-
-  const syntheticDaily = useMemo(() => buildSyntheticDailyCells(), []);
-
-  const realDaily = useMemo(() => {
-    if (!useReal) return [];
-    return buildDailyCells(data.cells);
-  }, [useReal, data.cells]);
-
-  const dailyCells = useReal ? realDaily : syntheticDaily;
+  const dailyCells = useMemo(() => buildDailyCells(data.cells), [data.cells]);
 
   const weeklyCells = useMemo(() => aggregateWeekly(dailyCells), [dailyCells]);
 
@@ -185,7 +123,7 @@ export function SentimentView({ data, onNavigateToObservation }: SentimentViewPr
 
   // --- Comparison mode ---
   const [comparing, setComparing] = useState(false);
-  const hasComparison = useReal && !!data.comparison;
+  const hasComparison = !!data.comparison;
 
   const comparisonDaily = useMemo(() => {
     if (!data.comparison) return [];
@@ -262,34 +200,23 @@ export function SentimentView({ data, onNavigateToObservation }: SentimentViewPr
       : null;
 
   // Distribution bar segments
-  const realBar = useMemo(() => {
-    if (!useReal) return [];
+  const barSegments = useMemo(() => {
     return [...data.distribution]
-      .map((d, i) => ({
-        pct: d.pct,
-        color: DIST_COLORS[i],
-        opacity: 0.7,
-      }))
+      .map((d, i) => ({ pct: d.pct, color: DIST_COLORS[i], opacity: 0.7 }))
       .reverse()
       .filter((seg) => seg.pct > 0);
-  }, [useReal, data.distribution]);
-
-  const barSegments = useReal ? realBar : SYNTHETIC_BAR;
+  }, [data.distribution]);
 
   // Insight cards
-  const realInsights = useReal ? data.insights : [];
-  const insightCards = useReal
-    ? realInsights.map((insight) => ({
-        gradient: INSIGHT_GRADIENTS[insight.bucket],
-        title: insight.title,
-        text: insight.text,
-      }))
-    : SYNTHETIC_THEMES;
+  const insightCards = data.insights.map((insight) => ({
+    gradient: INSIGHT_GRADIENTS[insight.bucket],
+    title: insight.title,
+    text: insight.text,
+  }));
 
-  const observationCount = useReal ? data.totalObservations : 147;
+  const observationCount = data.totalObservations;
 
   function handleCellClick(index: number, grid: "current" | "comparison" = "current") {
-    if (!useReal && grid === "current") return;
     setSelectedGrid(grid);
     setSelectedCell((prev) => (prev === index && selectedGrid === grid ? null : index));
   }
@@ -299,6 +226,28 @@ export function SentimentView({ data, onNavigateToObservation }: SentimentViewPr
     ? cells.map((c) => c.bottomLabel)
     : DAY_LABELS;
   const gridCols = isWeekly ? "grid-cols-4" : "grid-cols-7";
+
+  // No sentiment data yet → honest empty state rather than a fabricated heatmap.
+  if (!data.hasData) {
+    return (
+      <div className="max-h-[calc(100svh-72px)] overflow-y-auto px-6 py-10 md:px-8">
+        <div className="mb-10 text-center">
+          <h2 className="font-display text-[2.2rem] font-light">The temperature of things</h2>
+          <p className="mx-auto mt-2 max-w-[500px] text-[0.9rem] leading-relaxed text-text-secondary">
+            Sentiment flowing through observations over time. Warm means energy,
+            excitement, urgency. Cool means calm, reflective, uncertain. Neither
+            is better.
+          </p>
+        </div>
+        <div className="mx-auto flex max-w-[800px] items-center justify-center rounded-2xl border border-white/[0.04] bg-white/[0.015] px-6 py-20 text-center">
+          <p className="max-w-[380px] text-[0.9rem] leading-relaxed text-text-muted">
+            No sentiment to show yet. As observations come in and are processed,
+            their emotional temperature maps out here — day by day, warm to cool.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-h-[calc(100svh-72px)] overflow-y-auto px-6 py-10 md:px-8">
@@ -342,19 +291,17 @@ export function SentimentView({ data, onNavigateToObservation }: SentimentViewPr
               Weekly
             </button>
           </div>
-          {useReal && (
-            <button
-              className={`rounded-lg border px-3 py-1.5 text-[0.72rem] transition-colors ${
-                comparing
-                  ? "border-white/[0.15] bg-white/[0.08] text-text-primary"
-                  : "border-white/[0.08] text-text-muted hover:text-text-secondary"
-              }`}
-              aria-pressed={comparing}
-              onClick={handleCompareToggle}
-            >
-              Compare &harr;
-            </button>
-          )}
+          <button
+            className={`rounded-lg border px-3 py-1.5 text-[0.72rem] transition-colors ${
+              comparing
+                ? "border-white/[0.15] bg-white/[0.08] text-text-primary"
+                : "border-white/[0.08] text-text-muted hover:text-text-secondary"
+            }`}
+            aria-pressed={comparing}
+            onClick={handleCompareToggle}
+          >
+            Compare &harr;
+          </button>
         </div>
       </div>
 
@@ -445,7 +392,7 @@ export function SentimentView({ data, onNavigateToObservation }: SentimentViewPr
       )}
 
       {/* Compare active but no previous data */}
-      {comparing && !hasComparison && useReal && (
+      {comparing && !hasComparison && (
         <div className="mx-auto mt-4 max-w-[800px] text-center text-[0.8rem] text-text-muted">
           Not enough data for previous period
         </div>
