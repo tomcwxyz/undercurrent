@@ -24,7 +24,11 @@ A **space** is your team's shared home. All observations, signals, and
 reflections live inside a space.
 
 - **Switch spaces** using the space name in the top-left of the header.
-- **Create a new space** from the same menu ("Create new space").
+- **Create a new space** from the same menu ("Create new space"). When creating
+  a space you can tick **Fill with sample data** to populate it with example
+  observations, signals, collections and reflections — a quick way to explore
+  every view before you add your own. It's clearly marked as demo content and
+  can be cleared whenever you like.
 - **Space settings** (the gear icon, available to admins) let you rename the
   space, edit its description, and choose its visual environment.
 

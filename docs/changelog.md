@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Fill a new space with sample data** — when creating a space you can opt in to
+  populate it with example observations, signals, collections and reflections, so
+  you can explore every view immediately. The sample content is marked as demo
+  and can be cleared at any time.
 - **Collections** — gather observations from anyone through a shareable link, no
   account required. Respondents can submit text, a photo, a voice recording or
   audio file, and an optional name. Each collection has its own question and can
