@@ -151,25 +151,25 @@ const TIERS = [
   {
     name: "Individual",
     plan: "individual",
-    price: "£5",
-    annual: "£48/year (save 20%)",
-    desc: "For your personal reflective practice. Unlimited spaces, up to 200 observations per month, all views and environments.",
+    price: "£10",
+    detail: "1 user · up to 200 observations / month",
+    desc: "For your own reflective practice. All views and environments, unlimited spaces, and the full AI sense-making pipeline.",
     highlighted: false,
   },
   {
-    name: "Organisation",
+    name: "Team",
     plan: "team",
-    price: "£25",
-    annual: "£240/year · Up to 10 users",
-    desc: "For teams sensing together. Shared spaces, collective reflections, up to 1,000 observations per month, data export, priority support.",
+    price: "£30",
+    detail: "Up to 10 users · 1,000 observations / month",
+    desc: "For teams sensing together. Shared spaces, collections, collective reflections, and signals drawn from everyone's observations.",
     highlighted: true,
   },
   {
-    name: "Large Organisation",
+    name: "Organisation",
     plan: "organisation",
     price: "£50",
-    annual: "£480/year · 25 users + £2/user",
-    desc: "For complex systems. Cross-space signal detection, API access, SSO, custom branding, up to 5,000 observations per month.",
+    detail: "Up to 50 users · 5,000 observations / month",
+    desc: "For whole organisations. Everything in Team, with room for many spaces and a much higher monthly volume.",
     highlighted: false,
   },
 ];
@@ -523,7 +523,7 @@ export default function LandingPage() {
                   </span>
                   <span className="text-sm text-text-muted">/month</span>
                 </div>
-                <p className="mt-1 text-xs text-text-muted">{tier.annual}</p>
+                <p className="mt-1 text-xs text-text-muted">{tier.detail}</p>
                 <p className="mt-6 text-sm leading-relaxed text-text-secondary">
                   {tier.desc}
                 </p>
