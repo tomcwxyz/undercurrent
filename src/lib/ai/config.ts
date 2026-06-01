@@ -6,7 +6,8 @@ export const AI_CONFIG = {
     enrichment: "claude-haiku-4-5-20251001" as const,
     signalSynthesis: "claude-sonnet-4-5-20250929" as const,
     reflectionPrompts: "claude-sonnet-4-5-20250929" as const,
-    attentionAnalysis: "claude-opus-4-5-20250514" as const,
+    // Sonnet is ample for this synthesis task and far cheaper than Opus.
+    attentionAnalysis: "claude-sonnet-4-5-20250929" as const,
     mediaDescription: "claude-haiku-4-5-20251001" as const,
   },
 
@@ -36,5 +37,8 @@ export const AI_CONFIG = {
   attention: {
     /** Days of observations to include in attention analysis */
     lookbackDays: 30,
+    /** Skip "dormant" spaces — fewer than this many real observations in the
+     *  lookback window get no (paid) attention analysis. */
+    minObservations: 3,
   },
 } as const;

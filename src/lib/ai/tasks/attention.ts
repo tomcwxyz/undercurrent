@@ -59,8 +59,8 @@ export async function runAttentionAnalysis(spaceId: string): Promise<void> {
       ),
   ]);
 
-  if (recentObs.length === 0) {
-    console.log(`[attention] No observations in space ${spaceId} in last ${AI_CONFIG.attention.lookbackDays} days`);
+  if (recentObs.length < AI_CONFIG.attention.minObservations) {
+    console.log(`[attention] Space ${spaceId} dormant (<${AI_CONFIG.attention.minObservations} obs in ${AI_CONFIG.attention.lookbackDays}d) — skipping`);
     return;
   }
 

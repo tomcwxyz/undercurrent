@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { spaces } from "@/lib/db/schema";
 import { runAttentionAnalysis } from "@/lib/ai/tasks/attention";
+import { getActiveSpaceIdsSince } from "@/lib/db/queries";
+import { AI_CONFIG } from "@/lib/ai/config";
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -10,11 +10,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Run attention analysis for all active spaces
-    const allSpaces = await db.select({ id: spaces.id }).from(spaces);
+    // Only analyse spaces with recent activity — skip dormant/empty ones so we
+    // don't spend on quiet spaces.
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - AI_CONFIG.attention.lookbackDays);
+    const activeSpaceIds = await getActiveSpaceIdsSince(cutoff, AI_CONFIG.attention.minObservations);
 
     const results = await Promise.allSettled(
-      allSpaces.map((space) => runAttentionAnalysis(space.id))
+      activeSpaceIds.map((id) => runAttentionAnalysis(id))
     );
 
     const succeeded = results.filter((r) => r.status === "fulfilled").length;
@@ -22,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      spaces: allSpaces.length,
+      analysed: activeSpaceIds.length,
       succeeded,
       failed,
     });

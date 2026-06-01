@@ -530,6 +530,21 @@ export async function getObservationCountThisMonth(spaceId: string): Promise<num
  * all of the account's spaces. The monthly observation limit is per-account,
  * so this is what the limit is checked against.
  */
+/**
+ * Space IDs with at least `minObservations` real (non-demo) observations since
+ * `cutoff`. Used by the attention cron to skip dormant spaces in one query
+ * rather than spinning up an analysis per empty space.
+ */
+export async function getActiveSpaceIdsSince(cutoff: Date, minObservations: number): Promise<string[]> {
+  const rows = await db
+    .select({ spaceId: observations.spaceId })
+    .from(observations)
+    .where(and(eq(observations.isDemo, false), gt(observations.createdAt, cutoff)))
+    .groupBy(observations.spaceId)
+    .having(sql`count(*) >= ${minObservations}`);
+  return rows.map((r) => r.spaceId);
+}
+
 export async function getObservationCountForSubscription(subscriptionId: string): Promise<number> {
   const now = new Date();
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
