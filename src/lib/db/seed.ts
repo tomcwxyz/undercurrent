@@ -44,8 +44,11 @@ interface ObsPlan {
   linkToSignals: boolean; // false for pending (unmoderated) submissions
 }
 
+/**
+ * Onboarding: create the demo space + owner membership, then fill it with the
+ * rich demo dataset.
+ */
 export async function seedDemoData(userId: string): Promise<string> {
-  // 1. Space + owner membership
   const [space] = await db
     .insert(spaces)
     .values({
@@ -56,10 +59,22 @@ export async function seedDemoData(userId: string): Promise<string> {
       environment: "stars",
     })
     .returning({ id: spaces.id });
-  const spaceId = space.id;
 
-  await db.insert(spaceMemberships).values({ userId, spaceId, role: "owner" });
+  await db.insert(spaceMemberships).values({ userId, spaceId: space.id, role: "owner" });
 
+  await seedSpaceContent(space.id, userId);
+  return space.id;
+}
+
+/**
+ * Fill an *existing* space with the rich demo dataset — observations (with
+ * media + sentiment + themes), signals, collections, reflections, constellation
+ * nodes and snapshots. Every row is flagged `isDemo`, so the space shows the
+ * demo banner and the content can be cleared later.
+ *
+ * Used by onboarding (above) and by "create a space with sample data".
+ */
+export async function seedSpaceContent(spaceId: string, userId: string): Promise<void> {
   // 2. Signals (counts/firstSeen filled in once observations are linked)
   const sigRows = await db
     .insert(signals)
@@ -300,6 +315,4 @@ export async function seedDemoData(userId: string): Promise<string> {
     contributorCount: s.contributorCount,
   })).filter((s) => s.signalId);
   if (snapshotRows.length > 0) await db.insert(signalSnapshots).values(snapshotRows);
-
-  return spaceId;
 }

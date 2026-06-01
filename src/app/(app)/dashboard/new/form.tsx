@@ -42,6 +42,22 @@ export function CreateSpaceForm() {
           placeholder="What is this space for?"
         />
       </div>
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+        <input
+          type="checkbox"
+          name="seedSample"
+          value="true"
+          className="mt-0.5 h-4 w-4 rounded"
+        />
+        <span className="text-[0.8rem] leading-relaxed text-text-secondary">
+          Fill with sample data
+          <span className="block text-[0.72rem] text-text-muted">
+            Adds example observations, signals, collections and reflections so you
+            can explore every view straight away. You can clear it anytime.
+          </span>
+        </span>
+      </label>
+
       <div className="flex items-center gap-3 pt-2">
         <button
           type="submit"

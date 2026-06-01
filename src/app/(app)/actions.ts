@@ -34,6 +34,7 @@ import { eq } from "drizzle-orm";
 import { canEditSpace, canManageMembers, canDeleteSpace } from "@/lib/permissions";
 import type { SpaceRole } from "@/lib/types";
 import { processObservation, processReflectionResponse, IMAGE_OBSERVATION_PLACEHOLDER } from "@/lib/ai/pipeline";
+import { seedSpaceContent } from "@/lib/db/seed";
 import { checkSubscriptionAccess, getTierConfig } from "@/lib/stripe";
 import { hasFreeAccess } from "@/lib/account";
 import { getBaseUrl } from "@/lib/env";
@@ -354,6 +355,13 @@ export async function createSpaceAction(formData: FormData) {
   });
 
   const spaceId = await createSpace(parsed.name, parsed.description ?? null, session.user.id);
+
+  // Optionally fill the new space with the rich demo dataset so the user can
+  // explore the views immediately. Flagged isDemo, so it can be cleared.
+  if (formData.get("seedSample") === "true") {
+    await seedSpaceContent(spaceId, session.user.id);
+  }
+
   redirect(`/dashboard/${spaceId}`);
 }
 
