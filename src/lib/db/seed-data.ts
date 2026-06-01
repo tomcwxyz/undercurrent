@@ -98,6 +98,12 @@ export interface SeedReflection {
   signals: string[];
   createdDaysAgo: number;
   responses: SeedReflectionResponse[];
+  type?: "prompted" | "scheduled";
+  synthesis?: {
+    dominantThemes: string[];
+    absentThemes: string[];
+    attentionShifts: { from: string; to: string; significance: string }[];
+  };
 }
 
 export interface SeedSnapshot {
@@ -299,6 +305,24 @@ export const SEED_REFLECTIONS: SeedReflection[] = [
     triggerType: "Signal strength changed from \"weak\" to \"emerging\"",
     signals: ["trust"],
     createdDaysAgo: 2,
+    responses: [],
+  },
+  {
+    key: "r_attention",
+    type: "scheduled",
+    prompt: "You're noticing power and community energy vividly. What would it mean to pay equal attention to the people who have gone quiet — and what might their silence be telling you?",
+    learningLoop: "triple",
+    triggerType: "weekly_attention_analysis",
+    signals: ["power", "energy", "trust"],
+    createdDaysAgo: 1,
+    synthesis: {
+      dominantThemes: ["power dynamics", "community energy", "participation", "trust"],
+      absentThemes: ["wellbeing & pace", "money and sustainability", "the people who've gone quiet"],
+      attentionShifts: [
+        { from: "budgets and process", to: "who gets to decide", significance: "Attention has moved from operational detail toward questions of power and legitimacy." },
+        { from: "staff-led activity", to: "community-led activity", significance: "Energy is increasingly coming from outside the organisation, not from programmes." },
+      ],
+    },
     responses: [],
   },
 ];

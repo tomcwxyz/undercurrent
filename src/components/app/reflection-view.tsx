@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { submitReflectionResponse } from "@/app/(app)/actions";
-import type { ReflectionView } from "@/lib/types";
+import type { ReflectionView, AttentionSynthesis } from "@/lib/types";
 
 const LOOP_LABELS = {
   single: { icon: "○", label: "What's happening", color: "text-cool-1", bg: "bg-cool-1/12" },
@@ -15,8 +15,12 @@ interface ReflectionViewProps {
 }
 
 export function ReflectionViewComponent({ reflections }: ReflectionViewProps) {
-  const active = reflections.filter((r) => r.isActive);
-  const past = reflections.filter((r) => !r.isActive);
+  // The weekly attention analysis is featured in its own strip. `reflections`
+  // arrives newest-first, so the first one carrying a synthesis is the latest.
+  const featured = reflections.find((r) => r.synthesis) ?? null;
+  const rest = reflections.filter((r) => r.id !== featured?.id);
+  const active = rest.filter((r) => r.isActive);
+  const past = rest.filter((r) => !r.isActive);
 
   return (
     <div className="max-h-[calc(100svh-72px)] overflow-y-auto px-6 py-10 md:px-8">
@@ -35,6 +39,17 @@ export function ReflectionViewComponent({ reflections }: ReflectionViewProps) {
         <EmptyState />
       ) : (
         <div className="mx-auto max-w-[700px]">
+          {/* Featured: this week's attention analysis */}
+          {featured && (
+            <section className="mb-10">
+              <h3 className="mb-5 flex items-center gap-2 text-[0.78rem] uppercase tracking-[0.12em] text-text-muted">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-cool-3" />
+                This week&apos;s attention
+              </h3>
+              <ReflectionCard reflection={featured} featured />
+            </section>
+          )}
+
           {/* Active reflections */}
           {active.length > 0 && (
             <section className="mb-10">
@@ -59,13 +74,71 @@ export function ReflectionViewComponent({ reflections }: ReflectionViewProps) {
   );
 }
 
-function ReflectionCard({ reflection }: { reflection: ReflectionView }) {
+function AttentionInsight({ synthesis }: { synthesis: AttentionSynthesis }) {
+  const { dominantThemes, absentThemes, attentionShifts } = synthesis;
+  if (!dominantThemes.length && !absentThemes.length && !attentionShifts.length) {
+    return null;
+  }
+  return (
+    <div className="mb-4 space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+      {dominantThemes.length > 0 && (
+        <div>
+          <div className="mb-1.5 text-[0.68rem] uppercase tracking-wider text-text-muted">
+            Getting the most attention
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {dominantThemes.map((t) => (
+              <span key={t} className="rounded-md bg-cool-1/12 px-2 py-0.5 text-[0.72rem] text-cool-1">
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {absentThemes.length > 0 && (
+        <div>
+          <div className="mb-1.5 text-[0.68rem] uppercase tracking-wider text-text-muted">
+            Conspicuously absent
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {absentThemes.map((t) => (
+              <span key={t} className="rounded-md bg-warm-1/12 px-2 py-0.5 text-[0.72rem] text-warm-1">
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {attentionShifts.length > 0 && (
+        <div>
+          <div className="mb-1.5 text-[0.68rem] uppercase tracking-wider text-text-muted">
+            Attention shifts
+          </div>
+          <ul className="space-y-1.5">
+            {attentionShifts.map((s, i) => (
+              <li key={i} className="text-[0.82rem] leading-relaxed">
+                <span className="text-text-muted">{s.from}</span>
+                <span className="mx-1.5 text-cool-1">→</span>
+                <span className="text-text-primary">{s.to}</span>
+                {s.significance && (
+                  <span className="mt-0.5 block text-[0.72rem] text-text-muted">{s.significance}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReflectionCard({ reflection, featured = false }: { reflection: ReflectionView; featured?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const loop = LOOP_LABELS[reflection.learningLoop];
 
   return (
     <div
-      className="rounded-2xl border border-white/[0.04] bg-card p-6 transition-all"
+      className={`rounded-2xl border bg-card p-6 transition-all ${featured ? "border-cool-3/30" : "border-white/[0.04]"}`}
       style={{
         background: "linear-gradient(135deg, rgba(20,27,45,0.8), rgba(15,20,35,0.9))",
       }}
@@ -77,6 +150,9 @@ function ReflectionCard({ reflection }: { reflection: ReflectionView }) {
         </span>
         <span className="text-[0.7rem] text-text-muted">{reflection.createdAt}</span>
       </div>
+
+      {/* Attention analysis (weekly scheduled reflections only) */}
+      {reflection.synthesis && <AttentionInsight synthesis={reflection.synthesis} />}
 
       {/* Prompt */}
       <p className="text-[1rem] leading-relaxed text-text-primary">
@@ -242,6 +318,7 @@ function PastReflections({ reflections }: { reflections: ReflectionView[] }) {
                   </span>
                   <span className="text-[0.68rem] text-text-muted">{reflection.createdAt}</span>
                 </div>
+                {reflection.synthesis && <AttentionInsight synthesis={reflection.synthesis} />}
                 <p className="text-[0.9rem] leading-relaxed text-text-secondary">
                   {reflection.prompt}
                 </p>

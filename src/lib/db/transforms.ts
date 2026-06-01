@@ -12,6 +12,7 @@ import type {
   ObservationSnippet,
   ReflectionView,
   ReflectionResponseView,
+  AttentionSynthesis,
   NotificationView,
   TimelineEvent,
 } from "@/lib/types";
@@ -408,6 +409,22 @@ export function toSentimentViewData(rows: SentimentRow[]): SentimentViewData {
 
 // ── Reflection transforms ──
 
+/** Safely parse the JSON `synthesis` written by the attention cron. */
+function parseAttentionSynthesis(raw: string | null): AttentionSynthesis | null {
+  if (!raw) return null;
+  try {
+    const o = JSON.parse(raw);
+    if (!o || typeof o !== "object") return null;
+    return {
+      dominantThemes: Array.isArray(o.dominantThemes) ? o.dominantThemes : [],
+      absentThemes: Array.isArray(o.absentThemes) ? o.absentThemes : [],
+      attentionShifts: Array.isArray(o.attentionShifts) ? o.attentionShifts : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function toReflectionViewData(
   reflectionRows: ReflectionRow[],
   responseRows: ReflectionResponseSource[],
@@ -454,6 +471,7 @@ export function toReflectionViewData(
       createdAt: formatRelativeTime(row.createdAt),
       responses,
       isActive,
+      synthesis: parseAttentionSynthesis(row.synthesis),
     };
   });
 }

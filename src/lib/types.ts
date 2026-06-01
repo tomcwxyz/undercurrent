@@ -87,6 +87,20 @@ export interface ReflectionResponseView {
   time: string;
 }
 
+export interface AttentionShift {
+  from: string;
+  to: string;
+  significance: string;
+}
+
+/** Meta-level analysis produced by the weekly attention cron and stored on a
+ *  scheduled reflection. */
+export interface AttentionSynthesis {
+  dominantThemes: string[];
+  absentThemes: string[];
+  attentionShifts: AttentionShift[];
+}
+
 export interface ReflectionView {
   id: string;
   prompt: string;
@@ -96,6 +110,8 @@ export interface ReflectionView {
   createdAt: string;
   responses: ReflectionResponseView[];
   isActive: boolean;
+  /** Present only on the weekly "attention analysis" reflection. */
+  synthesis?: AttentionSynthesis | null;
 }
 
 export interface NotificationView {

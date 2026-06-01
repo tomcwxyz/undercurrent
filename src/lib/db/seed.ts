@@ -122,9 +122,10 @@ export async function seedSpaceContent(spaceId: string, userId: string): Promise
     .values(
       SEED_REFLECTIONS.map((r) => ({
         spaceId,
-        type: "prompted" as const,
+        type: r.type ?? "prompted",
         prompt: r.prompt,
         signalIds: r.signals.map((k) => sigId.get(k)!).filter(Boolean),
+        synthesis: r.synthesis ? JSON.stringify(r.synthesis) : null,
         learningLoop: r.learningLoop,
         triggerType: r.triggerType,
         createdAt: dateFrom(r.createdDaysAgo),

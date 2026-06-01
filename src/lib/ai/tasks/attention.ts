@@ -3,6 +3,7 @@ import { z } from "zod";
 import { eq, and, gt, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { observations, signals, reflections } from "@/lib/db/schema";
+import { notifySpaceMembers } from "@/lib/db/queries";
 import { getAttentionModel } from "../providers/registry";
 import { zodToAISchema } from "../schema";
 import { AI_CONFIG } from "../config";
@@ -117,4 +118,15 @@ Analyse:
     learningLoop: "triple",
     triggerType: "weekly_attention_analysis",
   });
+
+  // Let the space know the weekly attention analysis is ready to explore.
+  await notifySpaceMembers(
+    spaceId,
+    "new_reflection",
+    "This week's attention analysis",
+    result.dominantThemes.length
+      ? `Most attention on: ${result.dominantThemes.slice(0, 3).join(", ")}`
+      : "A fresh look at what your team is noticing — and missing.",
+    "reflect"
+  );
 }
