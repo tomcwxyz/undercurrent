@@ -1,9 +1,19 @@
 site_name: "Swells Documentation"
+site_url: "https://docs.swells.app/"
+site_description: "How to use Swells — capturing observations and making sense of them together."
 docs_dir: docs
+# Internal design/plan docs live in docs/plans and are intentionally excluded.
+exclude_docs: |
+  plans/
 theme:
   name: material
   palette:
     primary: teal
+  features:
+    - navigation.top
+    - navigation.sections
+    - content.code.copy
+    - search.suggest
 nav:
   - Home: index.md
   - User Guide: user-guide.md

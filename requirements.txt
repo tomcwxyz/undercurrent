@@ -1,0 +1,5 @@
+# Python dependencies for building the documentation site (docs.swells.app).
+# Used by Cloudflare Pages (and `python -m mkdocs serve` locally).
+# Pinned to the versions verified building the site.
+mkdocs==1.6.1
+mkdocs-material==9.7.3

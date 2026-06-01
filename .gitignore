@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# mkdocs build output (docs.swells.app is built by Cloudflare Pages)
+/site/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
