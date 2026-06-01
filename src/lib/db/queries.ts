@@ -9,7 +9,6 @@ import {
   spaceMemberships,
   spaces,
   reflections,
-  reflectionResponses,
   notifications,
   signalSnapshots,
   spaceInvitations,
@@ -167,13 +166,19 @@ export async function getReflectionsForSpace(spaceId: string) {
 
   if (reflectionRows.length === 0) return { reflections: [], responses: [], signalTitleMap: {} };
 
-  // Get all responses for these reflections
+  // Responses are stored as observations linked via reflectionId (so they can
+  // re-enter the AI pipeline). Pull those, excluding any rejected by moderation.
   const reflectionIds = reflectionRows.map((r) => r.id);
   const responseRows = await db
     .select()
-    .from(reflectionResponses)
-    .where(inArray(reflectionResponses.reflectionId, reflectionIds))
-    .orderBy(desc(reflectionResponses.createdAt));
+    .from(observations)
+    .where(
+      and(
+        inArray(observations.reflectionId, reflectionIds),
+        ne(observations.moderationStatus, "rejected")
+      )
+    )
+    .orderBy(desc(observations.createdAt));
 
   // Collect all signal IDs referenced by reflections
   const allSignalIds = [...new Set(reflectionRows.flatMap((r) => (r.signalIds as string[]) ?? []))];
@@ -190,6 +195,15 @@ export async function getReflectionsForSpace(spaceId: string) {
   }
 
   return { reflections: reflectionRows, responses: responseRows, signalTitleMap };
+}
+
+export async function getReflectionById(reflectionId: string) {
+  const [row] = await db
+    .select()
+    .from(reflections)
+    .where(eq(reflections.id, reflectionId))
+    .limit(1);
+  return row ?? null;
 }
 
 // ── Notification queries ──

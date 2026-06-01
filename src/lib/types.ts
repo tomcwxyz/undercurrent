@@ -19,6 +19,7 @@ export interface ObservationView {
   sentimentTier?: string;
   media: MediaView[];
   collectionId?: string | null;
+  reflectionId?: string | null;
   moderationStatus?: "approved" | "pending" | "rejected";
 }
 

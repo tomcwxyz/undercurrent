@@ -20,7 +20,6 @@ import type {
   signals,
   constellationNodes,
   reflections,
-  reflectionResponses,
   notifications,
   signalSnapshots,
   collections,
@@ -31,8 +30,20 @@ type MediaRow = typeof observationMedia.$inferSelect;
 type SignalRow = typeof signals.$inferSelect;
 type ConstellationNodeRow = typeof constellationNodes.$inferSelect;
 type ReflectionRow = typeof reflections.$inferSelect;
-type ReflectionResponseRow = typeof reflectionResponses.$inferSelect;
 type NotificationRow = typeof notifications.$inferSelect;
+
+/**
+ * Reflection responses are now stored as observations linked via reflectionId
+ * (so they can re-enter the AI pipeline). This is the minimal shape the view
+ * transform needs from those observation rows.
+ */
+type ReflectionResponseSource = {
+  id: string;
+  reflectionId: string | null;
+  authorName: string | null;
+  contentText: string;
+  createdAt: Date;
+};
 
 function formatRelativeTime(date: Date): string {
   const now = new Date();
@@ -91,6 +102,7 @@ export function toObservationView(
     sentimentTier,
     media,
     collectionId: row.collectionId ?? null,
+    reflectionId: row.reflectionId ?? null,
     moderationStatus: row.moderationStatus ?? "approved",
   };
 }
@@ -345,15 +357,16 @@ export function toSentimentViewData(rows: SentimentRow[]): SentimentViewData {
 
 export function toReflectionViewData(
   reflectionRows: ReflectionRow[],
-  responseRows: ReflectionResponseRow[],
+  responseRows: ReflectionResponseSource[],
   signalTitleMap: Record<string, string>
 ): ReflectionView[] {
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
 
   // Group responses by reflectionId
-  const responsesByReflection = new Map<string, ReflectionResponseRow[]>();
+  const responsesByReflection = new Map<string, ReflectionResponseSource[]>();
   for (const r of responseRows) {
+    if (!r.reflectionId) continue;
     const existing = responsesByReflection.get(r.reflectionId) ?? [];
     existing.push(r);
     responsesByReflection.set(r.reflectionId, existing);
@@ -364,7 +377,7 @@ export function toReflectionViewData(
       (r): ReflectionResponseView => ({
         id: r.id,
         authorName: r.authorName ?? "Anonymous",
-        text: r.text,
+        text: r.contentText,
         time: formatRelativeTime(r.createdAt),
       })
     );

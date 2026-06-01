@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { observations, observationMedia, reflectionResponses } from "@/lib/db/schema";
+import { observations, observationMedia } from "@/lib/db/schema";
 import {
   clearDemoData,
   markNotificationRead,
@@ -27,12 +27,13 @@ import {
   updateCollection,
   deleteCollection,
   incrementCollectionResponseCount,
+  getReflectionById,
 } from "@/lib/db/queries";
 import { toCollectionView } from "@/lib/db/transforms";
 import { eq } from "drizzle-orm";
 import { canEditSpace, canManageMembers, canDeleteSpace } from "@/lib/permissions";
 import type { SpaceRole } from "@/lib/types";
-import { processObservation, IMAGE_OBSERVATION_PLACEHOLDER } from "@/lib/ai/pipeline";
+import { processObservation, processReflectionResponse, IMAGE_OBSERVATION_PLACEHOLDER } from "@/lib/ai/pipeline";
 import { checkSubscriptionAccess, getTierConfig } from "@/lib/stripe";
 import { hasFreeAccess } from "@/lib/account";
 import { getBaseUrl } from "@/lib/env";
@@ -154,14 +155,48 @@ export async function submitReflectionResponse(formData: FormData) {
     text: formData.get("text"),
   });
 
-  await db.insert(reflectionResponses).values({
-    reflectionId: parsed.reflectionId,
-    userId: session.user.id,
-    authorName: session.user.name ?? "Anonymous",
-    text: parsed.text,
-  });
+  // A response is a considered sensing input: it becomes an observation linked
+  // to its reflection, then re-enters the AI pipeline to evolve the signal(s)
+  // that prompted it.
+  const reflection = await getReflectionById(parsed.reflectionId);
+  if (!reflection) throw new Error("Reflection not found");
+
+  const spaceId = reflection.spaceId;
+  const signalIds = (reflection.signalIds as string[] | null) ?? [];
+
+  // Subscription gating mirrors createObservation — responses count as
+  // observations against the monthly limit.
+  const access = await checkSubscriptionAccess(session.user.id, session.user.email);
+  if (!access.allowed) throw new Error(`Subscription ${access.reason}`);
+
+  const subscription = await getSubscriptionForUser(session.user.id);
+  if (subscription && !hasFreeAccess(session.user.email)) {
+    const config = getTierConfig(subscription.tier);
+    const count = await getObservationCountThisMonth(spaceId);
+    if (count >= config.observationLimit) {
+      throw new Error("Monthly observation limit reached");
+    }
+  }
+
+  const [inserted] = await db
+    .insert(observations)
+    .values({
+      spaceId,
+      authorId: session.user.id,
+      authorName: session.user.name ?? "Anonymous",
+      contentText: parsed.text,
+      signalStrength: "single",
+      reflectionId: parsed.reflectionId,
+    })
+    .returning({ id: observations.id });
+
+  if (subscription) {
+    await incrementObservationCount(subscription.id, spaceId);
+  }
 
   revalidatePath("/dashboard", "layout");
+
+  after(() => processReflectionResponse(inserted.id, spaceId, signalIds));
 }
 
 export async function markNotificationReadAction(formData: FormData) {

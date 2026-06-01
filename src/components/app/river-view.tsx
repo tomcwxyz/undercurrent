@@ -364,6 +364,11 @@ function ObservationCard({
             ◐ {obs.media.length} {obs.media.length === 1 ? "attachment" : "attachments"}
           </span>
         )}
+        {obs.reflectionId && (
+          <span className="inline-flex items-center gap-1 rounded-[10px] bg-cool-2/12 px-2.5 py-0.5 text-[0.7rem] font-medium text-cool-2">
+            ◑ via reflection
+          </span>
+        )}
         {signals?.map((sig) => (
           <button
             key={sig.signalId}

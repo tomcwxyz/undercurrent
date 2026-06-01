@@ -10,6 +10,7 @@ import {
   uuid,
   vector,
   varchar,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 // ── Auth.js tables ──
@@ -128,6 +129,11 @@ export const observations = pgTable("observations", {
   isAnonymous: boolean("is_anonymous").default(false),
   isDemo: boolean("is_demo").default(false),
   collectionId: uuid("collection_id").references(() => collections.id, {
+    onDelete: "set null",
+  }),
+  // Set when this observation originated as a reflection response. Lets the
+  // response re-enter the pipeline while staying traceable to its prompt.
+  reflectionId: uuid("reflection_id").references((): AnyPgColumn => reflections.id, {
     onDelete: "set null",
   }),
   moderationStatus: text("moderation_status")

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { observations } from "@/lib/db/schema";
+import { observations, signalObservations } from "@/lib/db/schema";
 import { getMediaForObservation } from "@/lib/db/queries";
 import { describeMediaForObservation } from "./tasks/describe-media";
 import { transcribeVoiceForObservation } from "./tasks/transcribe-voice";
@@ -117,6 +117,50 @@ export async function processObservation(
 
   await markProcessed(observationId);
   console.log(`[pipeline] Done processing ${observationId}`);
+}
+
+/**
+ * Process a reflection response that has been stored as an observation.
+ *
+ * A response is treated as a considered sensing input. We pre-link it to the
+ * signal(s) that prompted the reflection so attribution is guaranteed even if
+ * clustering attaches it elsewhere, run the full observation pipeline (which
+ * can also seed a brand-new signal if the response diverges), then re-evolve
+ * the originating signal(s) so their counts/description/strength reflect it.
+ */
+export async function processReflectionResponse(
+  observationId: string,
+  spaceId: string,
+  signalIds: string[]
+): Promise<void> {
+  console.log(`[pipeline] Processing reflection response ${observationId}`);
+
+  // 1. Pre-link to the prompting signal(s).
+  if (signalIds.length > 0) {
+    try {
+      await db
+        .insert(signalObservations)
+        .values(signalIds.map((signalId) => ({ signalId, observationId })))
+        .onConflictDoNothing();
+    } catch (error) {
+      console.error(`[pipeline] Pre-link failed for ${observationId} (continuing):`, error);
+    }
+  }
+
+  // 2. Standard pipeline: embed → enrich → cluster → evolve OR synthesise-new.
+  await processObservation(observationId, spaceId);
+
+  // 3. Re-evolve the originating signal(s) so the freshly linked response is
+  //    reflected in their strength/direction/description and snapshots.
+  for (const signalId of signalIds) {
+    try {
+      await evolveSignal(signalId, spaceId);
+    } catch (error) {
+      console.error(`[pipeline] Reflect re-evolve failed for signal ${signalId} (continuing):`, error);
+    }
+  }
+
+  console.log(`[pipeline] Done processing reflection response ${observationId}`);
 }
 
 /**
