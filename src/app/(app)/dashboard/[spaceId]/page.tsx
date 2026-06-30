@@ -14,7 +14,7 @@ import {
   getUnreadNotificationCount,
   getSignalSnapshotsForSpace,
   getSpacesForUser,
-  getSpaceMemberCount,
+  getMemberCountsForSpaces,
   getMediaForObservations,
   getCollectionsForSpace,
 } from "@/lib/db/queries";
@@ -102,16 +102,15 @@ export default async function SpaceDashboardPage({
     signalTitleMap,
   );
 
-  // Build spaces list with member counts
-  const spacesWithCounts = await Promise.all(
-    userSpaces.map(async (s): Promise<SpaceView> => ({
-      id: s.id,
-      name: s.name,
-      description: s.description,
-      memberCount: await getSpaceMemberCount(s.id),
-      role: s.role as SpaceRole,
-    }))
-  );
+  // Build spaces list with member counts — one grouped query, not one per space.
+  const memberCounts = await getMemberCountsForSpaces(userSpaces.map((s) => s.id));
+  const spacesWithCounts: SpaceView[] = userSpaces.map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    memberCount: memberCounts[s.id] ?? 0,
+    role: s.role as SpaceRole,
+  }));
 
   // Compute subscription status
   const subscriptionStatus = await checkSubscriptionAccess(session.user.id, session.user.email);

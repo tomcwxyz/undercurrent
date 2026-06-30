@@ -36,22 +36,31 @@ export function getR2Client(): S3Client {
 
 const BUCKET = () => process.env.R2_BUCKET_NAME ?? "swells";
 
-/** Generate a presigned PUT URL for direct browser upload */
+/**
+ * Generate a presigned PUT URL for direct browser upload.
+ *
+ * `contentLength` is the EXACT byte size of the upload (validated server-side
+ * against the per-type cap before calling this) and is included as a signed
+ * header. R2 then rejects any PUT whose Content-Length differs, so a client
+ * cannot upload a larger object than it declared — the size cap is enforced at
+ * the edge, not merely advisory. (Signing an exact length works; signing a
+ * *max* length is what previously caused 403s.)
+ */
 export async function generatePresignedUploadUrl(
   key: string,
   contentType: string,
-  maxSizeBytes: number
+  contentLength: number
 ): Promise<{ uploadUrl: string; key: string }> {
   const command = new PutObjectCommand({
     Bucket: BUCKET(),
     Key: key,
     ContentType: contentType,
-    // ContentLength intentionally omitted — signing a max size causes 403 when
-    // the browser uploads the actual (smaller) file size
+    ContentLength: contentLength,
   });
 
   const uploadUrl = await getSignedUrl(getR2Client(), command, {
     expiresIn: 600, // 10 minutes
+    signableHeaders: new Set(["content-length"]),
   });
 
   return { uploadUrl, key };

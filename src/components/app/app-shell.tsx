@@ -795,7 +795,7 @@ async function uploadMediaItem(
   const res = await fetch("/api/upload/presign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fileName, contentType, spaceId }),
+    body: JSON.stringify({ fileName, contentType, fileSize: file.size, spaceId }),
   });
   if (!res.ok) {
     const err = await res.json();

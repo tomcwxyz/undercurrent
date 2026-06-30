@@ -373,6 +373,14 @@ export const usageRecords = pgTable("usage_records", {
   observationCount: integer("observation_count").notNull().default(0),
 });
 
+// Durable, atomic rate-limit buckets. Backs lib/rate-limit so limits hold
+// across serverless instances (an in-memory Map resets per instance).
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull().default(0),
+  resetAt: timestamp("reset_at", { mode: "date" }).notNull(),
+});
+
 export const notifications = pgTable("notifications", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id")

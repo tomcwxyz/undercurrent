@@ -28,6 +28,7 @@ import {
   deleteCollection,
   incrementCollectionResponseCount,
   getReflectionById,
+  getSpaceBillingContext,
 } from "@/lib/db/queries";
 import { toCollectionView } from "@/lib/db/transforms";
 import { eq } from "drizzle-orm";
@@ -468,6 +469,12 @@ export async function moderateObservationAction(formData: FormData) {
 
   if (action === "approve") {
     await incrementCollectionResponseCount(collectionId);
+    // Charge the approved submission against the space owner's allowance, so
+    // moderated collections are metered the same as unmoderated ones.
+    const billing = await getSpaceBillingContext(spaceId);
+    if (billing?.subscriptionId && !hasFreeAccess(billing.ownerEmail)) {
+      await incrementObservationCount(billing.subscriptionId, spaceId);
+    }
     after(async () => {
       await processObservation(obsId, spaceId);
     });

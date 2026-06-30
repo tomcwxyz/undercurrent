@@ -2,62 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { generatePresignedUploadUrl, getPublicUrl } from "@/lib/r2";
 import { checkSubscriptionAccess } from "@/lib/stripe";
-
-const ALLOWED_IMAGE_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "image/heic",
-]);
-
-const ALLOWED_AUDIO_TYPES = new Set([
-  "audio/webm",
-  "audio/mp4",
-  "audio/ogg",
-  "audio/wav",
-]);
-
-const ALLOWED_FILE_TYPES = new Set([
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "text/plain",
-  "text/csv",
-]);
-
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
-const MAX_AUDIO_SIZE = 25 * 1024 * 1024; // 25MB
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-
-function getMediaType(
-  contentType: string
-): "image" | "voice" | "file" | null {
-  // Strip codec parameters (e.g. "audio/webm;codecs=opus" → "audio/webm")
-  const baseType = contentType.split(";")[0].trim();
-  if (ALLOWED_IMAGE_TYPES.has(baseType)) return "image";
-  if (ALLOWED_AUDIO_TYPES.has(baseType)) return "voice";
-  if (ALLOWED_FILE_TYPES.has(baseType)) return "file";
-  return null;
-}
-
-function getMaxSize(mediaType: "image" | "voice" | "file"): number {
-  switch (mediaType) {
-    case "image":
-      return MAX_IMAGE_SIZE;
-    case "voice":
-      return MAX_AUDIO_SIZE;
-    case "file":
-      return MAX_FILE_SIZE;
-  }
-}
-
-function sanitizeFileName(name: string): string {
-  return name
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .replace(/_{2,}/g, "_")
-    .slice(0, 100);
-}
+import { getMemberRole } from "@/lib/db/queries";
+import { canCreateObservation } from "@/lib/permissions";
+import type { SpaceRole } from "@/lib/types";
+import { sanitizeFileName, validatePresignRequest } from "@/lib/uploads";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -77,38 +25,39 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { fileName, contentType, spaceId } = body as {
+  const { fileName, contentType, fileSize, spaceId } = body as {
     fileName: string;
     contentType: string;
+    fileSize: number;
     spaceId: string;
   };
 
-  if (!fileName || !contentType || !spaceId) {
+  if (!spaceId || typeof spaceId !== "string") {
     return NextResponse.json(
-      { error: "Missing required fields: fileName, contentType, spaceId" },
+      { error: "Missing required field: spaceId" },
       { status: 400 }
     );
   }
 
-  const mediaType = getMediaType(contentType);
-  if (!mediaType) {
-    return NextResponse.json(
-      { error: "Unsupported file type" },
-      { status: 400 }
-    );
+  // Only members who can contribute may obtain an upload URL for a space — and
+  // only into that space's own key prefix.
+  const role = await getMemberRole(session.user.id, spaceId);
+  if (!role || !canCreateObservation(role as SpaceRole)) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
-  const maxSize = getMaxSize(mediaType);
+  const validated = validatePresignRequest({ fileName, contentType, fileSize });
+  if (!validated.ok) {
+    return NextResponse.json({ error: validated.error }, { status: 400 });
+  }
+  const { mediaType, contentType: baseType, fileSize: size } = validated.value;
+
   const fileId = crypto.randomUUID();
   const sanitized = sanitizeFileName(fileName);
   const key = `spaces/${spaceId}/${fileId}/${sanitized}`;
 
   try {
-    const { uploadUrl } = await generatePresignedUploadUrl(
-      key,
-      contentType,
-      maxSize
-    );
+    const { uploadUrl } = await generatePresignedUploadUrl(key, baseType, size);
     const publicUrl = getPublicUrl(key);
 
     return NextResponse.json({
@@ -116,7 +65,6 @@ export async function POST(req: NextRequest) {
       key,
       publicUrl,
       mediaType,
-      maxSize,
     });
   } catch (error) {
     console.error("Failed to generate presigned URL:", error);

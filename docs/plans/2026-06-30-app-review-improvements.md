@@ -10,6 +10,14 @@ Priority key: **P0** = exploitable / data-correctness, fix before real traffic �
 **P1** = high-impact speed/quality · **P2** = polish & nice-to-have ·
 **Feature** = new capability.
 
+> **Status — PR 1 shipped 2026-06-30** (branch `claude/app-review-improvements-82gj12`):
+> SEC-1, SEC-2, SEC-3, SEC-4, SEC-6, SEC-8 and the two quick perf wins PERF-2,
+> PERF-6 are implemented (typecheck + lint + `next build` all green). SEC-5 is
+> partially done (allowlist + size cap + exact-size signing; magic-byte sniffing
+> still to do). **Ops note:** the new `rate_limits` table requires
+> `npx drizzle-kit push` to take effect — until then the limiter degrades to the
+> old per-instance in-memory behaviour automatically.
+
 ---
 
 ## P0 — Cost-safety & security (fix first)
@@ -17,7 +25,7 @@ Priority key: **P0** = exploitable / data-correctness, fix before real traffic �
 The dangerous combination: an unauthenticated Collection link can drain a space
 owner's AI budget. Items SEC-1..SEC-5 should ship together.
 
-- [ ] **SEC-1 · Enforce billing/limits on public collection submit** — _P0, M_
+- [x] **SEC-1 · Enforce billing/limits on public collection submit** — _P0, M_
   `src/app/api/c/[token]/submit/route.ts:37-90`
   The public path never checks the space's subscription `observationLimit` and
   never calls `incrementObservationCount` (the authed path does —
@@ -26,19 +34,19 @@ owner's AI budget. Items SEC-1..SEC-5 should ship together.
   enforce its limit, increment usage on approval, and add a hard per-collection
   ceiling independent of `maxResponses`.
 
-- [ ] **SEC-2 · Move rate limiting to a shared store** — _P0, M_
+- [x] **SEC-2 · Move rate limiting to a shared store** — _P0, M_
   `src/lib/rate-limit.ts:6`; used in `submit/route.ts:33`, `c/[token]/presign/route.ts:27`
   In-memory `Map` resets per serverless instance/cold-start, so caps barely
   hold. Back with Upstash/Redis (or Postgres); fail-closed when unavailable.
   Derive client IP from the trusted platform header, not spoofable
   `x-forwarded-for` (`submit/route.ts:31`). Add a per-collection global limit.
 
-- [ ] **SEC-3 · Enforce upload size at the signature** — _P0, M_
+- [x] **SEC-3 · Enforce upload size at the signature** — _P0, M_
   `src/lib/r2.ts:45-58`; callers `upload/presign/route.ts:107`, `c/[token]/presign/route.ts:56`
   `ContentLength` is omitted from the presign, so R2 accepts any size; the 25 MB
   cap is decorative. Use a presigned POST policy with `content-length-range`.
 
-- [ ] **SEC-4 · Bind submitted media keys to the collection prefix (IDOR)** — _P0, S-M_
+- [x] **SEC-4 · Bind submitted media keys to the collection prefix (IDOR)** — _P0, S-M_
   `src/app/api/c/[token]/submit/route.ts:71-82`
   `mediaRefs[].key`/`url` are stored verbatim — a submitter can reference another
   space's private R2 object. Reject any key not under `collections/{token}/...`;
@@ -50,7 +58,7 @@ owner's AI budget. Items SEC-1..SEC-5 should ship together.
   `fileSize` stored unchecked. Validate magic bytes / recompute size from R2
   metadata; use an explicit allowlist on both routes.
 
-- [ ] **SEC-6 · Verify space membership on authenticated upload presign** — _P0, S_
+- [x] **SEC-6 · Verify space membership on authenticated upload presign** — _P0, S_
   `src/app/api/upload/presign/route.ts:62-104`
   Route checks auth + subscription but not `getMemberRole(userId, spaceId)`. Any
   subscribed user can write into another space's `spaces/{spaceId}/...` prefix.
@@ -61,7 +69,7 @@ owner's AI budget. Items SEC-1..SEC-5 should ship together.
   re-run `incrementReferralDiscount`/`markReferralRewarded`. Dedupe on `event.id`;
   make referral reward conditional on not-already-rewarded.
 
-- [ ] **SEC-8 · Cap pending submissions under moderation** — _P1, S_
+- [x] **SEC-8 · Cap pending submissions under moderation** — _P1, S_
   `src/app/api/c/[token]/submit/route.ts:56,85-90`
   `maxResponses` only increments on approval, so with moderation on an attacker
   can insert unlimited pending rows + media (DB/storage exhaustion). Count
@@ -83,7 +91,7 @@ owner's AI budget. Items SEC-1..SEC-5 should ship together.
   serializes them into one client component. Paginate River & Timeline (cursor /
   "load more"); lazy-fetch sentiment/constellation/timeline data on tab activation.
 
-- [ ] **PERF-2 · Stop selecting the embedding vector for display** — _P1, S · quick win_
+- [x] **PERF-2 · Stop selecting the embedding vector for display** — _P1, S · quick win_
   `src/lib/db/queries.ts:35-41` (`getObservationsForSpace`)
   `select()` returns all columns incl. the 1536-dim `aiEmbedding` (~6KB/row),
   pulled from Neon on every page load and never used by the client. Select only
@@ -107,7 +115,7 @@ owner's AI budget. Items SEC-1..SEC-5 should ship together.
   is allocated 60×/sec inside `draw()`. Hoist `nodeById`; separate static setup
   from data-dependent compute; pause when backgrounded.
 
-- [ ] **PERF-6 · Remove member-count N+1** — _P1, S · quick win_
+- [x] **PERF-6 · Remove member-count N+1** — _P1, S · quick win_
   `src/app/(app)/dashboard/[spaceId]/page.tsx:106-114`
   `getSpaceMemberCount` is called per space in a loop. Fold into one grouped query.
 
