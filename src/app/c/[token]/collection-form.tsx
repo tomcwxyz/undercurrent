@@ -32,7 +32,7 @@ async function uploadFile(
   const res = await fetch(`/api/c/${token}/presign`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fileName, contentType }),
+    body: JSON.stringify({ fileName, contentType, fileSize: file.size }),
   });
   if (!res.ok) throw new Error("Failed to get upload URL");
   const { uploadUrl, key, publicUrl, mediaType } = await res.json();

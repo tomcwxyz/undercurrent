@@ -32,9 +32,35 @@ export async function getUserDefaultSpace(
   return rows[0]?.spaceId ?? null;
 }
 
+// Every observation column EXCEPT the 1536-dim ai_embedding vector. The vector
+// is ~6KB/row and is never needed for rendering — selecting it pulled megabytes
+// from the database on every dashboard load.
+const observationDisplayColumns = {
+  id: observations.id,
+  createdAt: observations.createdAt,
+  authorId: observations.authorId,
+  authorName: observations.authorName,
+  spaceId: observations.spaceId,
+  contentText: observations.contentText,
+  contentImages: observations.contentImages,
+  aiSentiment: observations.aiSentiment,
+  aiThemes: observations.aiThemes,
+  signalStrength: observations.signalStrength,
+  isAnonymous: observations.isAnonymous,
+  isDemo: observations.isDemo,
+  collectionId: observations.collectionId,
+  reflectionId: observations.reflectionId,
+  moderationStatus: observations.moderationStatus,
+  hasImage: observations.hasImage,
+  imageLabel: observations.imageLabel,
+  aiSentimentData: observations.aiSentimentData,
+  aiEntities: observations.aiEntities,
+  aiProcessedAt: observations.aiProcessedAt,
+} as const;
+
 export async function getObservationsForSpace(spaceId: string) {
   return db
-    .select()
+    .select(observationDisplayColumns)
     .from(observations)
     .where(eq(observations.spaceId, spaceId))
     .orderBy(desc(observations.createdAt));
@@ -441,6 +467,50 @@ export async function getSpaceMemberCount(spaceId: string): Promise<number> {
   return result[0]?.count ?? 0;
 }
 
+/** Member counts for many spaces in a single grouped query (avoids N+1). */
+export async function getMemberCountsForSpaces(
+  spaceIds: string[]
+): Promise<Record<string, number>> {
+  if (spaceIds.length === 0) return {};
+  const rows = await db
+    .select({
+      spaceId: spaceMemberships.spaceId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(spaceMemberships)
+    .where(inArray(spaceMemberships.spaceId, spaceIds))
+    .groupBy(spaceMemberships.spaceId);
+  const counts: Record<string, number> = {};
+  for (const r of rows) counts[r.spaceId] = r.count;
+  return counts;
+}
+
+/**
+ * Billing context for the account that OWNS a space — its owner's id, email and
+ * subscription. Public collection submissions are charged against (and limited
+ * by) this subscription, since the respondent has no account of their own.
+ */
+export async function getSpaceBillingContext(spaceId: string) {
+  const [row] = await db
+    .select({
+      ownerId: users.id,
+      ownerEmail: users.email,
+      subscriptionId: subscriptions.id,
+      tier: subscriptions.tier,
+    })
+    .from(spaceMemberships)
+    .innerJoin(users, eq(users.id, spaceMemberships.userId))
+    .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
+    .where(
+      and(
+        eq(spaceMemberships.spaceId, spaceId),
+        eq(spaceMemberships.role, "owner")
+      )
+    )
+    .limit(1);
+  return row ?? null;
+}
+
 // ── Subscription queries ──
 
 export async function getSubscriptionForUser(userId: string) {
@@ -785,6 +855,27 @@ export async function incrementCollectionResponseCount(id: string) {
     .update(collections)
     .set({ responseCount: sql`${collections.responseCount} + 1` })
     .where(eq(collections.id, id));
+}
+
+/**
+ * Count of non-rejected submissions (pending + approved) for a collection.
+ * Used to enforce an absolute per-collection ceiling so an attacker can't flood
+ * a space with submissions — including pending ones under moderation, which the
+ * approved-only `responseCount` never caps.
+ */
+export async function getCollectionSubmissionCount(
+  collectionId: string
+): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(observations)
+    .where(
+      and(
+        eq(observations.collectionId, collectionId),
+        ne(observations.moderationStatus, "rejected")
+      )
+    );
+  return row?.count ?? 0;
 }
 
 export async function getObservationsForCollection(collectionId: string) {
