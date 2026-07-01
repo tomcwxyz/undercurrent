@@ -8,8 +8,10 @@ import { extractFileTextForObservation } from "./tasks/extract-file-text";
 import { embedObservation } from "./tasks/embed";
 import { enrichObservation } from "./tasks/enrich";
 import { clusterObservation } from "./tasks/cluster";
-import { evolveSignal, synthesiseNewSignals } from "./tasks/synthesise";
+import { evolveSignal, evolveSignalIfDue, synthesiseNewSignals } from "./tasks/synthesise";
 import { checkReflectionTriggers } from "./tasks/reflect";
+import { withLock } from "@/lib/lock";
+import { AI_CONFIG } from "./config";
 
 /** Placeholder used when user submits a media-only observation (no text) */
 export const IMAGE_OBSERVATION_PLACEHOLDER = "[Processing media\u2026]";
@@ -60,13 +62,15 @@ export async function processObservation(
     console.error(`[pipeline] Backfill failed for ${observationId} (continuing):`, error);
   }
 
-  // Step 2: Embed — critical path, can't cluster without a vector
+  // Step 2: Embed — critical path, can't cluster without a vector. On failure
+  // we deliberately do NOT mark the observation processed, so it stays
+  // aiEmbedding-null and the reprocess sweeper (cron) can retry it later rather
+  // than silently stranding it.
   try {
     await embedObservation(observationId);
     console.log(`[pipeline] Embedded ${observationId}`);
   } catch (error) {
-    console.error(`[pipeline] Embed failed for ${observationId}:`, error);
-    await markProcessed(observationId);
+    console.error(`[pipeline] Embed failed for ${observationId} (will retry via sweeper):`, error);
     return;
   }
 
@@ -90,26 +94,44 @@ export async function processObservation(
   }
 
   if (signalId) {
-    // Step 5a: Evolve the signal this observation was added to
+    // Step 5a: Evolve the signal this observation was added to — but only if it
+    // hasn't been re-synthesised within the cooldown, so a burst of adds to one
+    // signal doesn't fire an LLM call per observation. Counts are already kept
+    // fresh cheaply on attach.
+    let evolved = false;
     try {
-      await evolveSignal(signalId, spaceId);
-      console.log(`[pipeline] Evolved signal ${signalId}`);
+      evolved = await evolveSignalIfDue(signalId, spaceId);
+      console.log(`[pipeline] Evolve for ${signalId}: ${evolved ? "evolved" : "coalesced (cooldown)"}`);
     } catch (error) {
       console.error(`[pipeline] Evolve failed for signal ${signalId}:`, error);
     }
 
-    // Step 5b: Check if this signal should trigger a reflection
-    try {
-      await checkReflectionTriggers(signalId, spaceId);
-      console.log(`[pipeline] Checked reflection triggers for ${signalId}`);
-    } catch (error) {
-      console.error(`[pipeline] Reflect failed for signal ${signalId}:`, error);
+    // Step 5b: Only consider reflection triggers when the signal actually
+    // evolved (a fresh snapshot exists to compare); the trigger itself is
+    // further gated by a per-signal cooldown claim.
+    if (evolved) {
+      try {
+        await checkReflectionTriggers(signalId, spaceId);
+        console.log(`[pipeline] Checked reflection triggers for ${signalId}`);
+      } catch (error) {
+        console.error(`[pipeline] Reflect failed for signal ${signalId}:`, error);
+      }
     }
   } else {
-    // Step 6: Try to form new signals from unattached observations
+    // Step 6: Try to form new signals from unattached observations. Serialised
+    // per space so two concurrent unattached observations can't both scan the
+    // same set and create duplicate/overlapping signals.
     try {
-      await synthesiseNewSignals(spaceId);
-      console.log(`[pipeline] Synthesised new signals for space ${spaceId}`);
+      const ran = await withLock(
+        `synthesise:${spaceId}`,
+        AI_CONFIG.signals.synthesisLockTtlSeconds,
+        () => synthesiseNewSignals(spaceId)
+      );
+      console.log(
+        ran === null
+          ? `[pipeline] Synthesise skipped for ${spaceId} (another run holds the lock)`
+          : `[pipeline] Synthesised new signals for space ${spaceId}`
+      );
     } catch (error) {
       console.error(`[pipeline] Synthesise failed for space ${spaceId}:`, error);
     }

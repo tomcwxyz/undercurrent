@@ -29,9 +29,23 @@ export const AI_CONFIG = {
     minObservationsForSignal: 2,
   },
 
+  signals: {
+    /** Minimum seconds between full (LLM) re-synthesis of the same signal.
+     *  Coalesces evolution under bursts — a signal gaining 20 observations in a
+     *  few seconds is re-synthesised once, not 20 times. Counts are still kept
+     *  fresh cheaply on every attach (see cluster.updateSignalCounts). */
+    evolveCooldownSeconds: 90,
+    /** Seconds to hold the per-space synthesis lock. Above the worst-case time
+     *  to form + evolve new signals for a space. */
+    synthesisLockTtlSeconds: 180,
+  },
+
   reflection: {
     /** Days without a reflection before triggering one */
     staleSignalDays: 7,
+    /** Minimum hours between generated reflections for the same signal, claimed
+     *  atomically so concurrent pipeline runs can't both generate one. */
+    cooldownHours: 24,
   },
 
   attention: {

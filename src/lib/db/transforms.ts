@@ -27,9 +27,13 @@ import type {
   collections,
 } from "./schema";
 
-// The embedding vector is never used for rendering and is deliberately not
-// fetched for display queries, so transforms operate on the row without it.
-type ObservationRow = Omit<typeof observations.$inferSelect, "aiEmbedding">;
+// The embedding vector and its metadata are never used for rendering and are
+// deliberately not fetched for display queries, so transforms operate on the
+// row without them.
+type ObservationRow = Omit<
+  typeof observations.$inferSelect,
+  "aiEmbedding" | "aiEmbeddedAt"
+>;
 type MediaRow = typeof observationMedia.$inferSelect;
 type SignalRow = typeof signals.$inferSelect;
 type ConstellationNodeRow = typeof constellationNodes.$inferSelect;

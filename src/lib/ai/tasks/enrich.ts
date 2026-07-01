@@ -88,7 +88,8 @@ Observation: "${obs.contentText}"`;
       aiSentimentData: result.sentiment,
       aiThemes: result.themes,
       aiEntities: result.entities,
-      aiProcessedAt: new Date(),
+      // aiProcessedAt is set once, at the end of the pipeline — not here — so it
+      // unambiguously means "pipeline complete", not "enrichment ran".
     })
     .where(eq(observations.id, observationId));
 }

@@ -13,6 +13,7 @@ import { notifySpaceMembers } from "@/lib/db/queries";
 import { getSignalSynthesisModel } from "../providers/registry";
 import { zodToAISchema } from "../schema";
 import { findUnattachedClusters } from "./cluster";
+import { AI_CONFIG } from "../config";
 
 const signalSynthesisSchema = z.object({
   title: z.string().max(100),
@@ -107,6 +108,7 @@ Generate a signal with:
       observationCount: obsRows.length,
       contributorCount: uniqueContributors.size,
       lastUpdated: new Date(),
+      aiEvolvedAt: new Date(),
       aiGenerated: true,
       sentiment: sentimentAgg,
     })
@@ -156,6 +158,31 @@ Generate a signal with:
         )
       );
   }
+}
+
+/**
+ * Evolve a signal only if it hasn't had a full (LLM) re-synthesis within the
+ * cooldown window. Returns true if it evolved. Under a burst of observations
+ * attaching to one signal, only the first triggers the expensive LLM call; the
+ * rest are coalesced (their counts are already kept fresh on attach).
+ */
+export async function evolveSignalIfDue(
+  signalId: string,
+  spaceId?: string
+): Promise<boolean> {
+  const [row] = await db
+    .select({ aiEvolvedAt: signals.aiEvolvedAt })
+    .from(signals)
+    .where(eq(signals.id, signalId))
+    .limit(1);
+
+  const cooldownMs = AI_CONFIG.signals.evolveCooldownSeconds * 1000;
+  if (row?.aiEvolvedAt && Date.now() - row.aiEvolvedAt.getTime() < cooldownMs) {
+    return false;
+  }
+
+  await evolveSignal(signalId, spaceId);
+  return true;
 }
 
 /** Derive a stable 0–1 position from a UUID segment */

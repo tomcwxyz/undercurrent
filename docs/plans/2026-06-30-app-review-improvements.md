@@ -17,6 +17,16 @@ Priority key: **P0** = exploitable / data-correctness, fix before real traffic �
 > still to do). **Ops note:** the new `rate_limits` table requires
 > `npx drizzle-kit push` to take effect — until then the limiter degrades to the
 > old per-instance in-memory behaviour automatically.
+>
+> **Status — PR 2 shipped 2026-06-30** (pipeline correctness): QUAL-1, QUAL-2,
+> QUAL-3 implemented (typecheck + lint + `next build` all green). Adds a
+> `processing_locks` table (per-space synthesis lock), `signals.ai_evolved_at` +
+> `signals.last_reflection_at` (evolve/reflection cooldowns),
+> `observations.ai_embedded_at` (distinct AI lifecycle flag), and a
+> `/api/cron/reprocess` sweeper (every 15 min) that retries never-embedded
+> observations. **Ops note:** run `npx drizzle-kit push` for the new
+> table/columns, and set `CRON_SECRET` (already used by the attention cron) — the
+> lock fails open until the table exists, so nothing breaks pre-migration.
 
 ---
 
@@ -138,20 +148,20 @@ owner's AI budget. Items SEC-1..SEC-5 should ship together.
 
 ## P1 — Quality / correctness
 
-- [ ] **QUAL-1 · Serialize per-space synthesis (no duplicate signals)** — _P1, M_
+- [x] **QUAL-1 · Serialize per-space synthesis (no duplicate signals)** — _P1, M_
   `src/lib/ai/pipeline.ts:108-116`, `tasks/synthesise.ts:219-255`
   Concurrent unattached observations both run `synthesiseNewSignals`, scan the
   same set, and create overlapping signals. Wrap cluster+synthesise in a Postgres
   advisory lock (`pg_advisory_xact_lock(hashtext(spaceId))`) or use a queue.
 
-- [ ] **QUAL-2 · Debounce signal evolution & reflection triggers** — _P1, M_
+- [x] **QUAL-2 · Debounce signal evolution & reflection triggers** — _P1, M_
   `src/lib/ai/pipeline.ts:92-99`, `tasks/reflect.ts:52-72`
   `evolveSignal` makes a full Sonnet call on every observation added to a signal;
   `checkReflectionTriggers` fires after every evolve and can spam reflections +
   member notifications. Coalesce with a `dirty` flag and a per-signal
   `last_reflected_at` cooldown (check-and-set atomically).
 
-- [ ] **QUAL-3 · Separate AI lifecycle flags; add re-embed sweeper** — _P1, S-M_
+- [x] **QUAL-3 · Separate AI lifecycle flags; add re-embed sweeper** — _P1, S-M_
   `src/lib/ai/pipeline.ts:63-71,118,213-218`, `tasks/enrich.ts:91`
   `aiProcessedAt` is written in three places meaning three different things, and
   on embed failure the observation is marked processed and never retried (a

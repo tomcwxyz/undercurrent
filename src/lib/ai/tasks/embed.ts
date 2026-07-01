@@ -38,6 +38,6 @@ export async function embedObservation(observationId: string): Promise<void> {
 
   await db
     .update(observations)
-    .set({ aiEmbedding: embedding })
+    .set({ aiEmbedding: embedding, aiEmbeddedAt: new Date() })
     .where(eq(observations.id, observationId));
 }

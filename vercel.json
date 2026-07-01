@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/attention",
       "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/cron/reprocess",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

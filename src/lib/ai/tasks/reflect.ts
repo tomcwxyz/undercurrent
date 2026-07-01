@@ -1,6 +1,6 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { eq, desc, sql, and, gt } from "drizzle-orm";
+import { eq, desc, sql, and, gt, or, lt, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   signals,
@@ -70,6 +70,30 @@ export async function checkReflectionTriggers(
   }
 
   if (triggers.length === 0) return;
+
+  // Atomically claim the right to generate a reflection for this signal: set
+  // last_reflection_at only if it's unset or older than the cooldown. If no row
+  // comes back, another pipeline run just claimed it (or we're within cooldown)
+  // — so we bail without generating. This both dedupes concurrent generators
+  // and stops a burst from producing a reflection per observation.
+  const reflectionCooldown = new Date(
+    Date.now() - AI_CONFIG.reflection.cooldownHours * 60 * 60 * 1000
+  );
+  const claimed = await db
+    .update(signals)
+    .set({ lastReflectionAt: new Date() })
+    .where(
+      and(
+        eq(signals.id, signalId),
+        or(
+          isNull(signals.lastReflectionAt),
+          lt(signals.lastReflectionAt, reflectionCooldown)
+        )
+      )
+    )
+    .returning({ id: signals.id });
+
+  if (claimed.length === 0) return;
 
   // Get signal details for the prompt
   const [signal] = await db

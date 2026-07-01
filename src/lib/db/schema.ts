@@ -152,6 +152,10 @@ export const observations = pgTable("observations", {
   aiEntities: jsonb("ai_entities").$type<
     { name: string; type: "person" | "place" | "organisation" | "concept" | "project" }[]
   >(),
+  // Set when the embedding vector is successfully stored. Distinct from
+  // aiProcessedAt (whole pipeline done): lets a sweeper find observations that
+  // never embedded (e.g. a transient provider outage) and retry them.
+  aiEmbeddedAt: timestamp("ai_embedded_at", { mode: "date" }),
   aiProcessedAt: timestamp("ai_processed_at", { mode: "date" }),
 });
 
@@ -200,6 +204,12 @@ export const signals = pgTable("signals", {
   }>(),
   aiGenerated: boolean("ai_generated").default(false),
   humanValidated: boolean("human_validated").default(false),
+  // Last full (LLM) re-synthesis. Used to coalesce evolution under bursts so a
+  // signal isn't re-synthesised by the LLM on every single observation added.
+  aiEvolvedAt: timestamp("ai_evolved_at", { mode: "date" }),
+  // Last time a reflection was generated for this signal. Claimed atomically to
+  // dedupe concurrent generators and enforce a per-signal reflection cooldown.
+  lastReflectionAt: timestamp("last_reflection_at", { mode: "date" }),
 });
 
 export const signalObservations = pgTable(
@@ -379,6 +389,14 @@ export const rateLimits = pgTable("rate_limits", {
   key: text("key").primaryKey(),
   count: integer("count").notNull().default(0),
   resetAt: timestamp("reset_at", { mode: "date" }).notNull(),
+});
+
+// Coarse mutual-exclusion locks with a TTL. The neon-http driver is stateless
+// (no session advisory locks), so serialisation across instances is done with
+// an atomic upsert against this table. See lib/lock.
+export const processingLocks = pgTable("processing_locks", {
+  key: text("key").primaryKey(),
+  expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
 });
 
 export const notifications = pgTable("notifications", {

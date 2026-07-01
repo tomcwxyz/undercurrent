@@ -1,4 +1,4 @@
-import { eq, desc, gt, sql, and, isNotNull, inArray, ne } from "drizzle-orm";
+import { eq, desc, gt, lt, sql, and, isNull, isNotNull, inArray, ne } from "drizzle-orm";
 import { db } from ".";
 import {
   observations,
@@ -605,6 +605,31 @@ export async function getObservationCountThisMonth(spaceId: string): Promise<num
  * `cutoff`. Used by the attention cron to skip dormant spaces in one query
  * rather than spinning up an analysis per empty space.
  */
+/**
+ * Approved observations that never got an embedding — e.g. the pipeline died on
+ * a transient provider outage. Bounded to a recent window (old enough that the
+ * initial `after()` run has certainly finished, young enough to still matter)
+ * so the reprocess sweeper can retry them. Newest first.
+ */
+export async function getStuckObservations(
+  limit: number
+): Promise<{ id: string; spaceId: string }[]> {
+  return db
+    .select({ id: observations.id, spaceId: observations.spaceId })
+    .from(observations)
+    .where(
+      and(
+        isNull(observations.aiEmbedding),
+        eq(observations.isDemo, false),
+        eq(observations.moderationStatus, "approved"),
+        lt(observations.createdAt, sql`now() - interval '5 minutes'`),
+        gt(observations.createdAt, sql`now() - interval '2 days'`)
+      )
+    )
+    .orderBy(desc(observations.createdAt))
+    .limit(limit);
+}
+
 export async function getActiveSpaceIdsSince(cutoff: Date, minObservations: number): Promise<string[]> {
   const rows = await db
     .select({ spaceId: observations.spaceId })
