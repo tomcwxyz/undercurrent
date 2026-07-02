@@ -390,3 +390,11 @@ export const notifications = pgTable("notifications", {
   read: boolean("read").default(false),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
+
+// Backs checkRateLimit() — a fixed-window counter per key. Postgres rather
+// than in-memory because serverless invocations don't share process memory.
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull().default(1),
+  resetAt: timestamp("reset_at", { mode: "date" }).notNull(),
+});

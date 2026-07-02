@@ -32,9 +32,32 @@ export async function getUserDefaultSpace(
   return rows[0]?.spaceId ?? null;
 }
 
+// Explicit column list, omitting the 1536-dim aiEmbedding vector — nothing on
+// the read paths that use this (River/Timeline/Landscape) needs it.
 export async function getObservationsForSpace(spaceId: string) {
   return db
-    .select()
+    .select({
+      id: observations.id,
+      createdAt: observations.createdAt,
+      authorId: observations.authorId,
+      authorName: observations.authorName,
+      spaceId: observations.spaceId,
+      contentText: observations.contentText,
+      contentImages: observations.contentImages,
+      aiSentiment: observations.aiSentiment,
+      aiThemes: observations.aiThemes,
+      signalStrength: observations.signalStrength,
+      isAnonymous: observations.isAnonymous,
+      isDemo: observations.isDemo,
+      collectionId: observations.collectionId,
+      reflectionId: observations.reflectionId,
+      moderationStatus: observations.moderationStatus,
+      hasImage: observations.hasImage,
+      imageLabel: observations.imageLabel,
+      aiSentimentData: observations.aiSentimentData,
+      aiEntities: observations.aiEntities,
+      aiProcessedAt: observations.aiProcessedAt,
+    })
     .from(observations)
     .where(eq(observations.spaceId, spaceId))
     .orderBy(desc(observations.createdAt));
@@ -439,6 +462,19 @@ export async function getSpaceMemberCount(spaceId: string): Promise<number> {
     .from(spaceMemberships)
     .where(eq(spaceMemberships.spaceId, spaceId));
   return result[0]?.count ?? 0;
+}
+
+/** Bulk member counts, one query for all spaces instead of N. */
+export async function getSpaceMemberCounts(
+  spaceIds: string[]
+): Promise<Map<string, number>> {
+  if (spaceIds.length === 0) return new Map();
+  const rows = await db
+    .select({ spaceId: spaceMemberships.spaceId, count: sql<number>`count(*)::int` })
+    .from(spaceMemberships)
+    .where(inArray(spaceMemberships.spaceId, spaceIds))
+    .groupBy(spaceMemberships.spaceId);
+  return new Map(rows.map((r) => [r.spaceId, r.count]));
 }
 
 // ── Subscription queries ──

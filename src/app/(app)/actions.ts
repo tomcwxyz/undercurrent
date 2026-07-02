@@ -20,7 +20,6 @@ import {
   deleteSpace,
   createSpace,
   getSubscriptionForUser,
-  getObservationCountForSubscription,
   incrementObservationCount,
   getSpaceMemberCount,
   createCollection,
@@ -31,12 +30,11 @@ import {
 } from "@/lib/db/queries";
 import { toCollectionView } from "@/lib/db/transforms";
 import { eq } from "drizzle-orm";
-import { canEditSpace, canManageMembers, canDeleteSpace } from "@/lib/permissions";
+import { canEditSpace, canManageMembers, canDeleteSpace, canCreateObservation } from "@/lib/permissions";
 import type { SpaceRole } from "@/lib/types";
 import { processObservation, processReflectionResponse, IMAGE_OBSERVATION_PLACEHOLDER } from "@/lib/ai/pipeline";
 import { seedSpaceContent } from "@/lib/db/seed";
-import { checkSubscriptionAccess, getTierConfig } from "@/lib/stripe";
-import { hasFreeAccess } from "@/lib/account";
+import { checkSubscriptionAccess, checkObservationLimit } from "@/lib/stripe";
 import { getBaseUrl } from "@/lib/env";
 
 function generateCollectionToken(): string {
@@ -80,6 +78,10 @@ export async function createObservation(formData: FormData) {
   if (!hasText && !hasMedia) {
     throw new Error("Please add some text or attach a recording, image, or file");
   }
+  const contentText = hasText ? parsed.text!.trim() : IMAGE_OBSERVATION_PLACEHOLDER;
+
+  const role = await getMemberRole(session.user.id, parsed.spaceId);
+  if (!role || !canCreateObservation(role as SpaceRole)) throw new Error("Not authorized for this space");
 
   // Check subscription access
   const access = await checkSubscriptionAccess(session.user.id, session.user.email);
@@ -87,14 +89,8 @@ export async function createObservation(formData: FormData) {
 
   // Check observation limits — per account, across all the user's spaces
   // (skip for free-access accounts).
-  const subscription = await getSubscriptionForUser(session.user.id);
-  if (subscription && !hasFreeAccess(session.user.email)) {
-    const config = getTierConfig(subscription.tier);
-    const count = await getObservationCountForSubscription(subscription.id);
-    if (count >= config.observationLimit) {
-      throw new Error("Monthly observation limit reached");
-    }
-  }
+  const { ok: withinLimit, subscription } = await checkObservationLimit(session.user.id, session.user.email);
+  if (!withinLimit) throw new Error("Monthly observation limit reached");
 
   const [inserted] = await db
     .insert(observations)
@@ -102,7 +98,7 @@ export async function createObservation(formData: FormData) {
       spaceId: parsed.spaceId,
       authorId: session.user.id,
       authorName: session.user.name ?? "Anonymous",
-      contentText: hasText ? parsed.text! : IMAGE_OBSERVATION_PLACEHOLDER,
+      contentText,
       signalStrength: "single",
     })
     .returning({ id: observations.id });
@@ -139,6 +135,9 @@ export async function clearDemoDataAction(formData: FormData) {
   const spaceId = formData.get("spaceId");
   if (typeof spaceId !== "string") throw new Error("Invalid spaceId");
 
+  const role = await getMemberRole(session.user.id, spaceId);
+  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Not authorized for this space");
+
   await clearDemoData(spaceId);
   revalidatePath("/dashboard", "layout");
 }
@@ -166,19 +165,16 @@ export async function submitReflectionResponse(formData: FormData) {
   const spaceId = reflection.spaceId;
   const signalIds = (reflection.signalIds as string[] | null) ?? [];
 
+  const role = await getMemberRole(session.user.id, spaceId);
+  if (!role || !canCreateObservation(role as SpaceRole)) throw new Error("Not authorized for this space");
+
   // Subscription gating mirrors createObservation — responses count as
   // observations against the monthly limit.
   const access = await checkSubscriptionAccess(session.user.id, session.user.email);
   if (!access.allowed) throw new Error(`Subscription ${access.reason}`);
 
-  const subscription = await getSubscriptionForUser(session.user.id);
-  if (subscription && !hasFreeAccess(session.user.email)) {
-    const config = getTierConfig(subscription.tier);
-    const count = await getObservationCountForSubscription(subscription.id);
-    if (count >= config.observationLimit) {
-      throw new Error("Monthly observation limit reached");
-    }
-  }
+  const { ok: withinLimit, subscription } = await checkObservationLimit(session.user.id, session.user.email);
+  if (!withinLimit) throw new Error("Monthly observation limit reached");
 
   const [inserted] = await db
     .insert(observations)

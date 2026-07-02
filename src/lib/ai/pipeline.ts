@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { observations, signalObservations } from "@/lib/db/schema";
 import { getMediaForObservation } from "@/lib/db/queries";
@@ -116,6 +117,13 @@ export async function processObservation(
   }
 
   await markProcessed(observationId);
+
+  // The HTTP response for the triggering submission was already sent (this
+  // runs in `after()`), so this only affects subsequent requests — paired
+  // with the client-side poll in app-shell.tsx that calls router.refresh()
+  // until aiProcessedAt is set, so the "Analyzing…" chip clears on its own.
+  revalidatePath("/dashboard", "layout");
+
   console.log(`[pipeline] Done processing ${observationId}`);
 }
 

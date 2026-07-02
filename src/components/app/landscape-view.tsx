@@ -448,9 +448,16 @@ function TerrainCanvas({ layers }: { layers: LandscapeTerrainLayer[] }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const onResize = () => draw(hoveredDay);
+    let resizeTimeout: ReturnType<typeof setTimeout> | undefined;
+    const onResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => draw(hoveredDay), 100);
+    };
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      clearTimeout(resizeTimeout);
+    };
   }, [draw, hoveredDay]);
 
   function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {

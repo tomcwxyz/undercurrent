@@ -10,6 +10,9 @@ import {
   incrementReferralDiscount,
   getSubscriptionForUser,
 } from "@/lib/db/queries";
+import { db } from "@/lib/db";
+import { subscriptions } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 function getPeriodEnd(sub: Stripe.Subscription): Date {
   const item = sub.items.data[0];
@@ -44,7 +47,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  switch (event.type) {
+  try {
+    switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object;
       const userId = session.metadata?.userId;
@@ -70,9 +74,6 @@ export async function POST(request: Request) {
             userLimit: config.userLimit,
           });
           // Also set the stripe IDs on the existing record
-          const { db } = await import("@/lib/db");
-          const { subscriptions } = await import("@/lib/db/schema");
-          const { eq } = await import("drizzle-orm");
           await db
             .update(subscriptions)
             .set({
@@ -152,6 +153,10 @@ export async function POST(request: Request) {
       await updateSubscriptionStatus(subscription.id, { status: "canceled" });
       break;
     }
+    }
+  } catch (error) {
+    console.error(`Stripe webhook handler failed for event ${event.id} (${event.type}):`, error);
+    throw error;
   }
 
   return NextResponse.json({ received: true });

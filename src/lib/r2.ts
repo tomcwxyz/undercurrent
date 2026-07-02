@@ -36,18 +36,24 @@ export function getR2Client(): S3Client {
 
 const BUCKET = () => process.env.R2_BUCKET_NAME ?? "swells";
 
-/** Generate a presigned PUT URL for direct browser upload */
+/**
+ * Generate a presigned PUT URL for direct browser upload.
+ *
+ * `contentLength` must be the caller-declared file size, already validated
+ * against the type's max. Signing it into the request means R2 rejects any
+ * upload whose actual Content-Length doesn't match — the enforcement
+ * mechanism, since presigned PUT URLs don't support a size range condition.
+ */
 export async function generatePresignedUploadUrl(
   key: string,
   contentType: string,
-  maxSizeBytes: number
+  contentLength: number
 ): Promise<{ uploadUrl: string; key: string }> {
   const command = new PutObjectCommand({
     Bucket: BUCKET(),
     Key: key,
     ContentType: contentType,
-    // ContentLength intentionally omitted — signing a max size causes 403 when
-    // the browser uploads the actual (smaller) file size
+    ContentLength: contentLength,
   });
 
   const uploadUrl = await getSignedUrl(getR2Client(), command, {
@@ -75,4 +81,12 @@ export function getPublicUrl(key: string): string {
     return `https://${customDomain}/${key}`;
   }
   return `https://${bucket}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
+}
+
+/** Sanitize a user-supplied filename for use in an R2 object key. */
+export function sanitizeFileName(name: string): string {
+  return name
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/_{2,}/g, "_")
+    .slice(0, 100);
 }

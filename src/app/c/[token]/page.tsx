@@ -50,6 +50,7 @@ export default async function CollectionPage({
             token={token}
             title={collection.title}
             description={collection.description ?? undefined}
+            moderationEnabled={collection.moderationEnabled}
           />
         )}
       </div>

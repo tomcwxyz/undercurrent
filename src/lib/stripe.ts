@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 import { hasFreeAccess } from "@/lib/account";
-import { getSubscriptionForUser } from "@/lib/db/queries";
+import { getSubscriptionForUser, getObservationCountForSubscription } from "@/lib/db/queries";
 
 let _stripe: Stripe | null = null;
 
@@ -102,4 +102,29 @@ export async function checkSubscriptionAccess(
   }
 
   return { allowed: false, reason: "inactive", tier: subscription.tier };
+}
+
+/**
+ * Checks the monthly observation limit for a user's subscription (across all
+ * their spaces — the limit is per account, not per space). Free-access
+ * accounts and users with no subscription yet are unrestricted here.
+ * Returns the subscription too, since callers need it right after to
+ * increment usage.
+ */
+export async function checkObservationLimit(
+  userId: string,
+  email: string | null | undefined
+): Promise<{
+  ok: boolean;
+  subscription: Awaited<ReturnType<typeof getSubscriptionForUser>>;
+}> {
+  const subscription = await getSubscriptionForUser(userId);
+  if (subscription && !hasFreeAccess(email)) {
+    const config = getTierConfig(subscription.tier);
+    const count = await getObservationCountForSubscription(subscription.id);
+    if (count >= config.observationLimit) {
+      return { ok: false, subscription };
+    }
+  }
+  return { ok: true, subscription };
 }

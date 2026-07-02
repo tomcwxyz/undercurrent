@@ -2,11 +2,13 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useVoiceRecorder } from "@/lib/use-voice-recorder";
+import { resizeImageIfNeeded } from "@/lib/resize-image";
 
 interface Props {
   token: string;
   title: string;
   description?: string;
+  moderationEnabled: boolean;
 }
 
 type PendingMedia = {
@@ -32,7 +34,7 @@ async function uploadFile(
   const res = await fetch(`/api/c/${token}/presign`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fileName, contentType }),
+    body: JSON.stringify({ fileName, contentType, fileSize: file.size }),
   });
   if (!res.ok) throw new Error("Failed to get upload URL");
   const { uploadUrl, key, publicUrl, mediaType } = await res.json();
@@ -54,7 +56,7 @@ async function uploadFile(
   return { key, publicUrl, mediaType };
 }
 
-export function CollectionForm({ token, title, description }: Props) {
+export function CollectionForm({ token, title, description, moderationEnabled }: Props) {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,11 +112,13 @@ export function CollectionForm({ token, title, description }: Props) {
 
     try {
       for (const item of pendingMedia) {
+        const uploadTarget =
+          item.type === "image" ? await resizeImageIfNeeded(item.file) : item.file;
         const result = await uploadFile(
           token,
-          item.file,
+          uploadTarget,
           item.fileName,
-          item.mimeType,
+          uploadTarget.type,
           (pct) => {
             setPendingMedia((prev) =>
               prev.map((m) =>
@@ -128,8 +132,8 @@ export function CollectionForm({ token, title, description }: Props) {
           url: result.publicUrl,
           type: result.mediaType,
           fileName: item.fileName,
-          mimeType: item.mimeType,
-          fileSize: item.file.size,
+          mimeType: uploadTarget.type,
+          fileSize: uploadTarget.size,
         });
       }
     } catch {
@@ -166,7 +170,9 @@ export function CollectionForm({ token, title, description }: Props) {
           {title}
         </h1>
         <p className="text-text-secondary mb-6">
-          Thank you. Your observation has been added.
+          {moderationEnabled
+            ? "Thanks — your post is awaiting review before it appears."
+            : "Thank you. Your observation has been added."}
         </p>
         <button
           onClick={() => {

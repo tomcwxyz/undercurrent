@@ -4,6 +4,8 @@ import { useState, useRef, useTransition, useCallback, useEffect } from "react";
 import { useEscapeKey } from "@/lib/use-escape-key";
 import { useFocusTrap } from "@/lib/use-focus-trap";
 import { useVoiceRecorder } from "@/lib/use-voice-recorder";
+import { resizeImageIfNeeded } from "@/lib/resize-image";
+import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -128,6 +130,31 @@ export function AppShell({
   useEscapeKey(moreOpen, closeMore);
   useEscapeKey(spaceMenuOpen, closeSpaceMenu);
   useEscapeKey(userMenuOpen, closeUserMenu);
+
+  // While any observation is still mid-pipeline, poll for fresh server data
+  // so the "Analyzing…" chip clears without a manual refresh. Bounded so a
+  // stuck job (or a signal that quietly never re-processes) can't poll forever.
+  // Keyed on the actual set of pending IDs (not just a boolean) so the budget
+  // restarts when a new submission arrives while an older one is still pending.
+  const router = useRouter();
+  const unprocessedKey = observations
+    .filter((o) => !o.aiProcessedAt)
+    .map((o) => o.id)
+    .sort()
+    .join(",");
+  useEffect(() => {
+    if (!unprocessedKey) return;
+    let elapsedMs = 0;
+    const interval = setInterval(() => {
+      elapsedMs += 5000;
+      if (elapsedMs > 60000) {
+        clearInterval(interval);
+        return;
+      }
+      router.refresh();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [unprocessedKey, router]);
 
   function switchView(view: View) {
     setActiveView(view);
@@ -426,6 +453,7 @@ export function AppShell({
               highlightedId={highlightedObservationId}
               signalsByObservation={signalObservationMaps?.byObservation}
               collections={collections}
+              onOpenObservationModal={() => setModalOpen(true)}
             />
           )}
           {activeView === "constellation" && (
@@ -434,6 +462,10 @@ export function AppShell({
               observations={observations}
               signalObservationMaps={signalObservationMaps}
               collections={collections}
+              onNavigateToObservation={(id) => {
+                setHighlightedObservationId(id);
+                setActiveView("river");
+              }}
             />
           )}
           {activeView === "landscape" && (
@@ -795,7 +827,7 @@ async function uploadMediaItem(
   const res = await fetch("/api/upload/presign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fileName, contentType, spaceId }),
+    body: JSON.stringify({ fileName, contentType, spaceId, fileSize: file.size }),
   });
   if (!res.ok) {
     const err = await res.json();
@@ -884,10 +916,14 @@ function ObservationModal({
       setIsUploading(true);
       try {
         for (const item of pendingMedia) {
+          // item.file is File | Blob generally, but "image" items only ever
+          // come from a file input (never the voice recorder), so it's a File.
+          const uploadFile =
+            item.type === "image" ? await resizeImageIfNeeded(item.file as File) : item.file;
           const result = await uploadMediaItem(
-            item.file,
+            uploadFile,
             item.fileName,
-            item.mimeType,
+            uploadFile.type,
             spaceId,
             (pct) => {
               setPendingMedia((prev) =>
@@ -907,8 +943,8 @@ function ObservationModal({
             url: result.publicUrl,
             type: result.mediaType,
             fileName: item.fileName,
-            mimeType: item.mimeType,
-            fileSize: item.file.size,
+            mimeType: uploadFile.type,
+            fileSize: uploadFile.size,
           });
         }
       } catch {

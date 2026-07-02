@@ -21,6 +21,8 @@ export interface ObservationView {
   collectionId?: string | null;
   reflectionId?: string | null;
   moderationStatus?: "approved" | "pending" | "rejected";
+  /** Null while the AI pipeline (embed/enrich/cluster) hasn't finished yet. */
+  aiProcessedAt?: Date | null;
 }
 
 export interface SignalView {

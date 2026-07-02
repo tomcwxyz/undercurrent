@@ -30,7 +30,7 @@ export async function POST(
   const { token } = await params;
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
 
-  if (!checkRateLimit(`submit:${ip}:${token}`, 10, 60 * 60 * 1000)) {
+  if (!(await checkRateLimit(`submit:${ip}:${token}`, 10, 60 * 60 * 1000))) {
     return NextResponse.json({ error: "Rate limited" }, { status: 429 });
   }
 

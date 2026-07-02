@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { generatePresignedUploadUrl, getPublicUrl } from "@/lib/r2";
+import { generatePresignedUploadUrl, getPublicUrl, sanitizeFileName } from "@/lib/r2";
 import { checkSubscriptionAccess } from "@/lib/stripe";
+import { getMemberRole } from "@/lib/db/queries";
+import { canCreateObservation } from "@/lib/permissions";
+import type { SpaceRole } from "@/lib/types";
 
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
@@ -52,13 +55,6 @@ function getMaxSize(mediaType: "image" | "voice" | "file"): number {
   }
 }
 
-function sanitizeFileName(name: string): string {
-  return name
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .replace(/_{2,}/g, "_")
-    .slice(0, 100);
-}
-
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -77,17 +73,23 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { fileName, contentType, spaceId } = body as {
+  const { fileName, contentType, spaceId, fileSize } = body as {
     fileName: string;
     contentType: string;
     spaceId: string;
+    fileSize: number;
   };
 
-  if (!fileName || !contentType || !spaceId) {
+  if (!fileName || !contentType || !spaceId || !fileSize) {
     return NextResponse.json(
-      { error: "Missing required fields: fileName, contentType, spaceId" },
+      { error: "Missing required fields: fileName, contentType, spaceId, fileSize" },
       { status: 400 }
     );
+  }
+
+  const role = await getMemberRole(session.user.id, spaceId);
+  if (!role || !canCreateObservation(role as SpaceRole)) {
+    return NextResponse.json({ error: "Not authorized for this space" }, { status: 403 });
   }
 
   const mediaType = getMediaType(contentType);
@@ -99,6 +101,13 @@ export async function POST(req: NextRequest) {
   }
 
   const maxSize = getMaxSize(mediaType);
+  if (fileSize > maxSize) {
+    return NextResponse.json(
+      { error: `File exceeds the ${Math.round(maxSize / (1024 * 1024))}MB limit for this type` },
+      { status: 400 }
+    );
+  }
+
   const fileId = crypto.randomUUID();
   const sanitized = sanitizeFileName(fileName);
   const key = `spaces/${spaceId}/${fileId}/${sanitized}`;
@@ -107,7 +116,7 @@ export async function POST(req: NextRequest) {
     const { uploadUrl } = await generatePresignedUploadUrl(
       key,
       contentType,
-      maxSize
+      fileSize
     );
     const publicUrl = getPublicUrl(key);
 

@@ -110,32 +110,46 @@ export async function findUnattachedClusters(
     return [];
   }
 
+  // Single self-join query for all pairwise distances among unattached
+  // observations under the threshold, instead of one query per observation.
+  const edgesResult = await db.execute(sql`
+    SELECT a.id AS id_a, b.id AS id_b, (a.ai_embedding <=> b.ai_embedding) AS distance
+    FROM observations a
+    JOIN observations b ON a.id != b.id
+    LEFT JOIN signal_observations soa ON soa.observation_id = a.id
+    LEFT JOIN signal_observations sob ON sob.observation_id = b.id
+    WHERE a.space_id = ${spaceId}
+      AND b.space_id = ${spaceId}
+      AND a.is_demo = false
+      AND b.is_demo = false
+      AND a.ai_embedding IS NOT NULL
+      AND b.ai_embedding IS NOT NULL
+      AND soa.signal_id IS NULL
+      AND sob.signal_id IS NULL
+      AND (a.ai_embedding <=> b.ai_embedding) < ${AI_CONFIG.clustering.distanceThreshold}
+    ORDER BY a.id, distance ASC
+  `);
+  const edges = (edgesResult.rows ?? edgesResult) as unknown as {
+    id_a: string;
+    id_b: string;
+    distance: number;
+  }[];
+
+  const neighboursById = new Map<string, string[]>();
+  for (const e of edges) {
+    const list = neighboursById.get(e.id_a) ?? [];
+    list.push(e.id_b);
+    neighboursById.set(e.id_a, list);
+  }
+
   const assigned = new Set<string>();
   const clusters: ClusterGroup[] = [];
 
   for (const obs of unattached) {
     if (assigned.has(obs.id)) continue;
 
-    // Find neighbours of this observation among unattached ones
-    const neighboursResult = await db.execute(sql`
-      SELECT o.id, (o.ai_embedding <=> (
-        SELECT ai_embedding FROM observations WHERE id = ${obs.id}
-      )) AS distance
-      FROM observations o
-      LEFT JOIN signal_observations so ON so.observation_id = o.id
-      WHERE o.space_id = ${spaceId}
-        AND o.id != ${obs.id}
-        AND o.is_demo = false
-        AND o.ai_embedding IS NOT NULL
-        AND so.signal_id IS NULL
-        AND (o.ai_embedding <=> (
-          SELECT ai_embedding FROM observations WHERE id = ${obs.id}
-        )) < ${AI_CONFIG.clustering.distanceThreshold}
-      ORDER BY distance ASC
-    `);
-    const neighbours = (neighboursResult.rows ?? neighboursResult) as unknown as { id: string; distance: number }[];
-
-    const clusterIds = [obs.id, ...neighbours.map((n) => n.id)].filter(
+    const neighbourIds = neighboursById.get(obs.id) ?? [];
+    const clusterIds = [obs.id, ...neighbourIds].filter(
       (id) => !assigned.has(id)
     );
 

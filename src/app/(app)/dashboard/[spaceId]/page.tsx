@@ -14,7 +14,7 @@ import {
   getUnreadNotificationCount,
   getSignalSnapshotsForSpace,
   getSpacesForUser,
-  getSpaceMemberCount,
+  getSpaceMemberCounts,
   getMediaForObservations,
   getCollectionsForSpace,
 } from "@/lib/db/queries";
@@ -69,9 +69,15 @@ export default async function SpaceDashboardPage({
       getSignalObservationsForSpace(spaceId),
     ]);
 
-  // Fetch media for all observations
+  // Second wave: media depends on obsIds from the first batch, but the rest
+  // don't depend on each other or on media — run them together.
   const obsIds = obsRows.map((o) => o.id);
-  const mediaRows = await getMediaForObservations(obsIds);
+  const [mediaRows, memberCounts, subscriptionStatus, collectionsRaw] = await Promise.all([
+    getMediaForObservations(obsIds),
+    getSpaceMemberCounts(userSpaces.map((s) => s.id)),
+    checkSubscriptionAccess(session.user.id, session.user.email),
+    getCollectionsForSpace(spaceId),
+  ]);
   const mediaByObservation = new Map<string, typeof mediaRows>();
   for (const m of mediaRows) {
     const existing = mediaByObservation.get(m.observationId) ?? [];
@@ -103,21 +109,14 @@ export default async function SpaceDashboardPage({
   );
 
   // Build spaces list with member counts
-  const spacesWithCounts = await Promise.all(
-    userSpaces.map(async (s): Promise<SpaceView> => ({
-      id: s.id,
-      name: s.name,
-      description: s.description,
-      memberCount: await getSpaceMemberCount(s.id),
-      role: s.role as SpaceRole,
-    }))
-  );
+  const spacesWithCounts: SpaceView[] = userSpaces.map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    memberCount: memberCounts.get(s.id) ?? 0,
+    role: s.role as SpaceRole,
+  }));
 
-  // Compute subscription status
-  const subscriptionStatus = await checkSubscriptionAccess(session.user.id, session.user.email);
-
-  // Fetch collections for this space (used by the Collect tab)
-  const collectionsRaw = await getCollectionsForSpace(spaceId);
   const baseUrl = getBaseUrl();
   const collections = collectionsRaw.map((c) => toCollectionView(c, baseUrl));
 

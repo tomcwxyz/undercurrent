@@ -46,9 +46,10 @@ interface ConstellationViewProps {
   observations: ObservationView[];
   signalObservationMaps?: SignalObservationMaps;
   collections?: CollectionView[];
+  onNavigateToObservation?: (id: string) => void;
 }
 
-export function ConstellationView({ nodes, observations, signalObservationMaps, collections }: ConstellationViewProps) {
+export function ConstellationView({ nodes, observations, signalObservationMaps, collections, onNavigateToObservation }: ConstellationViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hovered, setHovered] = useState<ConstellationNodeView | null>(null);
   const [selectedNode, setSelectedNode] = useState<ConstellationNodeView | null>(null);
@@ -341,7 +342,13 @@ export function ConstellationView({ nodes, observations, signalObservationMaps, 
       movedRef.current = false;
     }
 
-    function onMouseMove(e: MouseEvent) {
+    // Throttled to one nodeAt() scan per animation frame — native mousemove
+    // can fire far more often than 60fps and the linear node scan doesn't
+    // need to run more often than the canvas actually redraws.
+    let mouseMoveScheduled = false;
+    let pendingMouseEvent: MouseEvent | null = null;
+
+    function handleMouseMove(e: MouseEvent) {
       const rect = canvas!.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
@@ -365,6 +372,16 @@ export function ConstellationView({ nodes, observations, signalObservationMaps, 
         const canvasW = canvas!.offsetWidth;
         setTooltipPos({ x: Math.min(mx + 16, canvasW - 276), y: Math.max(my - 20, 8) });
       }
+    }
+
+    function onMouseMove(e: MouseEvent) {
+      pendingMouseEvent = e;
+      if (mouseMoveScheduled) return;
+      mouseMoveScheduled = true;
+      requestAnimationFrame(() => {
+        mouseMoveScheduled = false;
+        if (pendingMouseEvent) handleMouseMove(pendingMouseEvent);
+      });
     }
 
     function onMouseUp() {
@@ -409,7 +426,11 @@ export function ConstellationView({ nodes, observations, signalObservationMaps, 
       if (e.key === "Escape" && selectedRef.current) deselect();
     }
 
-    const onResize = () => resize();
+    let resizeTimeout: ReturnType<typeof setTimeout> | undefined;
+    const onResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => resize(), 100);
+    };
     canvas.addEventListener("mousedown", onMouseDown);
     canvas.addEventListener("mousemove", onMouseMove);
     canvas.addEventListener("mouseup", onMouseUp);
@@ -425,9 +446,28 @@ export function ConstellationView({ nodes, observations, signalObservationMaps, 
       canvas.removeEventListener("click", onClick);
       window.removeEventListener("resize", onResize);
       window.removeEventListener("keydown", onKeyDown);
+      clearTimeout(resizeTimeout);
       cancelAnimationFrame(raf);
     };
   }, [computeNodes, visibleNodes]);
+
+  // No signals/observations yet → honest empty state rather than a blank
+  // canvas with a "click a signal" legend pointing at nothing.
+  if (nodes.length === 0) {
+    return (
+      <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 py-10 md:px-8">
+        <div className="mx-auto flex max-w-[420px] flex-col items-center gap-2 text-center">
+          <h2 className="font-display text-[1.8rem] font-light text-text-primary opacity-90">
+            Nothing mapped yet
+          </h2>
+          <p className="text-[0.9rem] leading-relaxed text-text-muted">
+            As observations accumulate and signals emerge from them, they&apos;ll
+            appear here as a living map of clusters and connections.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex-1 overflow-hidden">
@@ -596,6 +636,14 @@ export function ConstellationView({ nodes, observations, signalObservationMaps, 
                             )}
                             {i >= MAX_SATELLITES && (
                               <span className="text-[0.62rem] text-text-muted">not shown on map</span>
+                            )}
+                            {onNavigateToObservation && (
+                              <button
+                                onClick={() => onNavigateToObservation(obs.id)}
+                                className="ml-auto text-[0.7rem] text-cool-1 transition-colors hover:text-cool-2"
+                              >
+                                View in River &rarr;
+                              </button>
                             )}
                           </div>
                           <p className="font-display text-[1.05rem] font-light italic leading-relaxed text-text-primary">

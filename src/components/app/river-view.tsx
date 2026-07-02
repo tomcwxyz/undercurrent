@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, memo } from "react";
 import { SIGNAL_COLORS } from "@/lib/mock-data";
 import { FilterChip } from "@/components/app/filter-chip";
 import { MediaAttachments } from "@/components/app/media-attachments";
@@ -23,9 +23,10 @@ interface RiverViewProps {
   highlightedId?: string | null;
   signalsByObservation?: Record<string, { signalId: string; signalTitle: string }[]>;
   collections?: CollectionView[];
+  onOpenObservationModal?: () => void;
 }
 
-export function RiverView({ observations, stats, highlightedId, signalsByObservation, collections }: RiverViewProps) {
+export function RiverView({ observations, stats, highlightedId, signalsByObservation, collections, onOpenObservationModal }: RiverViewProps) {
   const [highlightActive, setHighlightActive] = useState<string | null>(null);
   const scrolledRef = useRef(false);
   const [search, setSearch] = useState("");
@@ -112,6 +113,38 @@ export function RiverView({ observations, stats, highlightedId, signalsByObserva
       }
     });
   }, [highlightedId]);
+
+  // No observations at all yet → honest empty state with a way in, rather
+  // than a bare zero-stats header.
+  if (observations.length === 0) {
+    return (
+      <div className="max-h-[calc(100svh-72px)] overflow-y-auto px-6 py-10 md:px-8">
+        <div className="mb-10 text-center">
+          <h2 className="font-display text-[2.2rem] font-light text-text-primary opacity-90">
+            The flow of observations
+          </h2>
+          <p className="mx-auto mt-2 max-w-[500px] text-[0.9rem] leading-relaxed text-text-secondary">
+            Everything noticed by your team will flow through here, in time.
+          </p>
+        </div>
+        <div className="mx-auto flex max-w-[800px] flex-col items-center justify-center gap-4 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-6 py-20 text-center">
+          <p className="max-w-[380px] text-[0.9rem] leading-relaxed text-text-muted">
+            No observations yet. Log the first thing you notice and it&apos;ll appear
+            here — then start flowing into signals as patterns emerge.
+          </p>
+          {onOpenObservationModal && (
+            <button
+              onClick={onOpenObservationModal}
+              className="rounded-3xl border border-warm-1/30 bg-warm-1/8 px-5 py-2.5 text-[0.85rem] font-medium tracking-wide text-warm-1 transition-all hover:border-warm-1/50 hover:bg-warm-1/15"
+            >
+              Log your first observation
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative max-h-[calc(100svh-72px)] overflow-y-auto px-6 py-10 md:px-8">
       {/* Header */}
@@ -296,7 +329,7 @@ export function RiverView({ observations, stats, highlightedId, signalsByObserva
                   dotColor={dotColor}
                   highlighted={highlightActive === obs.id}
                   signals={signalsByObservation?.[obs.id]}
-                  onSignalClick={(sig) => setSignalFilter(sig)}
+                  onSignalClick={setSignalFilter}
                 />
               </div>
             </div>
@@ -307,7 +340,7 @@ export function RiverView({ observations, stats, highlightedId, signalsByObserva
   );
 }
 
-function ObservationCard({
+const ObservationCard = memo(function ObservationCard({
   obs,
   dotColor,
   highlighted,
@@ -365,6 +398,12 @@ function ObservationCard({
         >
           {STRENGTH_LABELS[obs.signalStrength]}
         </span>
+        {!obs.aiProcessedAt && (
+          <span className="inline-flex items-center gap-1.5 rounded-[10px] bg-white/[0.05] px-2.5 py-0.5 text-[0.7rem] font-medium text-text-muted">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-text-muted" />
+            Analyzing…
+          </span>
+        )}
         {obs.media.length > 0 && (
           <span className="inline-flex items-center gap-1 rounded-[10px] bg-cool-3/12 px-2.5 py-0.5 text-[0.7rem] font-medium text-cool-3">
             ◐ {obs.media.length} {obs.media.length === 1 ? "attachment" : "attachments"}
@@ -391,7 +430,7 @@ function ObservationCard({
       </div>
     </div>
   );
-}
+});
 
 function Stat({ value, label }: { value: string; label: string }) {
   return (

@@ -27,7 +27,9 @@ import type {
   collections,
 } from "./schema";
 
-type ObservationRow = typeof observations.$inferSelect;
+// aiEmbedding is omitted from getObservationsForSpace's column list (unused
+// by any transform below), so this type excludes it too.
+type ObservationRow = Omit<typeof observations.$inferSelect, "aiEmbedding">;
 type MediaRow = typeof observationMedia.$inferSelect;
 type SignalRow = typeof signals.$inferSelect;
 type ConstellationNodeRow = typeof constellationNodes.$inferSelect;
@@ -106,6 +108,7 @@ export function toObservationView(
     collectionId: row.collectionId ?? null,
     reflectionId: row.reflectionId ?? null,
     moderationStatus: row.moderationStatus ?? "approved",
+    aiProcessedAt: row.aiProcessedAt ?? null,
   };
 }
 

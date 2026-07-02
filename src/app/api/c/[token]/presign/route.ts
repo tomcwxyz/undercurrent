@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCollectionByToken } from "@/lib/db/queries";
-import { generatePresignedUploadUrl, getPublicUrl } from "@/lib/r2";
+import { generatePresignedUploadUrl, getPublicUrl, sanitizeFileName } from "@/lib/r2";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 const ALLOWED_TYPES = new Set([
@@ -24,7 +24,7 @@ export async function POST(
   const { token } = await params;
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
 
-  if (!checkRateLimit(`presign:${ip}:${token}`, 20, 60 * 60 * 1000)) {
+  if (!(await checkRateLimit(`presign:${ip}:${token}`, 20, 60 * 60 * 1000))) {
     return NextResponse.json({ error: "Rate limited" }, { status: 429 });
   }
 
@@ -38,8 +38,8 @@ export async function POST(
     return NextResponse.json({ error: "Closed" }, { status: 403 });
   }
 
-  const { fileName, contentType } = await req.json();
-  if (!fileName || !contentType) {
+  const { fileName, contentType, fileSize } = await req.json();
+  if (!fileName || !contentType || !fileSize) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
@@ -48,12 +48,17 @@ export async function POST(
     return NextResponse.json({ error: "Unsupported type" }, { status: 400 });
   }
 
+  const MAX_SIZE = 25 * 1024 * 1024;
+  if (fileSize > MAX_SIZE) {
+    return NextResponse.json({ error: "File exceeds the 25MB limit" }, { status: 400 });
+  }
+
   const mediaType = getMediaType(contentType);
   const fileId = crypto.randomUUID();
-  const sanitized = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100);
+  const sanitized = sanitizeFileName(fileName);
   const key = `collections/${token}/${fileId}/${sanitized}`;
 
-  const { uploadUrl } = await generatePresignedUploadUrl(key, base, 25 * 1024 * 1024);
+  const { uploadUrl } = await generatePresignedUploadUrl(key, base, fileSize);
   const publicUrl = getPublicUrl(key);
 
   return NextResponse.json({ uploadUrl, key, publicUrl, mediaType });
