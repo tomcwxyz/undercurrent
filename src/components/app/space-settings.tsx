@@ -9,6 +9,7 @@ import {
   updateMemberRoleAction,
   removeMemberAction,
   deleteSpaceAction,
+  updateEmailDigestPreferenceAction,
 } from "@/app/(app)/actions";
 import type { SpaceRole } from "@/lib/types";
 import { canManageMembers, canDeleteSpace } from "@/lib/permissions";
@@ -16,12 +17,13 @@ import { canManageMembers, canDeleteSpace } from "@/lib/permissions";
 interface SpaceSettingsProps {
   spaceId: string;
   userRole: SpaceRole;
+  emailDigestEnabled: boolean;
   onClose: () => void;
 }
 
 const ROLES: SpaceRole[] = ["admin", "facilitator", "observer", "viewer"];
 
-export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps) {
+export function SpaceSettings({ spaceId, userRole, emailDigestEnabled, onClose }: SpaceSettingsProps) {
   const [tab, setTab] = useState<"info" | "members" | "invitations" | "billing">("info");
   const [isPending, startTransition] = useTransition();
 
@@ -29,6 +31,26 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
   const [spaceName, setSpaceName] = useState("");
   const [spaceDescription, setSpaceDescription] = useState("");
   const [infoLoaded, setInfoLoaded] = useState(false);
+
+  // Notification preference (self-scoped, not tied to the info-tab save button)
+  const [digestEnabled, setDigestEnabled] = useState(emailDigestEnabled);
+  const [digestPending, startDigestTransition] = useTransition();
+
+  function handleToggleDigest() {
+    if (digestPending) return; // guard fast double-clicks, not just the disabled prop
+    const next = !digestEnabled;
+    setDigestEnabled(next); // optimistic
+    startDigestTransition(async () => {
+      const formData = new FormData();
+      formData.set("spaceId", spaceId);
+      formData.set("enabled", String(next));
+      try {
+        await updateEmailDigestPreferenceAction(formData);
+      } catch {
+        setDigestEnabled(!next); // revert on failure
+      }
+    });
+  }
 
   // Invite form
   const [inviteEmail, setInviteEmail] = useState("");
@@ -211,6 +233,26 @@ export function SpaceSettings({ spaceId, userRole, onClose }: SpaceSettingsProps
             >
               {isPending ? "Saving..." : "Save changes"}
             </button>
+
+            {/* Notifications — self-scoped, applies to this member only */}
+            <div className="mt-6 border-t border-white/[0.06] pt-5">
+              <h4 className="mb-2 text-[0.85rem] font-medium text-text-primary">Notifications</h4>
+              <label className="flex cursor-pointer items-start gap-2.5 text-[0.82rem] text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={digestEnabled}
+                  onChange={handleToggleDigest}
+                  disabled={digestPending}
+                  className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/[0.03] accent-cool-1"
+                />
+                <span>
+                  Weekly email digest
+                  <span className="block text-[0.75rem] text-text-muted">
+                    Dominant themes, attention shifts, and a reflection prompt — sent Mondays.
+                  </span>
+                </span>
+              </label>
+            </div>
 
             {/* Danger zone */}
             {canDeleteSpace(userRole) && (

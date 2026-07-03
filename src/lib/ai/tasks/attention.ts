@@ -3,10 +3,14 @@ import { z } from "zod";
 import { eq, and, gt, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { observations, signals, reflections } from "@/lib/db/schema";
-import { notifySpaceMembers } from "@/lib/db/queries";
+import { notifySpaceMembers, getSpaceMembers, getSpaceById } from "@/lib/db/queries";
 import { getAttentionModel } from "../providers/registry";
 import { zodToAISchema } from "../schema";
 import { AI_CONFIG } from "../config";
+import { getResend, DIGEST_FROM } from "@/lib/email/resend-client";
+import { buildDigestEmail } from "@/lib/email/digest-template";
+import { signUnsubscribeToken } from "@/lib/email/unsubscribe-token";
+import { getBaseUrl } from "@/lib/env";
 
 const attentionSchema = z.object({
   dominantThemes: z.array(z.string()).max(10),
@@ -129,4 +133,68 @@ Analyse:
       : "A fresh look at what your team is noticing — and missing.",
     "reflect"
   );
+
+  // Non-critical — the reflection is written and the in-app notification is
+  // already sent above, so a digest-email failure shouldn't fail the whole
+  // space's analysis run (and shouldn't mark it "failed" in the cron summary).
+  try {
+    await sendDigestEmails(spaceId, result, recentObs.length, currentSignals.length);
+  } catch (error) {
+    console.error(`[attention] Digest email setup failed for space ${spaceId} (continuing):`, error);
+  }
+}
+
+/**
+ * Emails the digest to members who haven't opted out. Reuses the synthesis
+ * already computed above rather than re-querying the reflection — no-ops
+ * quietly if Resend isn't configured yet, since in-app notifications above
+ * already cover the "did they hear about it" case.
+ */
+async function sendDigestEmails(
+  spaceId: string,
+  result: z.infer<typeof attentionSchema>,
+  observationCount: number,
+  signalCount: number
+): Promise<void> {
+  const resend = getResend();
+  if (!resend) return;
+
+  const [space, members] = await Promise.all([
+    getSpaceById(spaceId),
+    getSpaceMembers(spaceId),
+  ]);
+  if (!space) return;
+
+  const recipients = members.filter((m) => m.emailDigestEnabled && m.emailVerified && m.email);
+  if (recipients.length === 0) return;
+
+  const appUrl = getBaseUrl();
+
+  const sends = await Promise.allSettled(
+    recipients.map((member) => {
+      const unsubscribeUrl = `${appUrl}/api/email/unsubscribe?userId=${member.userId}&spaceId=${spaceId}&token=${signUnsubscribeToken(member.userId, spaceId)}`;
+      const { subject, html } = buildDigestEmail({
+        spaceName: space.name,
+        dominantThemes: result.dominantThemes,
+        absentThemes: result.absentThemes,
+        attentionShifts: result.attentionShifts,
+        metaReflectionPrompt: result.metaReflectionPrompt,
+        signalCount,
+        observationCount,
+        appUrl,
+        unsubscribeUrl,
+      });
+      return resend.emails.send({
+        from: DIGEST_FROM,
+        to: member.email!,
+        subject,
+        html,
+      });
+    })
+  );
+
+  const failed = sends.filter((s) => s.status === "rejected").length;
+  if (failed > 0) {
+    console.error(`[attention] Digest email failed for ${failed}/${recipients.length} recipients in space ${spaceId}`);
+  }
 }

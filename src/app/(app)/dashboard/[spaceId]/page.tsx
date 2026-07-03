@@ -17,6 +17,7 @@ import {
   getSpaceMemberCounts,
   getMediaForObservations,
   getCollectionsForSpace,
+  getOwnEmailDigestPreference,
 } from "@/lib/db/queries";
 import { checkSubscriptionAccess } from "@/lib/stripe";
 import { isSuperAdmin } from "@/lib/account";
@@ -53,7 +54,7 @@ export default async function SpaceDashboardPage({
   }
   if (!role) redirect("/dashboard");
 
-  const [obsRows, sigRows, nodeRows, stats, hasDemo, sentimentRows, reflectionData, notifRows, unreadCount, snapshotRows, userSpaces, junctionRows] =
+  const [obsRows, sigRows, nodeRows, stats, hasDemo, sentimentRows, reflectionData, notifRows, unreadCount, snapshotRows, userSpaces, junctionRows, emailDigestEnabled] =
     await Promise.all([
       getObservationsForSpace(spaceId),
       getSignalsForSpace(spaceId),
@@ -67,6 +68,7 @@ export default async function SpaceDashboardPage({
       getSignalSnapshotsForSpace(spaceId),
       getSpacesForUser(session.user.id),
       getSignalObservationsForSpace(spaceId),
+      getOwnEmailDigestPreference(session.user.id, spaceId),
     ]);
 
   // Second wave: media depends on obsIds from the first batch, but the rest
@@ -147,6 +149,7 @@ export default async function SpaceDashboardPage({
       userEmail={session.user.email}
       isSuperAdmin={isSuperAdmin(session.user.email)}
       collections={collections}
+      emailDigestEnabled={emailDigestEnabled}
     />
   );
 }

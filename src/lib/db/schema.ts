@@ -89,6 +89,7 @@ export const spaceMemberships = pgTable(
       .notNull()
       .references(() => spaces.id, { onDelete: "cascade" }),
     role: text("role").notNull().default("observer"),
+    emailDigestEnabled: boolean("email_digest_enabled").default(true).notNull(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.spaceId] })]
 );

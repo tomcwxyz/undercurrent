@@ -87,6 +87,7 @@ interface AppShellProps {
   userEmail?: string | null;
   isSuperAdmin?: boolean;
   collections?: CollectionView[];
+  emailDigestEnabled?: boolean;
 }
 
 export function AppShell({
@@ -111,6 +112,7 @@ export function AppShell({
   userEmail,
   isSuperAdmin: isSuperAdminProp,
   collections,
+  emailDigestEnabled = true,
 }: AppShellProps) {
   const [activeView, setActiveView] = useState<View>("river");
   const [modalOpen, setModalOpen] = useState(false);
@@ -655,6 +657,7 @@ export function AppShell({
           <SpaceSettings
             spaceId={currentSpaceId}
             userRole={userRole}
+            emailDigestEnabled={emailDigestEnabled}
             onClose={() => setSettingsOpen(false)}
           />
         )}

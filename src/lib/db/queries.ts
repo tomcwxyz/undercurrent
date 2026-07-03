@@ -327,10 +327,25 @@ export async function getSpaceMembers(spaceId: string) {
       role: spaceMemberships.role,
       name: users.name,
       email: users.email,
+      emailDigestEnabled: spaceMemberships.emailDigestEnabled,
+      emailVerified: users.emailVerified,
     })
     .from(spaceMemberships)
     .innerJoin(users, eq(users.id, spaceMemberships.userId))
     .where(eq(spaceMemberships.spaceId, spaceId));
+}
+
+export async function setEmailDigestPreference(
+  userId: string,
+  spaceId: string,
+  enabled: boolean
+): Promise<void> {
+  await db
+    .update(spaceMemberships)
+    .set({ emailDigestEnabled: enabled })
+    .where(
+      and(eq(spaceMemberships.userId, userId), eq(spaceMemberships.spaceId, spaceId))
+    );
 }
 
 export async function createSpace(name: string, description: string | null, userId: string): Promise<string> {
@@ -375,6 +390,15 @@ export async function getMemberRole(userId: string, spaceId: string): Promise<st
     .where(and(eq(spaceMemberships.userId, userId), eq(spaceMemberships.spaceId, spaceId)))
     .limit(1);
   return rows[0]?.role ?? null;
+}
+
+export async function getOwnEmailDigestPreference(userId: string, spaceId: string): Promise<boolean> {
+  const rows = await db
+    .select({ emailDigestEnabled: spaceMemberships.emailDigestEnabled })
+    .from(spaceMemberships)
+    .where(and(eq(spaceMemberships.userId, userId), eq(spaceMemberships.spaceId, spaceId)))
+    .limit(1);
+  return rows[0]?.emailDigestEnabled ?? true;
 }
 
 export async function updateMemberRole(userId: string, spaceId: string, role: string) {

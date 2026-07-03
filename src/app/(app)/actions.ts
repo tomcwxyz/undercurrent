@@ -27,6 +27,7 @@ import {
   deleteCollection,
   incrementCollectionResponseCount,
   getReflectionById,
+  setEmailDigestPreference,
 } from "@/lib/db/queries";
 import { toCollectionView } from "@/lib/db/transforms";
 import { eq } from "drizzle-orm";
@@ -247,6 +248,28 @@ export async function updateSpaceAction(formData: FormData) {
     description: parsed.description ?? null,
     environment: parsed.environment,
   });
+  revalidatePath("/dashboard", "layout");
+}
+
+const digestPreferenceSchema = z.object({
+  spaceId: z.string().uuid(),
+  enabled: z.enum(["true", "false"]),
+});
+
+/** Self-scoped — any member can control their own digest preference, no role check needed. */
+export async function updateEmailDigestPreferenceAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not authenticated");
+
+  const parsed = digestPreferenceSchema.parse({
+    spaceId: formData.get("spaceId"),
+    enabled: formData.get("enabled"),
+  });
+
+  const role = await getMemberRole(session.user.id, parsed.spaceId);
+  if (!role) throw new Error("Not a member of this space");
+
+  await setEmailDigestPreference(session.user.id, parsed.spaceId, parsed.enabled === "true");
   revalidatePath("/dashboard", "layout");
 }
 
