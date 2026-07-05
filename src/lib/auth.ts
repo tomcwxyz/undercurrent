@@ -13,6 +13,7 @@ import {
 import { getUserByEmail, verifyPassword } from "@/lib/auth-utils";
 import { isDemoAccount } from "@/lib/account";
 import { resetDemoAccount } from "@/lib/db/queries";
+import { buildMagicLinkEmail } from "@/lib/email/magic-link-template";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db, {
@@ -25,7 +26,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Google,
     Resend({
+      apiKey: process.env.RESEND_API_KEY,
       from: process.env.RESEND_FROM ?? "onboarding@resend.dev",
+      async sendVerificationRequest({ identifier: to, url, provider }) {
+        const { host } = new URL(url);
+        const { subject, html, text } = buildMagicLinkEmail({ url, host });
+
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${provider.apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ from: provider.from, to, subject, html, text }),
+        });
+
+        if (!res.ok) {
+          throw new Error("Resend error: " + JSON.stringify(await res.json()));
+        }
+      },
     }),
     Credentials({
       credentials: {
