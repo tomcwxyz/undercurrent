@@ -16,4 +16,6 @@ export function getResend(): Resend | null {
   return _resend;
 }
 
-export const DIGEST_FROM = process.env.RESEND_FROM ?? "onboarding@resend.dev";
+// Separate from RESEND_FROM (used for magic-link auth email) — the digest
+// is a distinct sender identity/purpose, so it gets its own env var.
+export const DIGEST_FROM = process.env.RESEND_DIGEST_FROM ?? "onboarding@resend.dev";
