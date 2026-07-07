@@ -534,7 +534,7 @@ export async function createSubscription(data: {
   userId: string;
   stripeCustomerId?: string | null;
   stripeSubscriptionId?: string | null;
-  tier: "individual" | "team" | "organisation";
+  tier: "individual" | "team";
   status: "trialing" | "active" | "past_due" | "canceled" | "unpaid";
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
@@ -563,7 +563,7 @@ export async function updateSubscriptionStatus(
   fields: {
     status?: "trialing" | "active" | "past_due" | "canceled" | "unpaid";
     currentPeriodEnd?: Date;
-    tier?: "individual" | "team" | "organisation";
+    tier?: "individual" | "team";
     userLimit?: number;
   }
 ) {

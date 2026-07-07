@@ -69,6 +69,7 @@ export function SpaceSettings({ spaceId, userRole, emailDigestEnabled, onClose }
     observationLimit: number;
     userLimit: number;
     trialEndsAt: string | null;
+    hasStripeCustomer: boolean;
   } | null>(null);
   const [billingLoaded, setBillingLoaded] = useState(false);
 
@@ -435,8 +436,8 @@ export function SpaceSettings({ spaceId, userRole, emailDigestEnabled, onClose }
                     Choose a plan to unlock observation limits and collaboration features.
                   </p>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["individual", "team", "organisation"] as const).map((tier) => (
+                <div className="grid grid-cols-2 gap-2">
+                  {(["individual", "team"] as const).map((tier) => (
                     <button
                       key={tier}
                       onClick={() => {
@@ -506,21 +507,54 @@ export function SpaceSettings({ spaceId, userRole, emailDigestEnabled, onClose }
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      startTransition(async () => {
-                        const res = await fetch("/api/stripe/portal", { method: "POST" });
-                        const data = await res.json();
-                        if (data.url) window.location.href = data.url;
-                      });
-                    }}
-                    disabled={isPending}
-                    className="rounded-xl bg-cool-1/15 px-5 py-2.5 text-[0.82rem] font-medium text-cool-1 transition-colors hover:bg-cool-1/25 disabled:opacity-50"
-                  >
-                    {isPending ? "Loading..." : "Manage billing"}
-                  </button>
-                </div>
+                {billingData.hasStripeCustomer ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        startTransition(async () => {
+                          const res = await fetch("/api/stripe/portal", { method: "POST" });
+                          const data = await res.json();
+                          if (data.url) window.location.href = data.url;
+                        });
+                      }}
+                      disabled={isPending}
+                      className="rounded-xl bg-cool-1/15 px-5 py-2.5 text-[0.82rem] font-medium text-cool-1 transition-colors hover:bg-cool-1/25 disabled:opacity-50"
+                    >
+                      {isPending ? "Loading..." : "Manage billing"}
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="mb-2 text-[0.75rem] text-text-muted">
+                      You&apos;re on a trial — switch plans below or continue to checkout when you&apos;re ready.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["individual", "team"] as const).map((tier) => (
+                        <button
+                          key={tier}
+                          onClick={() => {
+                            startTransition(async () => {
+                              const res = await fetch("/api/stripe/checkout", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ tier }),
+                              });
+                              const data = await res.json();
+                              if (data.url) window.location.href = data.url;
+                            });
+                          }}
+                          disabled={isPending || tier === billingData.tier}
+                          className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-center transition-all hover:border-cool-1/30 hover:bg-white/[0.04] disabled:opacity-50"
+                        >
+                          <div className="text-[0.8rem] font-medium text-text-primary capitalize">{tier}</div>
+                          <div className="mt-1 text-[0.68rem] text-text-muted">
+                            {tier === billingData.tier ? "Current plan" : "Switch"}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

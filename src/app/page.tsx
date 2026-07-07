@@ -151,7 +151,7 @@ const TIERS = [
   {
     name: "Individual",
     plan: "individual",
-    price: "£10",
+    price: "£5",
     detail: "1 user · up to 200 observations / month",
     desc: "For your own reflective practice. All views and environments, unlimited spaces, and the full AI sense-making pipeline.",
     highlighted: false,
@@ -159,18 +159,10 @@ const TIERS = [
   {
     name: "Team",
     plan: "team",
-    price: "£30",
+    price: "£15",
     detail: "Up to 10 users · 1,000 observations / month",
     desc: "For teams sensing together. Shared spaces, collections, collective reflections, and signals drawn from everyone's observations.",
     highlighted: true,
-  },
-  {
-    name: "Organisation",
-    plan: "organisation",
-    price: "£50",
-    detail: "Up to 50 users · 5,000 observations / month",
-    desc: "For whole organisations. Everything in Team, with room for many spaces and a much higher monthly volume.",
-    highlighted: false,
   },
 ];
 

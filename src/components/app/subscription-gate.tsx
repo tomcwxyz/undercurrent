@@ -31,20 +31,20 @@ export function SubscriptionGate({ reason }: SubscriptionGateProps) {
   const msg = messages[reason] ?? messages.inactive;
   const useCheckout = reason === "no_subscription" || reason === "trial_expired";
 
-  async function handleClick() {
-    if (useCheckout) {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier: "individual" }),
-      });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } else {
-      const res = await fetch("/api/stripe/portal", { method: "POST" });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    }
+  async function chooseTier(tier: "individual" | "team") {
+    const res = await fetch("/api/stripe/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tier }),
+    });
+    const data = await res.json();
+    if (data.url) window.location.assign(data.url);
+  }
+
+  async function manageBilling() {
+    const res = await fetch("/api/stripe/portal", { method: "POST" });
+    const data = await res.json();
+    if (data.url) window.location.assign(data.url);
   }
 
   return (
@@ -59,12 +59,27 @@ export function SubscriptionGate({ reason }: SubscriptionGateProps) {
         </div>
         <h3 className="font-display text-xl font-light text-text-primary">{msg.title}</h3>
         <p className="mt-2 text-[0.85rem] leading-relaxed text-text-secondary">{msg.body}</p>
-        <button
-          onClick={handleClick}
-          className="mt-6 rounded-xl bg-warm-1 px-6 py-2.5 text-[0.85rem] font-medium text-deep transition-all hover:shadow-[0_0_24px_rgba(255,107,74,0.3)]"
-        >
-          {msg.cta}
-        </button>
+        {useCheckout ? (
+          <div className="mt-6 grid grid-cols-2 gap-2">
+            {(["individual", "team"] as const).map((tier) => (
+              <button
+                key={tier}
+                onClick={() => chooseTier(tier)}
+                className="rounded-xl border border-warm-1/30 bg-warm-1/8 p-3 text-center transition-all hover:border-warm-1/50 hover:bg-warm-1/15"
+              >
+                <div className="text-[0.85rem] font-medium capitalize text-warm-1">{tier}</div>
+                <div className="mt-1 text-[0.68rem] text-text-muted">30-day trial</div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <button
+            onClick={manageBilling}
+            className="mt-6 rounded-xl bg-warm-1 px-6 py-2.5 text-[0.85rem] font-medium text-deep transition-all hover:shadow-[0_0_24px_rgba(255,107,74,0.3)]"
+          >
+            {msg.cta}
+          </button>
+        )}
       </div>
     </div>
   );

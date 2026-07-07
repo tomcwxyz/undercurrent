@@ -36,5 +36,6 @@ export async function GET(
     observationLimit: config.observationLimit,
     userLimit: subscription.userLimit,
     trialEndsAt: subscription.trialEndsAt?.toISOString() ?? null,
+    hasStripeCustomer: !!subscription.stripeCustomerId,
   });
 }

@@ -31,8 +31,12 @@ export async function POST(request: Request) {
     customer: existing?.stripeCustomerId || undefined,
     line_items: [{ price: config.priceId, quantity: 1 }],
     allow_promotion_codes: true,
+    payment_method_collection: "if_required",
     subscription_data: {
       trial_period_days: existing?.status === "trialing" ? undefined : 30,
+      trial_settings: {
+        end_behavior: { missing_payment_method: "cancel" },
+      },
       metadata: {
         userId: session.user.id,
         tier,

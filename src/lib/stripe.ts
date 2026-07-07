@@ -13,7 +13,7 @@ export function getStripe(): Stripe {
 
 export { Stripe };
 
-export type Tier = "individual" | "team" | "organisation";
+export type Tier = "individual" | "team";
 
 export function getTierConfig(tier: Tier) {
   const configs: Record<Tier, { priceId: string; observationLimit: number; userLimit: number; label: string }> = {
@@ -29,12 +29,6 @@ export function getTierConfig(tier: Tier) {
       userLimit: 10,
       label: "Team",
     },
-    organisation: {
-      priceId: process.env.STRIPE_PRICE_ORG ?? "",
-      observationLimit: 5000,
-      userLimit: 50,
-      label: "Organisation",
-    },
   };
   return configs[tier];
 }
@@ -42,7 +36,6 @@ export function getTierConfig(tier: Tier) {
 export const TIER_LABELS: Record<Tier, string> = {
   individual: "Individual",
   team: "Team",
-  organisation: "Organisation",
 };
 
 export interface SubscriptionAccess {
@@ -60,9 +53,9 @@ export async function checkSubscriptionAccess(
   userId: string,
   email: string | null | undefined,
 ): Promise<SubscriptionAccess> {
-  // Free-access accounts (super admin, demo) — full access, organisation tier
+  // Free-access accounts (super admin, demo) — full access, top tier
   if (hasFreeAccess(email)) {
-    return { allowed: true, reason: "free_access", tier: "organisation" };
+    return { allowed: true, reason: "free_access", tier: "team" };
   }
 
   const subscription = await getSubscriptionForUser(userId);

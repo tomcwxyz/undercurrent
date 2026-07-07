@@ -332,7 +332,7 @@ export const subscriptions = pgTable("subscriptions", {
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id").unique(),
   tier: text("tier")
-    .$type<"individual" | "team" | "organisation">()
+    .$type<"individual" | "team">()
     .notNull(),
   status: text("status")
     .$type<"trialing" | "active" | "past_due" | "canceled" | "unpaid">()
