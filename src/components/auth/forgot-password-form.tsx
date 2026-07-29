@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { forgotPassword } from "@/app/(auth)/actions";
+import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 
 export function ForgotPasswordForm() {
   const [state, action, pending] = useActionState(forgotPassword, {});
@@ -36,6 +37,7 @@ export function ForgotPasswordForm() {
         aria-describedby="forgot-error"
         className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 py-3 text-[0.88rem] text-text-primary placeholder:text-text-muted outline-none focus:border-white/20 transition-colors"
       />
+      <TurnstileWidget />
       {state.error && (
         <p id="forgot-error" role="alert" className="text-[0.8rem] text-warm-1">{state.error}</p>
       )}
