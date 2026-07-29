@@ -14,6 +14,7 @@ import { getUserByEmail, verifyPassword } from "@/lib/auth-utils";
 import { isDemoAccount } from "@/lib/account";
 import { resetDemoAccount } from "@/lib/db/queries";
 import { buildMagicLinkEmail } from "@/lib/email/magic-link-template";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db, {
@@ -28,7 +29,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Resend({
       apiKey: process.env.RESEND_API_KEY,
       from: process.env.RESEND_FROM ?? "onboarding@resend.dev",
-      async sendVerificationRequest({ identifier: to, url, provider }) {
+      async sendVerificationRequest({ identifier: to, url, provider, request }) {
+        // Throttle sign-in email dispatch to curb spam-signup abuse (bots
+        // triggering NextAuth's magic-link send for arbitrary addresses).
+        const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+        const [ipAllowed, emailAllowed] = await Promise.all([
+          checkRateLimit(`signin-email:ip:${ip}`, 5, 60 * 60 * 1000),
+          checkRateLimit(`signin-email:addr:${to}`, 3, 60 * 60 * 1000),
+        ]);
+        if (!ipAllowed || !emailAllowed) {
+          throw new Error("Too many sign-in requests. Please try again later.");
+        }
+
         const { host } = new URL(url);
         const { subject, html, text } = buildMagicLinkEmail({ url, host });
 
