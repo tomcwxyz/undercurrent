@@ -16,6 +16,7 @@ import { AuthError } from "next-auth";
 import { getBaseUrl } from "@/lib/env";
 import { headers } from "next/headers";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 async function requestIp(): Promise<string | undefined> {
   const h = await headers();
@@ -113,6 +114,23 @@ export async function forgotPassword(
   }
 
   const { email } = parsed.data;
+  const ip = await requestIp();
+
+  const captchaOk = await verifyTurnstileToken(
+    formData.get("cf-turnstile-response") as string | null,
+    ip
+  );
+  if (!captchaOk) {
+    return { error: "Captcha verification failed. Please try again." };
+  }
+
+  const [ipAllowed, emailAllowed] = await Promise.all([
+    checkRateLimit(`forgot-password:ip:${ip ?? "unknown"}`, 5, 60 * 60 * 1000),
+    checkRateLimit(`forgot-password:addr:${email}`, 3, 60 * 60 * 1000),
+  ]);
+  if (!ipAllowed || !emailAllowed) {
+    return { error: "Too many requests. Please try again later." };
+  }
 
   // Always return success to prevent email enumeration
   const user = await getUserByEmail(email);
