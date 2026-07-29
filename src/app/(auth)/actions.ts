@@ -14,6 +14,22 @@ import { eq } from "drizzle-orm";
 import { Resend } from "resend";
 import { AuthError } from "next-auth";
 import { getBaseUrl } from "@/lib/env";
+import { headers } from "next/headers";
+import { verifyTurnstileToken } from "@/lib/turnstile";
+
+async function requestIp(): Promise<string | undefined> {
+  const h = await headers();
+  return h.get("x-forwarded-for")?.split(",")[0]?.trim();
+}
+
+/**
+ * Verifies a Turnstile token from a client-driven auth flow (e.g. the
+ * next-auth/react `signIn()` calls in sign-in-form.tsx, which don't pass
+ * through a server action of their own).
+ */
+export async function verifyCaptcha(token: string | null): Promise<boolean> {
+  return verifyTurnstileToken(token, await requestIp());
+}
 
 const registerSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -38,6 +54,14 @@ export async function register(
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
+  }
+
+  const captchaOk = await verifyTurnstileToken(
+    formData.get("cf-turnstile-response") as string | null,
+    await requestIp()
+  );
+  if (!captchaOk) {
+    return { error: "Captcha verification failed. Please try again." };
   }
 
   const { name, email, password } = parsed.data;

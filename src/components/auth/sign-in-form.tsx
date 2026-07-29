@@ -3,11 +3,20 @@
 import { signIn } from "next-auth/react";
 import { useActionState } from "react";
 import Link from "next/link";
+import { verifyCaptcha } from "@/app/(auth)/actions";
+import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 
-function LoginAction(
+async function LoginAction(
   _prev: { error?: string },
   formData: FormData
 ): Promise<{ error?: string }> {
+  const captchaOk = await verifyCaptcha(
+    formData.get("cf-turnstile-response") as string | null
+  );
+  if (!captchaOk) {
+    return { error: "Captcha verification failed. Please try again." };
+  }
+
   return signIn("credentials", {
     email: formData.get("email") as string,
     password: formData.get("password") as string,
@@ -23,10 +32,17 @@ function LoginAction(
   });
 }
 
-function MagicLinkAction(
+async function MagicLinkAction(
   _prev: { error?: string; sent?: boolean },
   formData: FormData
 ): Promise<{ error?: string; sent?: boolean }> {
+  const captchaOk = await verifyCaptcha(
+    formData.get("cf-turnstile-response") as string | null
+  );
+  if (!captchaOk) {
+    return { error: "Captcha verification failed. Please try again." };
+  }
+
   return signIn("resend", {
     email: formData.get("email") as string,
     redirectTo: "/dashboard",
@@ -74,6 +90,7 @@ export function SignInForm() {
           aria-describedby="login-error"
           className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 py-3 text-[0.88rem] text-text-primary placeholder:text-text-muted outline-none focus:border-white/20 transition-colors"
         />
+        <TurnstileWidget />
         {loginState.error && (
           <p id="login-error" role="alert" className="text-[0.8rem] text-warm-1">{loginState.error}</p>
         )}
@@ -108,6 +125,7 @@ export function SignInForm() {
           aria-describedby="magic-error"
           className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 py-3 text-[0.88rem] text-text-primary placeholder:text-text-muted outline-none focus:border-white/20 transition-colors"
         />
+        <TurnstileWidget />
         {magicState.error && (
           <p id="magic-error" role="alert" className="text-[0.8rem] text-warm-1">{magicState.error}</p>
         )}
