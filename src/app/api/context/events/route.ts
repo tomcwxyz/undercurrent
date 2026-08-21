@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { spaceMemberships, users } from "@/lib/db/schema";
+import { notifications, spaceMemberships, users } from "@/lib/db/schema";
 import { contextPrompts } from "@/lib/db/context-schema";
 import { contextEventSchema } from "@/lib/context/types";
 import { buildSwellsSensingPrompt } from "@/lib/context/swells";
@@ -89,6 +89,19 @@ export async function POST(request: NextRequest) {
       event: parsed.event,
       interpretation,
     });
+
+    // Reuse Swells' existing reflection-style notification surface for the
+    // pilot so connected context is discoverable without adding a new global
+    // navigation concept yet. The dedicated context route owns the review UX.
+    await db.insert(notifications).values({
+      userId: user.id,
+      spaceId: parsed.spaceId,
+      type: "new_reflection",
+      title: "Something may be worth noticing",
+      body: interpretation.title,
+      linkTo: `/dashboard/${parsed.spaceId}/context`,
+    });
+
     return NextResponse.json({ accepted: true, routed: true, created: true });
   }
 
