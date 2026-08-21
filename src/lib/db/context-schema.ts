@@ -7,7 +7,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { spaces, users } from "./schema";
+import { observations, spaces, users } from "./schema";
 import type { ContextEvent } from "@/lib/context/types";
 import type { SwellsSensingPrompt } from "@/lib/context/swells";
 
@@ -34,6 +34,9 @@ export const contextPrompts = pgTable(
       .$type<"pending" | "dismissed" | "kept">()
       .notNull()
       .default("pending"),
+    observationId: uuid("observation_id").references(() => observations.id, {
+      onDelete: "set null",
+    }),
     resolvedAt: timestamp("resolved_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
