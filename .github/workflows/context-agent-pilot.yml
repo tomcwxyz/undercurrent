@@ -7,7 +7,7 @@ on:
     paths:
       - "src/app/api/agent/**"
       - "src/app/api/context/**"
-      - "src/app/(app)/dashboard/[spaceId]/context/**"
+      - "src/app/**/context/**"
       - "src/lib/agent-api.ts"
       - "src/lib/context/**"
       - "src/lib/db/context-schema.ts"
@@ -18,7 +18,7 @@ on:
     paths:
       - "src/app/api/agent/**"
       - "src/app/api/context/**"
-      - "src/app/(app)/dashboard/[spaceId]/context/**"
+      - "src/app/**/context/**"
       - "src/lib/agent-api.ts"
       - "src/lib/context/**"
       - "src/lib/db/context-schema.ts"
