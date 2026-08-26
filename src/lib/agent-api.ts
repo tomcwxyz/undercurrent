@@ -22,7 +22,7 @@ function safeTokenEqual(actual: string, expected: string) {
 export async function requirePilotAgentUser(request: Request) {
   const expectedToken = process.env.SWELLS_AGENT_API_TOKEN?.trim();
   const userEmail = process.env.SWELLS_AGENT_USER_EMAIL?.trim().toLowerCase();
-  if (!expectedToken || !userEmail) {
+  if (!expectedToken || expectedToken.length < 32 || !userEmail) {
     throw new AgentApiError("Swells agent pilot is not configured", 503);
   }
 
