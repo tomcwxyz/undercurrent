@@ -1,0 +1,42 @@
+name: Context and agent pilot
+
+on:
+  push:
+    branches:
+      - feat/context-event-consumer
+    paths:
+      - "src/app/api/agent/**"
+      - "src/app/api/context/**"
+      - "src/app/(app)/dashboard/[spaceId]/context/**"
+      - "src/lib/agent-api.ts"
+      - "src/lib/context/**"
+      - "src/lib/db/context-schema.ts"
+      - "src/lib/db/index.ts"
+      - "drizzle.config.ts"
+      - ".github/workflows/context-agent-pilot.yml"
+  pull_request:
+    paths:
+      - "src/app/api/agent/**"
+      - "src/app/api/context/**"
+      - "src/app/(app)/dashboard/[spaceId]/context/**"
+      - "src/lib/agent-api.ts"
+      - "src/lib/context/**"
+      - "src/lib/db/context-schema.ts"
+      - "src/lib/db/index.ts"
+      - "drizzle.config.ts"
+      - ".github/workflows/context-agent-pilot.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx tsc --noEmit
