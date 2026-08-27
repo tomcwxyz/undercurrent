@@ -125,3 +125,25 @@ are also subject to the account's normal monthly observation allowance.
 
 The `/api/v1` path is the compatibility boundary. Backwards-incompatible
 changes will use a new version rather than silently changing v1.
+
+
+## Remote MCP
+
+Swells also exposes the same stable capabilities over Streamable HTTP MCP:
+
+`https://swells.app/mcp`
+
+Use a normal Swells API v1 key as the Bearer credential. MCP discovery requires
+`spaces:read`; individual tool calls still enforce their corresponding API
+scope and the user's normal space permissions.
+
+Tools:
+
+- `swells_list_spaces`
+- `swells_recent_observations`
+- `swells_signals`
+- `swells_create_observation`
+
+The MCP endpoint is a transport over API v1, not a second permissions or data
+model. Observation writes still enter the ordinary moderation/processing/signal
+pipeline and cannot create Signals directly.
