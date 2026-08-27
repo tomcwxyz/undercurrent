@@ -385,6 +385,17 @@ export function AppShell({
                       </svg>
                       Referrals
                     </Link>
+                    <Link
+                      href="/account/api"
+                      role="menuitem"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.8rem] text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M4 7h16M7 4v6M17 4v6M6 14h4v4H6zM14 14h4v4h-4z" />
+                      </svg>
+                      API access
+                    </Link>
                     <div className="my-1 border-t border-white/[0.06]" />
                     <button
                       role="menuitem"

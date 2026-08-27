@@ -17,4 +17,5 @@ theme:
 nav:
   - Home: index.md
   - User Guide: user-guide.md
+  - API v1: api-v1.md
   - Changelog: changelog.md
