@@ -34,3 +34,12 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+## Swells API v1
+
+Swells includes a scoped, per-user API for integrations and agents. Create and
+revoke keys from **API access** in the account menu, then use the versioned
+`/api/v1` endpoints for spaces, observations and signals.
+
+See `docs/api-v1.md` for the API reference.

@@ -4,6 +4,21 @@ All notable changes to Swells will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+
+## [2026-08-27]
+
+### Added
+
+- **Swells API v1** — scoped, per-user API keys for integrations and agents.
+- **API access** in the account menu for creating, copying and revoking keys.
+- Versioned endpoints for listing spaces, reading and creating observations,
+  and reading signals.
+- API keys are stored as SHA-256 hashes, can expire, are shown only once at
+  creation, and continue to respect normal space roles and observation limits.
+- Published API reference at `docs.swells.app`.
+
+---
+
 ## [2026-06-01]
 
 ### Added
