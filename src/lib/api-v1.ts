@@ -227,13 +227,10 @@ export function decodeApiV1Cursor(value: string) {
 
 export function apiV1ErrorResponse(error: unknown) {
   if (error instanceof ApiV1Error) {
-    const headers =
-      error.status === 401
-        ? {
-            "WWW-Authenticate": 'Bearer realm="Swells API v1"',
-            "Cache-Control": "no-store",
-          }
-        : { "Cache-Control": "no-store" };
+    const headers = new Headers({ "Cache-Control": "no-store" });
+    if (error.status === 401) {
+      headers.set("WWW-Authenticate", 'Bearer realm="Swells API v1"');
+    }
 
     return Response.json(
       { error: { code: error.code, message: error.message } },
