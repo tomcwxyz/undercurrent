@@ -32,6 +32,21 @@ const tools = [
     annotations: { readOnlyHint: true },
   },
   {
+    name: "swells_get_observation",
+    description:
+      "Read one approved Swells Observation by stable record ID within an explicit space. Use after a broader observation read when one specific record materially supports the answer.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        spaceId: { type: "string", format: "uuid" },
+        observationId: { type: "string", format: "uuid" },
+      },
+      required: ["spaceId", "observationId"],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true },
+  },
+  {
     name: "swells_signals",
     description: "Read current active Swells signals: patterns assembled from observations.",
     inputSchema: {
@@ -41,6 +56,21 @@ const tools = [
         limit: { type: "integer", minimum: 1, maximum: 100, default: 30 },
       },
       required: ["spaceId"],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true },
+  },
+  {
+    name: "swells_get_signal",
+    description:
+      "Read one active Swells Signal by stable record ID within an explicit space. Use after a broader signal read when one specific pattern materially supports the answer.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        spaceId: { type: "string", format: "uuid" },
+        signalId: { type: "string", format: "uuid" },
+      },
+      required: ["spaceId", "signalId"],
       additionalProperties: false,
     },
     annotations: { readOnlyHint: true },
@@ -88,6 +118,13 @@ function positiveInt(value: unknown, fallback: number, max: number) {
     : fallback;
 }
 
+function spaceUrl(request: Request, spaceId: string) {
+  return new URL(
+    "/dashboard/" + encodeURIComponent(spaceId),
+    request.url,
+  ).toString();
+}
+
 async function apiCall(request: Request, path: string, init?: RequestInit) {
   const target = new URL(path, request.url);
   const authorization = request.headers.get("authorization") ?? "";
@@ -127,6 +164,19 @@ async function callTool(request: Request, name: string, args: Record<string, unk
       });
       return apiCall(request, `/api/v1/observations?${params}`);
     }
+    case "swells_get_observation": {
+      if (typeof args.spaceId !== "string" || !args.spaceId) throw new Error("spaceId is required");
+      if (typeof args.observationId !== "string" || !args.observationId) throw new Error("observationId is required");
+      const payload = await apiCall(
+        request,
+        `/api/v1/observations/${encodeURIComponent(args.observationId)}?spaceId=${encodeURIComponent(args.spaceId)}`,
+      );
+      return {
+        ...asRecord(payload),
+        spaceId: args.spaceId,
+        spaceUrl: spaceUrl(request, args.spaceId),
+      };
+    }
     case "swells_signals": {
       if (typeof args.spaceId !== "string" || !args.spaceId) throw new Error("spaceId is required");
       const params = new URLSearchParams({
@@ -134,6 +184,19 @@ async function callTool(request: Request, name: string, args: Record<string, unk
         limit: String(positiveInt(args.limit, 30, 100)),
       });
       return apiCall(request, `/api/v1/signals?${params}`);
+    }
+    case "swells_get_signal": {
+      if (typeof args.spaceId !== "string" || !args.spaceId) throw new Error("spaceId is required");
+      if (typeof args.signalId !== "string" || !args.signalId) throw new Error("signalId is required");
+      const payload = await apiCall(
+        request,
+        `/api/v1/signals/${encodeURIComponent(args.signalId)}?spaceId=${encodeURIComponent(args.spaceId)}`,
+      );
+      return {
+        ...asRecord(payload),
+        spaceId: args.spaceId,
+        spaceUrl: spaceUrl(request, args.spaceId),
+      };
     }
     case "swells_create_observation":
       return apiCall(request, "/api/v1/observations", {
