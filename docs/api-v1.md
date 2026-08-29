@@ -58,6 +58,14 @@ Requires `observations:read`.
 Only approved observations are returned. AI fields may be null while a newly
 created observation is still being processed.
 
+### Read one observation
+
+`GET /api/v1/observations/<observationId>?spaceId=<uuid>`
+
+Requires `observations:read`. The observation must belong to the supplied space
+and be approved. This endpoint is intended for resolving exact evidence after a
+broader observation search.
+
 ### Create an observation
 
 `POST /api/v1/observations`
@@ -86,6 +94,14 @@ limit has been reached.
 Requires `signals:read`.
 
 Returns active signals ordered by most recently updated.
+
+### Read one signal
+
+`GET /api/v1/signals/<signalId>?spaceId=<uuid>`
+
+Requires `signals:read`. The signal must belong to the supplied space and be
+active. This endpoint is intended for resolving exact evidence after a broader
+signal read.
 
 ## Responses
 
@@ -141,7 +157,9 @@ Tools:
 
 - `swells_list_spaces`
 - `swells_recent_observations`
+- `swells_get_observation`
 - `swells_signals`
+- `swells_get_signal`
 - `swells_create_observation`
 
 The MCP endpoint is a transport over API v1, not a second permissions or data
