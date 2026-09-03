@@ -21,6 +21,16 @@ It's not a survey tool or a dashboard of metrics. It's a way to notice together.
 
 New here? The [User Guide](user-guide.md) walks through everything you can do.
 
+## Product direction
+
+The current [roadmap](../ROADMAP.md) includes surface-aware Swells: dedicated
+projections for Rabbit R1, tablet and e-paper without duplicating the canonical
+observation and signal model.
+
+The [R1 surface design](plans/2026-09-03-r1-surface.md) records the interaction
+model, lessons carried across from Attention Agent, and the staged native-device
+implementation.
+
 ## Need help?
 
 If something isn't working as you expect, contact your space administrator or
