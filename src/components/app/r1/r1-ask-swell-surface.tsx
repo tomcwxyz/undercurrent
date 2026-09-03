@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { R1VoiceQuestionButton } from "@/components/app/r1/r1-voice-question-button";
+import { R1FeedbackButtons } from "@/components/app/r1/r1-feedback-buttons";
 import type { SwellsSwellReading } from "@/lib/surfaces/types";
 import {
   nativeSwellsDevice,
@@ -194,6 +195,17 @@ export function R1AskSwellSurface({
               {result.evidence.length
                 ? `Based on ${result.evidence.length} linked observation${result.evidence.length === 1 ? "" : "s"}.`
                 : `No specific linked observation was strong enough to cite from ${result.evidenceAvailable} available.`}
+            </div>
+            <div className="mt-3">
+              <R1FeedbackButtons
+                spaceId={spaceId}
+                signalId={signal.id}
+                kind="ask_answer"
+                question={question}
+                answer={result.answer}
+                evidenceIds={result.evidence.map((item) => item.id)}
+                mode="ask"
+              />
             </div>
           </div>
 

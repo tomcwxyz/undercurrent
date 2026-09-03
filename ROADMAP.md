@@ -42,7 +42,8 @@ Current implementation target:
 - [x] Add bounded Ask against a selected signal and its evidence.
 - [x] Add the native Rabbit shell using the proven Attention native audio/TTS/haptics pattern.
 - [ ] Add resumable capture review where AI processing needs user judgement.
-- [ ] Add interaction telemetry for surface tuning without silently changing canonical meaning.
+- [x] Add first explicit surface feedback store for Ask usefulness and signal-interpretation fit.
+- [ ] Expand interaction telemetry for surface tuning without silently changing canonical meaning.
 
 ### Native Rabbit shell
 
@@ -80,7 +81,9 @@ Next depth:
 
 ### Human judgement and tuning
 
-Record explicit feedback such as:
+The first durable feedback loop is implemented on R1: Ask answers can be marked **Useful / Missed it**, and an individual swell can be marked **Fits / Something’s off**. These judgements are stored with the user, space, signal and (for Ask) the question, answer and cited evidence IDs.
+
+Continue to record explicit feedback such as:
 
 - belongs / does not belong;
 - important / weak;
