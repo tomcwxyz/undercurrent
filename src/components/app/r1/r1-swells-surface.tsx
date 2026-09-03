@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createObservation } from "@/app/(app)/actions";
 import { R1VoiceNoticeButton } from "@/components/app/r1/r1-voice-notice-button";
 import { R1AskSwellSurface } from "@/components/app/r1/r1-ask-swell-surface";
+import { R1FeedbackButtons } from "@/components/app/r1/r1-feedback-buttons";
 import { nativeSwellsDevice } from "@/lib/r1/device";
 import type {
   SwellsLens,
@@ -212,10 +213,12 @@ function HorizonSurface({
 }
 
 function SwellSurface({
+  spaceId,
   signal,
   onBack,
   onAsk,
 }: {
+  spaceId: string;
   signal: SwellsSwellReading;
   onBack: () => void;
   onAsk: () => void;
@@ -251,6 +254,17 @@ function SwellSurface({
         <Metric label="strength" value={strengthLabel(signal.strength)} />
         <Metric label="observations" value={String(signal.observationCount)} />
         <Metric label="voices" value={String(signal.contributorCount)} />
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <span className="text-[0.62rem] uppercase tracking-[0.11em] text-text-muted">
+          Does this interpretation fit?
+        </span>
+        <R1FeedbackButtons
+          spaceId={spaceId}
+          signalId={signal.id}
+          kind="signal_interpretation"
+          mode="signal"
+        />
       </div>
       <button
         type="button"
@@ -539,6 +553,7 @@ export function R1SwellsSurface({
         />
       ) : lens === "swell" && signal ? (
         <SwellSurface
+          spaceId={projection.spaceId}
           signal={signal}
           onBack={() => setLens("horizon")}
           onAsk={() => setLens("ask")}
