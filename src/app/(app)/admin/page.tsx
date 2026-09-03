@@ -42,6 +42,15 @@ export default async function AdminPage() {
         Super admin dashboard. You have access to all spaces and users.
       </p>
 
+      <div className="mt-6">
+        <a
+          href="/admin/evaluation"
+          className="inline-flex rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2 text-[0.78rem] text-cool-1 hover:bg-white/[0.05]"
+        >
+          View model evaluation →
+        </a>
+      </div>
+
       <div className="mt-8">
         <AdminDashboard spaces={serialisedSpaces} users={serialisedUsers} />
       </div>
