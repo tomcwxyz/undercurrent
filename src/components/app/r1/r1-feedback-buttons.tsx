@@ -65,7 +65,7 @@ export function R1FeedbackButtons({
 
   if (saved) {
     return (
-      <div className="text-[0.64rem] uppercase tracking-[0.13em] text-text-muted">
+      <div className="text-[0.56rem] uppercase tracking-[0.1em] text-text-muted">
         Feedback kept ✓
       </div>
     );
@@ -90,7 +90,7 @@ export function R1FeedbackButtons({
             type="button"
             key={judgement}
             onClick={() => void send(judgement)}
-            className="rounded-[14px] border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[0.62rem] uppercase tracking-[0.11em] text-text-secondary"
+            className="rounded-[12px] border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5 text-[0.56rem] uppercase tracking-[0.09em] text-text-secondary"
           >
             {label}
           </button>

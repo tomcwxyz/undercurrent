@@ -7,6 +7,11 @@ import { R1VoiceNoticeButton } from "@/components/app/r1/r1-voice-notice-button"
 import { R1AskSwellSurface } from "@/components/app/r1/r1-ask-swell-surface";
 import { R1FeedbackButtons } from "@/components/app/r1/r1-feedback-buttons";
 import { R1CaptureReviewSurface } from "@/components/app/r1/r1-capture-review-surface";
+import { R1TemperatureGrid } from "@/components/app/r1/r1-temperature-grid";
+import {
+  R1SpacePicker,
+  type R1SpaceOption,
+} from "@/components/app/r1/r1-space-picker";
 import { nativeSwellsDevice } from "@/lib/r1/device";
 import { useR1CaptureReview } from "@/lib/r1/use-capture-review";
 import { recordR1Interaction } from "@/lib/r1/telemetry";
@@ -26,7 +31,7 @@ const TEMPERATURE_COLOURS = [
 ] as const;
 
 const LENS_LABELS: Partial<Record<SwellsLens, string>> = {
-  temperature: "Temperature",
+  temperature: "Temp",
   horizon: "Horizon",
   change: "Change",
   notice: "Notice",
@@ -61,7 +66,7 @@ function SwellWave({ signal }: { signal: SwellsSwellReading }) {
   return (
     <svg
       viewBox="0 0 420 150"
-      className="h-[150px] w-full overflow-visible"
+      className="h-[88px] w-full overflow-visible"
       role="img"
       aria-label={`${signal.title}, ${directionLabel(signal.direction)}`}
     >
@@ -112,48 +117,44 @@ function TemperatureSurface({
     <button
       type="button"
       onClick={onExplore}
-      className="relative flex min-h-0 flex-1 flex-col items-center justify-between overflow-hidden rounded-[34px] border border-white/[0.06] px-7 pb-8 pt-7 text-center"
+      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-white/[0.06] px-5 pb-5 pt-5 text-left"
       style={{
         background:
-          `radial-gradient(circle at 50% 45%, ${colour}55 0%, ${colour}22 27%, rgba(10,14,26,0.2) 62%, rgba(10,14,26,0.78) 100%)`,
+          `radial-gradient(circle at 50% 42%, ${colour}24 0%, rgba(10,14,26,0.08) 48%, rgba(10,14,26,0.72) 100%)`,
       }}
     >
-      <div className="z-10 flex w-full items-center justify-between text-[0.66rem] uppercase tracking-[0.2em] text-white/55">
+      <div className="z-10 flex w-full items-center justify-between text-[0.58rem] uppercase tracking-[0.16em] text-white/55">
         <span>The temperature of things</span>
         <span>{trend}</span>
       </div>
 
-      <div className="relative z-10 flex flex-col items-center">
-        <div
-          className="mb-5 h-36 w-36 rounded-full blur-[1px]"
-          style={{
-            background: `radial-gradient(circle at 42% 38%, #ffffff99, ${colour} 42%, ${colour}55 68%, transparent 72%)`,
-            boxShadow: `0 0 70px ${colour}66`,
-          }}
-        />
-        <div className="font-display text-[3.45rem] font-light leading-none tracking-tight text-text-primary">
-          {reading.label}
+      <div className="z-10 my-auto w-full py-4">
+        <R1TemperatureGrid reading={reading} />
+        <div className="mt-4 flex items-end justify-between gap-4">
+          <div>
+            <div className="font-display text-[2.65rem] font-light leading-none tracking-tight text-text-primary">
+              {reading.label}
+            </div>
+            <div className="mt-1 text-[0.58rem] uppercase tracking-[0.14em] text-text-muted">
+              current reading
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-[1.05rem] font-medium text-text-primary">
+              {reading.observationCount}
+            </div>
+            <div className="text-[0.56rem] uppercase tracking-[0.12em] text-text-muted">
+              observations
+            </div>
+          </div>
         </div>
-        <p className="mt-3 max-w-[300px] text-[0.82rem] leading-relaxed text-text-secondary">
-          Warm means energised or urgent. Cool means calm, reflective or uncertain.
-          Neither is better.
-        </p>
       </div>
 
-      <div className="z-10 flex w-full items-end justify-between text-left">
-        <div>
-          <div className="text-[1.2rem] font-medium text-text-primary">
-            {reading.observationCount}
-          </div>
-          <div className="text-[0.68rem] uppercase tracking-[0.16em] text-text-muted">
-            observations
-          </div>
-        </div>
-        <div className="text-right text-[0.72rem] leading-relaxed text-text-muted">
-          Tap to see
-          <br />
-          what is forming
-        </div>
+      <div className="z-10 flex w-full items-end justify-between gap-5 border-t border-white/[0.045] pt-3">
+        <p className="max-w-[275px] text-[0.66rem] leading-relaxed text-text-muted">
+          Warm is energy or urgency. Cool is calm, reflection or uncertainty.
+        </p>
+        <span className="shrink-0 text-[0.6rem] text-text-muted">Tap for horizon →</span>
       </div>
     </button>
   );
@@ -174,7 +175,7 @@ function HorizonSurface({
     <button
       type="button"
       onClick={onOpen}
-      className="flex min-h-0 flex-1 flex-col rounded-[34px] border border-white/[0.06] bg-white/[0.02] px-7 pb-7 pt-7 text-left"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-white/[0.06] bg-white/[0.02] px-5 pb-5 pt-5 text-left"
     >
       <div className="flex items-center justify-between text-[0.66rem] uppercase tracking-[0.2em] text-text-muted">
         <span>On the horizon</span>
@@ -183,23 +184,23 @@ function HorizonSurface({
         </span>
       </div>
 
-      <div className="mt-8">
-        <div className="font-display text-[2.6rem] font-light leading-[0.95] text-text-primary">
+      <div className="mt-5 min-h-0">
+        <div className="line-clamp-3 font-display text-[clamp(1.6rem,7vw,2.25rem)] font-light leading-[0.97] text-text-primary">
           {signal.title}
         </div>
-        <div className="mt-4 flex items-center gap-3 text-[0.72rem] uppercase tracking-[0.13em]">
+        <div className="mt-3 flex items-center gap-2 text-[0.6rem] uppercase tracking-[0.11em]">
           <span className="text-cool-1">{directionLabel(signal.direction)}</span>
           <span className="text-white/20">•</span>
           <span className="text-text-muted">{strengthLabel(signal.strength)}</span>
         </div>
       </div>
 
-      <div className="my-auto -mx-2">
+      <div className="my-2 flex min-h-0 flex-1 items-center -mx-2">
         <SwellWave signal={signal} />
       </div>
 
       <div className="flex items-end justify-between gap-5">
-        <p className="line-clamp-3 max-w-[270px] text-[0.83rem] leading-relaxed text-text-secondary">
+        <p className="line-clamp-2 max-w-[275px] text-[0.72rem] leading-relaxed text-text-secondary">
           {signal.description || "A pattern is forming across recent observations."}
         </p>
         <div className="shrink-0 text-right">
@@ -227,7 +228,7 @@ function SwellSurface({
   onAsk: () => void;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col rounded-[34px] border border-white/[0.06] bg-white/[0.02] px-7 pb-7 pt-7">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-white/[0.06] bg-white/[0.02] px-5 pb-5 pt-5">
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -241,15 +242,15 @@ function SwellSurface({
         </span>
       </div>
 
-      <div className="mt-10 font-display text-[3rem] font-light leading-[0.92] text-text-primary">
+      <div className="mt-5 line-clamp-3 font-display text-[clamp(1.65rem,7vw,2.25rem)] font-light leading-[0.96] text-text-primary">
         {signal.title}
       </div>
 
-      <p className="mt-6 text-[0.9rem] leading-[1.65] text-text-secondary">
+      <p className="mt-3 line-clamp-3 text-[0.72rem] leading-[1.5] text-text-secondary">
         {signal.description || "A pattern emerging across observations in this space."}
       </p>
 
-      <div className="my-auto">
+      <div className="my-1 flex min-h-0 flex-1 items-center">
         <SwellWave signal={signal} />
       </div>
 
@@ -258,10 +259,10 @@ function SwellSurface({
         <Metric label="observations" value={String(signal.observationCount)} />
         <Metric label="voices" value={String(signal.contributorCount)} />
       </div>
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <span className="text-[0.62rem] uppercase tracking-[0.11em] text-text-muted">
+      <div className="mt-2">
+        <div className="mb-1 text-[0.56rem] uppercase tracking-[0.1em] text-text-muted">
           Does this interpretation fit?
-        </span>
+        </div>
         <R1FeedbackButtons
           spaceId={spaceId}
           signalId={signal.id}
@@ -272,7 +273,7 @@ function SwellSurface({
       <button
         type="button"
         onClick={onAsk}
-        className="mt-3 w-full rounded-[18px] border border-cool-1/20 bg-cool-1/8 py-3 text-[0.68rem] font-medium uppercase tracking-[0.13em] text-cool-1"
+        className="mt-2 w-full rounded-[16px] border border-cool-1/20 bg-cool-1/8 py-2.5 text-[0.62rem] font-medium uppercase tracking-[0.11em] text-cool-1"
       >
         Ask this swell
       </button>
@@ -282,7 +283,7 @@ function SwellSurface({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/[0.05] bg-white/[0.025] px-3 py-3">
+    <div className="rounded-xl border border-white/[0.05] bg-white/[0.025] px-2 py-2">
       <div className="truncate text-[0.86rem] font-medium text-text-primary">{value}</div>
       <div className="mt-1 text-[0.6rem] uppercase tracking-[0.12em] text-text-muted">
         {label}
@@ -294,9 +295,11 @@ function Metric({ label, value }: { label: string; value: string }) {
 function ChangeSurface({
   projection,
   changeIndex,
+  onOpen,
 }: {
   projection: SwellsSurfaceProjection;
   changeIndex: number;
+  onOpen: (signalId: string) => void;
 }) {
   const change = projection.changes[changeIndex];
   if (!change) return null;
@@ -304,7 +307,11 @@ function ChangeSurface({
   const signal = projection.swells.find((item) => item.id === change.signalId);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col rounded-[34px] border border-white/[0.06] bg-white/[0.02] px-7 pb-8 pt-7">
+    <button
+      type="button"
+      onClick={() => onOpen(change.signalId)}
+      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-white/[0.06] bg-white/[0.02] px-5 pb-5 pt-5 text-left"
+    >
       <div className="flex items-center justify-between text-[0.66rem] uppercase tracking-[0.2em] text-text-muted">
         <span>Something changed</span>
         <span>
@@ -312,14 +319,14 @@ function ChangeSurface({
         </span>
       </div>
 
-      <div className="my-auto">
-        <div className="mb-5 text-[0.72rem] uppercase tracking-[0.18em] text-warm-3">
+      <div className="my-auto min-h-0 py-4">
+        <div className="mb-3 text-[0.6rem] uppercase tracking-[0.14em] text-warm-3">
           {change.reason === "new" ? "A new swell is forming" : "This swell is strengthening"}
         </div>
-        <h2 className="font-display text-[3.25rem] font-light leading-[0.92] text-text-primary">
+        <h2 className="line-clamp-4 font-display text-[clamp(1.75rem,7.5vw,2.45rem)] font-light leading-[0.96] text-text-primary">
           {change.title}
         </h2>
-        <p className="mt-7 text-[0.9rem] leading-[1.65] text-text-secondary">
+        <p className="mt-4 line-clamp-3 text-[0.72rem] leading-[1.5] text-text-secondary">
           {signal?.description ||
             `${change.observationCount} observations now point in this direction.`}
         </p>
@@ -334,9 +341,9 @@ function ChangeSurface({
             observations
           </div>
         </div>
-        <span className="text-[0.7rem] text-text-muted">Wheel for next</span>
+        <span className="text-[0.6rem] text-text-muted">Tap to open · wheel for next</span>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -354,6 +361,7 @@ function NoticeSurface({
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [showText, setShowText] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -383,64 +391,86 @@ function NoticeSurface({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col rounded-[34px] border border-white/[0.06] bg-white/[0.025] px-7 pb-7 pt-7">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-white/[0.06] bg-white/[0.025] px-5 pb-5 pt-5">
       <div className="flex items-center justify-between">
         <button
           type="button"
           onClick={onCancel}
-          className="text-[0.7rem] uppercase tracking-[0.17em] text-text-muted"
+          className="text-[0.62rem] uppercase tracking-[0.14em] text-text-muted"
         >
           Cancel
         </button>
-        <span className="text-[0.68rem] uppercase tracking-[0.17em] text-warm-3">
+        <span className="text-[0.6rem] uppercase tracking-[0.14em] text-warm-3">
           Notice
         </span>
       </div>
 
-      <div className="mt-10">
-        <h2 className="font-display text-[3.15rem] font-light leading-[0.94] text-text-primary">
+      <div className="mt-6">
+        <h2 className="font-display text-[2.5rem] font-light leading-[0.96] text-text-primary">
           What are you noticing?
         </h2>
-        <p className="mt-4 max-w-[330px] text-[0.82rem] leading-relaxed text-text-secondary">
-          Capture the observation first. Swells can work out what it may connect to afterwards.
+        <p className="mt-3 max-w-[330px] text-[0.72rem] leading-relaxed text-text-secondary">
+          Say the observation. Swells can work out what it may connect to afterwards.
         </p>
       </div>
 
-      <textarea
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        placeholder="Write it here…"
-        maxLength={5000}
-        className="my-7 min-h-0 flex-1 resize-none rounded-[24px] border border-white/[0.07] bg-black/10 p-5 text-[1rem] leading-relaxed text-text-primary outline-none placeholder:text-text-muted/60 focus:border-cool-1/30"
-      />
+      {!showText ? (
+        <div className="my-auto py-5">
+          <R1VoiceNoticeButton
+            spaceId={spaceId}
+            disabled={isPending || saved}
+            onError={setError}
+            onSaved={() => {
+              setSaved(true);
+              setText("");
+              onCaptured();
+              router.refresh();
+              window.setTimeout(onDone, 650);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowText(true)}
+            className="mt-3 w-full py-2 text-center text-[0.6rem] uppercase tracking-[0.12em] text-text-muted"
+          >
+            Type instead
+          </button>
+        </div>
+      ) : (
+        <div className="my-auto min-h-0 py-4">
+          <textarea
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            placeholder="Write it here…"
+            maxLength={5000}
+            rows={4}
+            className="h-28 w-full resize-none rounded-[18px] border border-white/[0.07] bg-black/10 p-4 text-[0.86rem] leading-relaxed text-text-primary outline-none placeholder:text-text-muted/60 focus:border-cool-1/30"
+          />
+          <div className="mt-3 grid grid-cols-[0.7fr_1.3fr] gap-2">
+            <button
+              type="button"
+              onClick={() => setShowText(false)}
+              className="rounded-[16px] border border-white/[0.06] px-3 py-3 text-[0.6rem] uppercase tracking-[0.11em] text-text-muted"
+            >
+              Voice
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!text.trim() || isPending || saved}
+              className="rounded-[16px] border border-cool-1/25 bg-cool-1/10 px-3 py-3 text-[0.64rem] font-medium uppercase tracking-[0.11em] text-cool-1 disabled:opacity-35"
+            >
+              {saved ? "Noticed ✓" : isPending ? "Saving…" : "Keep this"}
+            </button>
+          </div>
+        </div>
+      )}
 
-      {error ? <p className="mb-3 text-[0.72rem] text-warm-1">{error}</p> : null}
+      {error ? <p className="mt-2 text-[0.66rem] leading-relaxed text-warm-1">{error}</p> : null}
 
-      <R1VoiceNoticeButton
-        spaceId={spaceId}
-        disabled={isPending || saved}
-        onError={setError}
-        onSaved={() => {
-          setSaved(true);
-          setText("");
-          onCaptured();
-          router.refresh();
-          window.setTimeout(onDone, 650);
-        }}
-      />
-
-      <div className="my-2 text-center text-[0.62rem] uppercase tracking-[0.16em] text-text-muted">
-        or write it
+      <div className="border-t border-white/[0.045] pt-3 text-[0.58rem] uppercase tracking-[0.1em] text-text-muted">
+        Voice-first on Rabbit · your notice is kept before analysis
       </div>
-
-      <button
-        type="button"
-        onClick={submit}
-        disabled={!text.trim() || isPending || saved}
-        className="w-full rounded-[22px] border border-cool-1/25 bg-cool-1/10 py-4 text-[0.82rem] font-medium uppercase tracking-[0.14em] text-cool-1 disabled:opacity-35"
-      >
-        {saved ? "Noticed ✓" : isPending ? "Saving…" : "Keep this"}
-      </button>
     </div>
   );
 }
@@ -448,15 +478,23 @@ function NoticeSurface({
 export function R1SwellsSurface({
   projection,
   spaceName,
+  spaces,
   canCapture,
 }: {
   projection: SwellsSurfaceProjection;
   spaceName: string;
+  spaces: R1SpaceOption[];
   canCapture: boolean;
 }) {
   const [lens, setLens] = useState<SwellsLens>(projection.defaultLens);
   const [signalIndex, setSignalIndex] = useState(0);
   const [changeIndex, setChangeIndex] = useState(0);
+  const [spacePickerOpen, setSpacePickerOpen] = useState(false);
+  const currentSpaceIndex = Math.max(
+    0,
+    spaces.findIndex((space) => space.id === projection.spaceId),
+  );
+  const [spacePickerIndex, setSpacePickerIndex] = useState(currentSpaceIndex);
   const pointerStart = useRef<number | null>(null);
   const reviewSeenRef = useRef<string | null>(null);
   const router = useRouter();
@@ -464,6 +502,14 @@ export function R1SwellsSurface({
 
   const signals = projection.swells;
   const signal = signals[Math.min(signalIndex, Math.max(0, signals.length - 1))];
+
+  useEffect(() => {
+    document.cookie = `swells-r1-space=${projection.spaceId}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  }, [projection.spaceId]);
+
+  useEffect(() => {
+    setSpacePickerIndex(currentSpaceIndex);
+  }, [currentSpaceIndex]);
 
   const primaryLenses = useMemo(
     () =>
@@ -507,6 +553,21 @@ export function R1SwellsSurface({
     });
   }, [captureReview.review, projection.spaceId]);
 
+  function stepSpace(delta: number) {
+    if (!spaces.length) return;
+    deviceHaptic(10);
+    setSpacePickerIndex(
+      (current) => (current + delta + spaces.length) % spaces.length,
+    );
+  }
+
+  function openSpace(space: R1SpaceOption) {
+    document.cookie = `swells-r1-space=${space.id}; Path=/; Max-Age=31536000; SameSite=Lax`;
+    deviceHaptic(18);
+    setSpacePickerOpen(false);
+    router.push(`/r1/${space.id}`);
+  }
+
   function selectLens(next: SwellsLens) {
     deviceHaptic(12);
     setLens(next);
@@ -547,12 +608,16 @@ export function R1SwellsSurface({
       const target = event.target as HTMLElement | null;
       if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
       event.preventDefault();
+      if (spacePickerOpen) {
+        stepSpace(event.key === "ArrowDown" ? 1 : -1);
+        return;
+      }
       step(event.key === "ArrowDown" ? 1 : -1);
     }
 
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [lens, signals.length, projection.changes.length]);
+  }, [lens, signals.length, projection.changes.length, spacePickerOpen, spaces.length]);
 
   async function handleReviewDecision(
     decision: "keep_connection" | "keep_separate",
@@ -586,29 +651,52 @@ export function R1SwellsSurface({
     const delta = event.clientX - pointerStart.current;
     pointerStart.current = null;
     if (Math.abs(delta) < 45) return;
+    if (spacePickerOpen) {
+      stepSpace(delta < 0 ? 1 : -1);
+      return;
+    }
     step(delta < 0 ? 1 : -1);
   }
 
   return (
     <main
-      className="mx-auto flex h-svh w-full max-w-[480px] select-none flex-col overflow-hidden bg-deep px-4 pb-4 pt-4 text-text-primary"
+      className="mx-auto flex h-svh w-full max-w-[480px] select-none flex-col overflow-hidden bg-deep px-3 pb-3 pt-3 text-text-primary"
       onPointerDown={pointerDown}
       onPointerUp={pointerUp}
       data-swells-surface="r1"
     >
-      <header className="mb-3 flex h-9 shrink-0 items-center justify-between px-2">
+      <header className="mb-2 flex h-8 shrink-0 items-center justify-between px-2">
         <em
-          className="font-display text-[1.45rem] font-light tracking-wide text-cool-1"
+          className="font-display text-[1.32rem] font-light tracking-wide text-cool-1"
           style={{ fontStyle: "italic" }}
         >
           swells
         </em>
-        <span className="max-w-[230px] truncate text-[0.68rem] uppercase tracking-[0.16em] text-text-muted">
-          {spaceName}
-        </span>
+        <button
+          type="button"
+          onClick={() => {
+            if (spaces.length > 1) {
+              deviceHaptic(10);
+              setSpacePickerIndex(currentSpaceIndex);
+              setSpacePickerOpen(true);
+            }
+          }}
+          className="max-w-[270px] truncate text-[0.6rem] uppercase tracking-[0.13em] text-text-muted"
+          aria-label={spaces.length > 1 ? "Change Swells space" : undefined}
+        >
+          {spaceName}{spaces.length > 1 ? "  ▾" : ""}
+        </button>
       </header>
 
-      {captureReview.review ? (
+      {spacePickerOpen ? (
+        <R1SpacePicker
+          spaces={spaces}
+          selectedIndex={spacePickerIndex}
+          onStep={stepSpace}
+          onOpen={openSpace}
+          onCancel={() => setSpacePickerOpen(false)}
+        />
+      ) : captureReview.review ? (
         <R1CaptureReviewSurface
           review={captureReview.review}
           deciding={captureReview.deciding}
@@ -655,42 +743,49 @@ export function R1SwellsSurface({
           onBack={() => setLens("swell")}
         />
       ) : lens === "change" ? (
-        <ChangeSurface projection={projection} changeIndex={changeIndex} />
+        <ChangeSurface
+          projection={projection}
+          changeIndex={changeIndex}
+          onOpen={(signalId) => {
+            const index = signals.findIndex((item) => item.id === signalId);
+            if (index >= 0) setSignalIndex(index);
+            setLens("swell");
+          }}
+        />
       ) : (
         <TemperatureSurface projection={projection} onExplore={() => undefined} />
       )}
 
-      {!captureReview.review &&
+      {!spacePickerOpen &&
+      !captureReview.review &&
       lens !== "notice" &&
       lens !== "swell" &&
       lens !== "ask" ? (
         <nav
           aria-label="Swells R1 views"
-          className="mt-3 flex h-12 shrink-0 items-center gap-2 rounded-[20px] border border-white/[0.05] bg-white/[0.025] p-1.5"
+          className="mt-2 flex h-10 shrink-0 items-center gap-1 rounded-[16px] border border-white/[0.05] bg-white/[0.025] p-1"
         >
-          {primaryLenses.map((item) => (
+          {[
+            ...primaryLenses,
+            ...(canCapture && projection.availableLenses.includes("notice")
+              ? (["notice"] as SwellsLens[])
+              : []),
+          ].map((item) => (
             <button
               type="button"
               key={item}
               onClick={() => selectLens(item)}
-              className={`h-full flex-1 rounded-[14px] px-2 text-[0.66rem] uppercase tracking-[0.1em] transition-colors ${
+              className={`h-full min-w-0 flex-1 rounded-[12px] px-1 text-[0.56rem] uppercase tracking-[0.07em] transition-colors ${
                 lens === item
                   ? "bg-white/[0.08] text-text-primary"
-                  : "text-text-muted"
+                  : item === "notice"
+                    ? "text-warm-3"
+                    : "text-text-muted"
               }`}
             >
               {LENS_LABELS[item]}
             </button>
           ))}
-          {canCapture && projection.availableLenses.includes("notice") ? (
-            <button
-              type="button"
-              onClick={() => selectLens("notice")}
-              className="h-full rounded-[14px] border border-warm-3/20 bg-warm-3/8 px-4 text-[0.68rem] uppercase tracking-[0.11em] text-warm-3"
-            >
-              Notice
-            </button>
-          ) : null}
         </nav>
       ) : null}
 
