@@ -43,6 +43,7 @@ Current implementation target:
 - [x] Add the native Rabbit shell using the proven Attention native audio/TTS/haptics pattern.
 - [ ] Add resumable capture review where AI processing needs user judgement.
 - [x] Add first explicit surface feedback store for Ask usefulness and signal-interpretation fit.
+- [x] Add a first admin evaluation view for explicit R1 feedback.
 - [ ] Expand interaction telemetry for surface tuning without silently changing canonical meaning.
 
 ### Native Rabbit shell
