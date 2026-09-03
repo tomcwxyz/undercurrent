@@ -134,17 +134,17 @@ export function R1VoiceNoticeButton({
   const [nativeElapsed, setNativeElapsed] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);\n  const nativeRecordingRef = useRef(false);
 
   const recording = nativeRecording || browserRecorder.status === "recording";
   const elapsed = nativeRecording ? nativeElapsed : browserRecorder.elapsed;
 
   useEffect(() => {
     return () => {
-      if (nativeRecording) nativeDevice()?.cancelVoiceRecording?.();
+      if (nativeRecordingRef.current) nativeDevice()?.cancelVoiceRecording?.();
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [nativeRecording]);
+  }, []);
 
   useEffect(() => {
     if (browserRecorder.error) onError(browserRecorder.error);
