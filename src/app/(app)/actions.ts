@@ -8,6 +8,7 @@ import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { observations, observationMedia } from "@/lib/db/schema";
+import { surfaceCaptureReviews } from "@/lib/db/surface-schema";
 import {
   clearDemoData,
   markNotificationRead,
@@ -45,6 +46,7 @@ function generateCollectionToken(): string {
 const createObservationSchema = z.object({
   text: z.string().max(5000).optional(),
   spaceId: z.string().uuid(),
+  surface: z.enum(["r1"]).optional(),
 });
 
 const mediaRefSchema = z.array(
@@ -65,6 +67,7 @@ export async function createObservation(formData: FormData) {
   const parsed = createObservationSchema.parse({
     text: formData.get("text"),
     spaceId: formData.get("spaceId"),
+    surface: formData.get("surface") || undefined,
   });
 
   // Parse optional media refs
@@ -119,6 +122,18 @@ export async function createObservation(formData: FormData) {
     );
   }
 
+  if (parsed.surface === "r1") {
+    await db
+      .insert(surfaceCaptureReviews)
+      .values({
+        userId: session.user.id,
+        spaceId: parsed.spaceId,
+        observationId: inserted.id,
+        surface: "r1",
+      })
+      .onConflictDoNothing();
+  }
+
   // Track usage
   if (subscription) {
     await incrementObservationCount(subscription.id, parsed.spaceId);
@@ -127,6 +142,8 @@ export async function createObservation(formData: FormData) {
   revalidatePath("/dashboard", "layout");
 
   after(() => processObservation(inserted.id, parsed.spaceId));
+
+  return { id: inserted.id };
 }
 
 export async function clearDemoDataAction(formData: FormData) {
