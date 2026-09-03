@@ -259,10 +259,10 @@ function SwellSurface({
         <Metric label="observations" value={String(signal.observationCount)} />
         <Metric label="voices" value={String(signal.contributorCount)} />
       </div>
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <span className="text-[0.62rem] uppercase tracking-[0.11em] text-text-muted">
+      <div className="mt-2">
+        <div className="mb-1 text-[0.56rem] uppercase tracking-[0.1em] text-text-muted">
           Does this interpretation fit?
-        </span>
+        </div>
         <R1FeedbackButtons
           spaceId={spaceId}
           signalId={signal.id}
@@ -273,7 +273,7 @@ function SwellSurface({
       <button
         type="button"
         onClick={onAsk}
-        className="mt-3 w-full rounded-[18px] border border-cool-1/20 bg-cool-1/8 py-3 text-[0.68rem] font-medium uppercase tracking-[0.13em] text-cool-1"
+        className="mt-2 w-full rounded-[16px] border border-cool-1/20 bg-cool-1/8 py-2.5 text-[0.62rem] font-medium uppercase tracking-[0.11em] text-cool-1"
       >
         Ask this swell
       </button>
