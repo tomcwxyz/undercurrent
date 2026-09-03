@@ -3,7 +3,11 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { isSuperAdmin } from "@/lib/account";
 import { db } from "@/lib/db";
-import { surfaceFeedback } from "@/lib/db/surface-schema";
+import {
+  surfaceCaptureReviews,
+  surfaceFeedback,
+  surfaceInteractionEvents,
+} from "@/lib/db/surface-schema";
 import { signals, spaces, users } from "@/lib/db/schema";
 
 function pct(numerator: number, denominator: number) {
@@ -16,36 +20,74 @@ export default async function EvaluationPage() {
   if (!session?.user?.id) redirect("/sign-in");
   if (!isSuperAdmin(session.user.email)) redirect("/dashboard");
 
-  const rows = await db
-    .select({
-      id: surfaceFeedback.id,
-      createdAt: surfaceFeedback.createdAt,
-      kind: surfaceFeedback.kind,
-      judgement: surfaceFeedback.judgement,
-      question: surfaceFeedback.question,
-      answer: surfaceFeedback.answer,
-      evidenceIds: surfaceFeedback.evidenceIds,
-      signalId: surfaceFeedback.signalId,
-      signalTitle: signals.title,
-      spaceName: spaces.name,
-      userEmail: users.email,
-    })
-    .from(surfaceFeedback)
-    .leftJoin(signals, eq(signals.id, surfaceFeedback.signalId))
-    .innerJoin(spaces, eq(spaces.id, surfaceFeedback.spaceId))
-    .innerJoin(users, eq(users.id, surfaceFeedback.userId))
-    .orderBy(desc(surfaceFeedback.createdAt))
-    .limit(250);
+  const [feedbackRows, captureRows, interactionRows] = await Promise.all([
+    db
+      .select({
+        id: surfaceFeedback.id,
+        createdAt: surfaceFeedback.createdAt,
+        kind: surfaceFeedback.kind,
+        judgement: surfaceFeedback.judgement,
+        question: surfaceFeedback.question,
+        answer: surfaceFeedback.answer,
+        evidenceIds: surfaceFeedback.evidenceIds,
+        signalId: surfaceFeedback.signalId,
+        signalTitle: signals.title,
+        spaceName: spaces.name,
+        userEmail: users.email,
+      })
+      .from(surfaceFeedback)
+      .leftJoin(signals, eq(signals.id, surfaceFeedback.signalId))
+      .innerJoin(spaces, eq(spaces.id, surfaceFeedback.spaceId))
+      .innerJoin(users, eq(users.id, surfaceFeedback.userId))
+      .orderBy(desc(surfaceFeedback.createdAt))
+      .limit(250),
+    db
+      .select({
+        status: surfaceCaptureReviews.status,
+        decision: surfaceCaptureReviews.decision,
+        createdAt: surfaceCaptureReviews.createdAt,
+      })
+      .from(surfaceCaptureReviews)
+      .orderBy(desc(surfaceCaptureReviews.createdAt))
+      .limit(250),
+    db
+      .select({
+        sessionId: surfaceInteractionEvents.sessionId,
+        event: surfaceInteractionEvents.event,
+        lens: surfaceInteractionEvents.lens,
+        createdAt: surfaceInteractionEvents.createdAt,
+      })
+      .from(surfaceInteractionEvents)
+      .orderBy(desc(surfaceInteractionEvents.createdAt))
+      .limit(1000),
+  ]);
 
-  const ask = rows.filter((row) => row.kind === "ask_answer");
-  const signal = rows.filter((row) => row.kind === "signal_interpretation");
+  const ask = feedbackRows.filter((row) => row.kind === "ask_answer");
+  const signal = feedbackRows.filter((row) => row.kind === "signal_interpretation");
   const askUseful = ask.filter((row) => row.judgement === "useful").length;
   const signalFits = signal.filter((row) => row.judgement === "fits").length;
-  const negative = rows
+  const negative = feedbackRows
     .filter((row) =>
       ["not_useful", "does_not_fit"].includes(row.judgement),
     )
     .slice(0, 40);
+
+  const reviewedCaptures = captureRows.filter((row) => row.status === "reviewed");
+  const separatedCaptures = reviewedCaptures.filter(
+    (row) => row.decision === "keep_separate",
+  );
+  const r1Sessions = new Set(interactionRows.map((row) => row.sessionId)).size;
+  const lensCounts = interactionRows
+    .filter((row) => row.event === "lens_view" && row.lens)
+    .reduce<Record<string, number>>((counts, row) => {
+      const lens = row.lens!;
+      counts[lens] = (counts[lens] ?? 0) + 1;
+      return counts;
+    }, {});
+  const lensSummary = Object.entries(lensCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([lens, count]) => `${lens} ${count}`)
+    .join(" · ");
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-12 md:px-12">
@@ -66,7 +108,9 @@ export default async function EvaluationPage() {
           </p>
         </div>
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-right">
-          <div className="text-[1.5rem] font-light text-text-primary">{rows.length}</div>
+          <div className="text-[1.5rem] font-light text-text-primary">
+            {feedbackRows.length + reviewedCaptures.length}
+          </div>
           <div className="text-[0.68rem] uppercase tracking-[0.13em] text-text-muted">
             recent judgements
           </div>
@@ -89,6 +133,33 @@ export default async function EvaluationPage() {
           value={String(negative.length)}
           detail="Recent cases worth inspecting"
         />
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <Metric
+          label="R1 sessions"
+          value={String(r1Sessions)}
+          detail={interactionRows.length ? `${interactionRows.length} recent interactions` : "No R1 interaction data yet"}
+        />
+        <Metric
+          label="Capture reviews"
+          value={String(reviewedCaptures.length)}
+          detail={captureRows.some((row) => row.status === "pending") ? "Includes notices still awaiting judgement" : "No pending R1 notice reviews"}
+        />
+        <Metric
+          label="Kept separate"
+          value={pct(separatedCaptures.length, reviewedCaptures.length)}
+          detail={reviewedCaptures.length ? `${separatedCaptures.length} of ${reviewedCaptures.length} reviewed notices` : "No reviewed notices yet"}
+        />
+      </div>
+
+      <div className="mt-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+        <div className="text-[0.68rem] uppercase tracking-[0.13em] text-text-muted">
+          R1 lens use
+        </div>
+        <div className="mt-2 text-[0.82rem] leading-relaxed text-text-secondary">
+          {lensSummary || "No lens views recorded yet."}
+        </div>
       </div>
 
       <div className="mt-10">

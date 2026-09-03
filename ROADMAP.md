@@ -41,10 +41,10 @@ Current implementation target:
 - [x] Add a first Change view from existing signal direction.
 - [x] Add bounded Ask against a selected signal and its evidence.
 - [x] Add the native Rabbit shell using the proven Attention native audio/TTS/haptics pattern.
-- [ ] Add resumable capture review where AI processing needs user judgement.
+- [x] Add resumable capture review where AI processing needs user judgement.
 - [x] Add first explicit surface feedback store for Ask usefulness and signal-interpretation fit.
 - [x] Add a first admin evaluation view for explicit R1 feedback.
-- [ ] Expand interaction telemetry for surface tuning without silently changing canonical meaning.
+- [x] Expand interaction telemetry for surface tuning without silently changing canonical meaning.
 
 ### Native Rabbit shell
 
@@ -83,6 +83,8 @@ Next depth:
 ### Human judgement and tuning
 
 The first durable feedback loop is implemented on R1: Ask answers can be marked **Useful / Missed it**, and an individual swell can be marked **Fits / Something’s off**. These judgements are stored with the user, space, signal and (for Ask) the question, answer and cited evidence IDs.
+
+R1 Notice capture now also has a durable review step. A capture remains resumable while the AI pipeline is working, then shows the connection Swells made. The user can **Keep here** or **Keep separate**; keeping it separate removes the proposed signal attachment and reconciles the affected signal rather than merely recording negative feedback. Bounded R1 interaction events (surface open, lens view, navigation, capture and review) are stored separately from canonical sensing state and surfaced in the admin evaluation view.
 
 Continue to record explicit feedback such as:
 

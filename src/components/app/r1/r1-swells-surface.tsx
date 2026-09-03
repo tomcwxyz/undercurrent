@@ -6,7 +6,10 @@ import { createObservation } from "@/app/(app)/actions";
 import { R1VoiceNoticeButton } from "@/components/app/r1/r1-voice-notice-button";
 import { R1AskSwellSurface } from "@/components/app/r1/r1-ask-swell-surface";
 import { R1FeedbackButtons } from "@/components/app/r1/r1-feedback-buttons";
+import { R1CaptureReviewSurface } from "@/components/app/r1/r1-capture-review-surface";
 import { nativeSwellsDevice } from "@/lib/r1/device";
+import { useR1CaptureReview } from "@/lib/r1/use-capture-review";
+import { recordR1Interaction } from "@/lib/r1/telemetry";
 import type {
   SwellsLens,
   SwellsSwellReading,
@@ -341,10 +344,12 @@ function NoticeSurface({
   spaceId,
   onDone,
   onCancel,
+  onCaptured,
 }: {
   spaceId: string;
   onDone: () => void;
   onCancel: () => void;
+  onCaptured: () => void;
 }) {
   const [text, setText] = useState("");
   const [error, setError] = useState("");
@@ -359,6 +364,7 @@ function NoticeSurface({
 
     const form = new FormData();
     form.set("spaceId", spaceId);
+    form.set("surface", "r1");
     form.set("text", clean);
 
     startTransition(async () => {
@@ -367,6 +373,7 @@ function NoticeSurface({
         deviceHaptic(28);
         setSaved(true);
         setText("");
+        onCaptured();
         router.refresh();
         window.setTimeout(onDone, 650);
       } catch (cause) {
@@ -416,6 +423,7 @@ function NoticeSurface({
         onSaved={() => {
           setSaved(true);
           setText("");
+          onCaptured();
           router.refresh();
           window.setTimeout(onDone, 650);
         }}
@@ -450,6 +458,9 @@ export function R1SwellsSurface({
   const [signalIndex, setSignalIndex] = useState(0);
   const [changeIndex, setChangeIndex] = useState(0);
   const pointerStart = useRef<number | null>(null);
+  const reviewSeenRef = useRef<string | null>(null);
+  const router = useRouter();
+  const captureReview = useR1CaptureReview(projection.spaceId);
 
   const signals = projection.swells;
   const signal = signals[Math.min(signalIndex, Math.max(0, signals.length - 1))];
@@ -462,6 +473,40 @@ export function R1SwellsSurface({
     [projection.availableLenses]
   );
 
+  useEffect(() => {
+    recordR1Interaction({
+      spaceId: projection.spaceId,
+      event: "surface_open",
+      lens: projection.defaultLens,
+    });
+  }, [projection.defaultLens, projection.spaceId]);
+
+  useEffect(() => {
+    if (captureReview.review) return;
+    recordR1Interaction({
+      spaceId: projection.spaceId,
+      event: "lens_view",
+      lens,
+      signalId:
+        lens === "horizon" || lens === "swell" || lens === "ask"
+          ? signal?.id
+          : undefined,
+    });
+  }, [captureReview.review, lens, projection.spaceId, signal?.id]);
+
+  useEffect(() => {
+    if (!captureReview.review || reviewSeenRef.current === captureReview.review.id) {
+      return;
+    }
+    reviewSeenRef.current = captureReview.review.id;
+    recordR1Interaction({
+      spaceId: projection.spaceId,
+      event: "capture_review_opened",
+      observationId: captureReview.review.observationId,
+      metadata: { processing: captureReview.review.processing },
+    });
+  }, [captureReview.review, projection.spaceId]);
+
   function selectLens(next: SwellsLens) {
     deviceHaptic(12);
     setLens(next);
@@ -469,6 +514,13 @@ export function R1SwellsSurface({
 
   function step(delta: number) {
     deviceHaptic(10);
+    recordR1Interaction({
+      spaceId: projection.spaceId,
+      event: "navigate",
+      lens,
+      signalId: signal?.id,
+      metadata: { delta },
+    });
 
     if (lens === "horizon" || lens === "swell") {
       if (!signals.length) return;
@@ -502,6 +554,29 @@ export function R1SwellsSurface({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [lens, signals.length, projection.changes.length]);
 
+  async function handleReviewDecision(
+    decision: "keep_connection" | "keep_separate",
+  ) {
+    const current = captureReview.review;
+    if (!current) return;
+
+    const saved = await captureReview.decide(decision);
+    if (!saved) return;
+
+    recordR1Interaction({
+      spaceId: projection.spaceId,
+      event: "capture_reviewed",
+      observationId: current.observationId,
+      signalId: current.signals[0]?.id,
+      metadata: {
+        decision,
+        signalCount: current.signals.length,
+      },
+    });
+    deviceHaptic(24);
+    router.refresh();
+  }
+
   function pointerDown(event: React.PointerEvent) {
     pointerStart.current = event.clientX;
   }
@@ -533,11 +608,26 @@ export function R1SwellsSurface({
         </span>
       </header>
 
-      {lens === "notice" ? (
+      {captureReview.review ? (
+        <R1CaptureReviewSurface
+          review={captureReview.review}
+          deciding={captureReview.deciding}
+          error={captureReview.error}
+          onDecision={(decision) => void handleReviewDecision(decision)}
+        />
+      ) : lens === "notice" ? (
         <NoticeSurface
           spaceId={projection.spaceId}
           onCancel={() => setLens("temperature")}
           onDone={() => setLens("temperature")}
+          onCaptured={() => {
+            recordR1Interaction({
+              spaceId: projection.spaceId,
+              event: "capture_saved",
+              lens: "notice",
+            });
+            void captureReview.refresh();
+          }}
         />
       ) : lens === "temperature" ? (
         <TemperatureSurface
@@ -570,7 +660,10 @@ export function R1SwellsSurface({
         <TemperatureSurface projection={projection} onExplore={() => undefined} />
       )}
 
-      {lens !== "notice" && lens !== "swell" && lens !== "ask" ? (
+      {!captureReview.review &&
+      lens !== "notice" &&
+      lens !== "swell" &&
+      lens !== "ask" ? (
         <nav
           aria-label="Swells R1 views"
           className="mt-3 flex h-12 shrink-0 items-center gap-2 rounded-[20px] border border-white/[0.05] bg-white/[0.025] p-1.5"

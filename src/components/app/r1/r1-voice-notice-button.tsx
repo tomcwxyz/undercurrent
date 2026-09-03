@@ -56,6 +56,7 @@ async function saveVoiceObservation(spaceId: string, blob: Blob) {
 
   const form = new FormData();
   form.set("spaceId", spaceId);
+  form.set("surface", "r1");
   form.set(
     "mediaKeys",
     JSON.stringify([
