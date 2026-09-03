@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createObservation } from "@/app/(app)/actions";
 import { useVoiceRecorder } from "@/lib/use-voice-recorder";
 import {
   blobFromBase64,
@@ -9,95 +8,56 @@ import {
   hasNativeSwellsRecorder,
   nativeSwellsDevice,
   parseNativeRecordingResult,
+  stopR1Speech,
 } from "@/lib/r1/device";
 
-async function saveVoiceObservation(spaceId: string, blob: Blob) {
+async function transcribeQuestion(blob: Blob) {
   const mimeType = blob.type || "audio/webm";
-  const fileName = `r1-notice-${Date.now()}.${extensionForMime(mimeType)}`;
-
-  const presignResponse = await fetch("/api/upload/presign", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      fileName,
-      contentType: mimeType,
-      spaceId,
-      fileSize: blob.size,
-    }),
-  });
-
-  const presign = (await presignResponse.json()) as {
-    uploadUrl?: string;
-    key?: string;
-    publicUrl?: string;
-    mediaType?: "image" | "voice" | "file";
-    error?: string;
-  };
-
-  if (
-    !presignResponse.ok ||
-    !presign.uploadUrl ||
-    !presign.key ||
-    !presign.publicUrl ||
-    presign.mediaType !== "voice"
-  ) {
-    throw new Error(presign.error || "Could not prepare the voice observation.");
-  }
-
-  const uploadResponse = await fetch(presign.uploadUrl, {
-    method: "PUT",
-    headers: { "content-type": mimeType },
-    body: blob,
-  });
-
-  if (!uploadResponse.ok) {
-    throw new Error("The voice recording could not be uploaded.");
-  }
-
-  const form = new FormData();
-  form.set("spaceId", spaceId);
-  form.set(
-    "mediaKeys",
-    JSON.stringify([
-      {
-        key: presign.key,
-        url: presign.publicUrl,
-        type: "voice",
-        fileName,
-        mimeType,
-        fileSize: blob.size,
-      },
-    ]),
+  const file = new File(
+    [blob],
+    `swells-question.${extensionForMime(mimeType)}`,
+    { type: mimeType },
   );
+  const form = new FormData();
+  form.set("audio", file);
 
-  await createObservation(form);
+  const response = await fetch("/api/r1/transcribe", {
+    method: "POST",
+    body: form,
+  });
+  const data = (await response.json()) as { text?: string; error?: string };
+  if (!response.ok || !data.text) {
+    throw new Error(data.error || "Voice transcription failed.");
+  }
+  return data.text;
 }
 
-export function R1VoiceNoticeButton({
-  spaceId,
+export function R1VoiceQuestionButton({
   disabled,
-  onSaved,
+  onTranscript,
   onError,
 }: {
-  spaceId: string;
   disabled?: boolean;
-  onSaved: () => void;
+  onTranscript: (text: string) => void;
   onError: (message: string) => void;
 }) {
   const browserRecorder = useVoiceRecorder();
   const [nativeRecording, setNativeRecording] = useState(false);
   const [nativeElapsed, setNativeElapsed] = useState(0);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const nativeRecordingRef = useRef(false);
 
-  const recording = nativeRecording || browserRecorder.status === "recording";
-  const elapsed = nativeRecording ? nativeElapsed : browserRecorder.elapsed;
+  const recording =
+    nativeRecording || browserRecorder.status === "recording";
+  const elapsed =
+    nativeRecording ? nativeElapsed : browserRecorder.elapsed;
 
   useEffect(() => {
     return () => {
-      if (nativeRecordingRef.current) nativeSwellsDevice()?.cancelVoiceRecording?.();
+      if (nativeRecordingRef.current) {
+        nativeSwellsDevice()?.cancelVoiceRecording?.();
+      }
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
@@ -106,39 +66,38 @@ export function R1VoiceNoticeButton({
     if (browserRecorder.error) onError(browserRecorder.error);
   }, [browserRecorder.error, onError]);
 
-  async function persist(blob: Blob | null) {
+  async function finish(blob: Blob | null) {
     if (!blob?.size) {
       onError("The recording was empty.");
       return;
     }
 
-    setSaving(true);
+    setTranscribing(true);
     onError("");
     try {
-      await saveVoiceObservation(spaceId, blob);
-      nativeSwellsDevice()?.haptic?.(30);
-      setSaved(true);
-      window.setTimeout(onSaved, 650);
+      onTranscript(await transcribeQuestion(blob));
     } catch (cause) {
       onError(
         cause instanceof Error
           ? cause.message
-          : "Could not save the voice observation.",
+          : "Swells could not transcribe that question.",
       );
     } finally {
-      setSaving(false);
+      setTranscribing(false);
     }
   }
 
   async function start() {
-    if (disabled || recording || saving || saved) return;
+    if (disabled || recording || transcribing) return;
     onError("");
+    stopR1Speech();
 
     if (hasNativeSwellsRecorder()) {
-      const result = nativeSwellsDevice()?.startVoiceRecording?.() ?? "";
+      const result =
+        nativeSwellsDevice()?.startVoiceRecording?.() ?? "";
       if (result !== "started") {
         const diagnostic = nativeSwellsDevice()?.microphoneState?.();
-        console.warn("Swells native voice capture could not start", {
+        console.warn("Swells R1 question recording could not start", {
           result,
           diagnostic,
         });
@@ -152,6 +111,7 @@ export function R1VoiceNoticeButton({
         return;
       }
 
+      nativeRecordingRef.current = true;
       setNativeElapsed(0);
       setNativeRecording(true);
       timerRef.current = setInterval(() => {
@@ -164,7 +124,7 @@ export function R1VoiceNoticeButton({
   }
 
   async function stop() {
-    if (!recording || saving) return;
+    if (!recording || transcribing) return;
 
     if (nativeRecording) {
       nativeRecordingRef.current = false;
@@ -175,7 +135,6 @@ export function R1VoiceNoticeButton({
       const result = parseNativeRecordingResult(
         nativeSwellsDevice()?.stopVoiceRecording?.() ?? "",
       );
-
       setNativeElapsed(0);
 
       if (!result.ok || !result.base64) {
@@ -188,31 +147,33 @@ export function R1VoiceNoticeButton({
         return;
       }
 
-      const mimeType = result.mimeType || "audio/mp4";
-      await persist(blobFromBase64(result.base64, mimeType));
+      await finish(
+        blobFromBase64(
+          result.base64,
+          result.mimeType || "audio/mp4",
+        ),
+      );
       return;
     }
 
-    await persist(await browserRecorder.stop());
+    await finish(await browserRecorder.stop());
   }
 
-  const label = saved
-    ? "Noticed ✓"
-    : saving
-      ? "Keeping voice note…"
-      : recording
-        ? `Stop · ${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`
-        : "Record voice";
+  const label = transcribing
+    ? "Listening…"
+    : recording
+      ? `Stop · ${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`
+      : "Ask by voice";
 
   return (
     <button
       type="button"
       onClick={() => void (recording ? stop() : start())}
-      disabled={disabled || saving || saved}
-      className={`w-full rounded-[22px] border py-4 text-[0.82rem] font-medium uppercase tracking-[0.14em] transition-colors disabled:opacity-40 ${
+      disabled={disabled || transcribing}
+      className={`rounded-[18px] border px-4 py-3 text-[0.68rem] font-medium uppercase tracking-[0.12em] transition-colors disabled:opacity-40 ${
         recording
           ? "border-warm-1/40 bg-warm-1/12 text-warm-1"
-          : "border-warm-3/25 bg-warm-3/8 text-warm-3"
+          : "border-cool-1/20 bg-cool-1/8 text-cool-1"
       }`}
     >
       {recording ? (

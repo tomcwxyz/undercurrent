@@ -50,9 +50,7 @@ export const SWELLS_SURFACE_PROFILES: Record<
       maxPrimaryItems: 1,
       maxSwells: 5,
       supportsCapture: true,
-      // Bounded Ask is intentionally enabled later, once exact-evidence
-      // retrieval and concise voice responses are wired end-to-end.
-      supportsAsk: false,
+      supportsAsk: true,
       supportsEvidenceInspection: false,
     },
     presentation: {

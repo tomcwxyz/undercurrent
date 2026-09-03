@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createObservation } from "@/app/(app)/actions";
 import { R1VoiceNoticeButton } from "@/components/app/r1/r1-voice-notice-button";
+import { R1AskSwellSurface } from "@/components/app/r1/r1-ask-swell-surface";
+import { nativeSwellsDevice } from "@/lib/r1/device";
 import type {
   SwellsLens,
   SwellsSwellReading,
@@ -27,13 +29,7 @@ const LENS_LABELS: Partial<Record<SwellsLens, string>> = {
 };
 
 function deviceHaptic(duration = 14) {
-  if (typeof window === "undefined") return;
-  const device = (
-    window as Window & {
-      SwellsDevice?: { haptic?: (milliseconds: number) => void };
-    }
-  ).SwellsDevice;
-  device?.haptic?.(duration);
+  nativeSwellsDevice()?.haptic?.(duration);
 }
 
 function directionLabel(direction: SwellsSwellReading["direction"]) {
@@ -218,9 +214,11 @@ function HorizonSurface({
 function SwellSurface({
   signal,
   onBack,
+  onAsk,
 }: {
   signal: SwellsSwellReading;
   onBack: () => void;
+  onAsk: () => void;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col rounded-[34px] border border-white/[0.06] bg-white/[0.02] px-7 pb-7 pt-7">
@@ -254,6 +252,13 @@ function SwellSurface({
         <Metric label="observations" value={String(signal.observationCount)} />
         <Metric label="voices" value={String(signal.contributorCount)} />
       </div>
+      <button
+        type="button"
+        onClick={onAsk}
+        className="mt-3 w-full rounded-[18px] border border-cool-1/20 bg-cool-1/8 py-3 text-[0.68rem] font-medium uppercase tracking-[0.13em] text-cool-1"
+      >
+        Ask this swell
+      </button>
     </div>
   );
 }
@@ -533,14 +538,24 @@ export function R1SwellsSurface({
           onOpen={() => setLens("swell")}
         />
       ) : lens === "swell" && signal ? (
-        <SwellSurface signal={signal} onBack={() => setLens("horizon")} />
+        <SwellSurface
+          signal={signal}
+          onBack={() => setLens("horizon")}
+          onAsk={() => setLens("ask")}
+        />
+      ) : lens === "ask" && signal ? (
+        <R1AskSwellSurface
+          spaceId={projection.spaceId}
+          signal={signal}
+          onBack={() => setLens("swell")}
+        />
       ) : lens === "change" ? (
         <ChangeSurface projection={projection} changeIndex={changeIndex} />
       ) : (
         <TemperatureSurface projection={projection} onExplore={() => undefined} />
       )}
 
-      {lens !== "notice" && lens !== "swell" ? (
+      {lens !== "notice" && lens !== "swell" && lens !== "ask" ? (
         <nav
           aria-label="Swells R1 views"
           className="mt-3 flex h-12 shrink-0 items-center gap-2 rounded-[20px] border border-white/[0.05] bg-white/[0.025] p-1.5"
