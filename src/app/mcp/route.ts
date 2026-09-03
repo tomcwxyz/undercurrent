@@ -61,6 +61,25 @@ const tools = [
     annotations: { readOnlyHint: true },
   },
   {
+    name: "swells_surface_scene",
+    description:
+      "Read the first-party Swells semantic surface scene for a space, including the real temperature reading, bounded active swells and current changes. Prefer this over reconstructing Swells visual semantics in another product.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        spaceId: { type: "string", format: "uuid" },
+        surface: {
+          type: "string",
+          enum: ["web", "r1", "tablet", "epaper"],
+          default: "tablet",
+        },
+      },
+      required: ["spaceId"],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true },
+  },
+  {
     name: "swells_get_signal",
     description:
       "Read one active Swells Signal by stable record ID within an explicit space. Use after a broader signal read when one specific pattern materially supports the answer.",
@@ -184,6 +203,21 @@ async function callTool(request: Request, name: string, args: Record<string, unk
         limit: String(positiveInt(args.limit, 30, 100)),
       });
       return apiCall(request, `/api/v1/signals?${params}`);
+    }
+    case "swells_surface_scene": {
+      if (typeof args.spaceId !== "string" || !args.spaceId) {
+        throw new Error("spaceId is required");
+      }
+      const surface =
+        typeof args.surface === "string" &&
+        ["web", "r1", "tablet", "epaper"].includes(args.surface)
+          ? args.surface
+          : "tablet";
+      const params = new URLSearchParams({
+        spaceId: args.spaceId,
+        surface,
+      });
+      return apiCall(request, `/api/v1/surface-scene?${params}`);
     }
     case "swells_get_signal": {
       if (typeof args.spaceId !== "string" || !args.spaceId) throw new Error("spaceId is required");
