@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { getSpacesForUser } from "@/lib/db/queries";
 
@@ -9,11 +10,14 @@ export default async function R1Page() {
   }
 
   const spaces = await getSpacesForUser(session.user.id);
-  const firstSpace = spaces[0];
-
-  if (!firstSpace) {
+  if (!spaces.length) {
     redirect("/dashboard");
   }
 
-  redirect(`/r1/${firstSpace.id}`);
+  const cookieStore = await cookies();
+  const preferredSpaceId = cookieStore.get("swells-r1-space")?.value;
+  const preferredSpace =
+    spaces.find((space) => space.id === preferredSpaceId) ?? spaces[0];
+
+  redirect(`/r1/${preferredSpace.id}`);
 }
