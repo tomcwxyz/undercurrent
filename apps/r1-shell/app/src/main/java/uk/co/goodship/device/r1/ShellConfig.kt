@@ -10,6 +10,7 @@ data class ShellConfig(
     val datasetKey: String,
     val eventPrefix: String,
     val userAgentProduct: String,
+    val update: ReleaseUpdateConfig? = null,
     val backgroundRed: Int,
     val backgroundGreen: Int,
     val backgroundBlue: Int,

@@ -6,6 +6,7 @@ on:
     paths:
       - "apps/r1-shell/**"
       - "src/components/app/r1/**"
+      - "scripts/r1-release-payload.mjs"
       - ".github/workflows/r1-shell.yml"
   push:
     branches:
@@ -13,10 +14,11 @@ on:
     paths:
       - "apps/r1-shell/**"
       - "src/components/app/r1/**"
+      - "scripts/r1-release-payload.mjs"
       - ".github/workflows/r1-shell.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   apk:
@@ -28,7 +30,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Require version bump for later native changes
+      - name: Require version bump for native shell changes
         shell: bash
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -81,3 +83,23 @@ jobs:
           name: swells-r1-shell-debug
           path: swells-r1-shell-debug.apk
           if-no-files-found: error
+
+      - name: Prepare alpha release manifest
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: node scripts/r1-release-payload.mjs swells-r1-shell-debug.apk r1-release.json swells-r1
+
+      - name: Publish alpha update
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          asset_name="$(node -e "const fs=require('fs');process.stdout.write(JSON.parse(fs.readFileSync('r1-release.json','utf8')).assetName)")"
+          cp swells-r1-shell-debug.apk "$asset_name"
+
+          if gh release view swells-r1-alpha >/dev/null 2>&1; then
+            gh release upload swells-r1-alpha "$asset_name" --clobber
+            gh release edit swells-r1-alpha               --title "Swells R1 alpha"               --notes-file r1-release.json               --prerelease
+          else
+            gh release create swells-r1-alpha "$asset_name"               --target "$GITHUB_SHA"               --title "Swells R1 alpha"               --notes-file r1-release.json               --prerelease
+          fi

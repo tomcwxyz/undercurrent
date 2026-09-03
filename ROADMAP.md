@@ -40,7 +40,7 @@ Current implementation target:
 - [x] Add a lightweight Notice capture path through the canonical observation pipeline.
 - [x] Add a first Change view from existing signal direction.
 - [ ] Add bounded Ask against a selected signal and its evidence.
-- [ ] Add the native Rabbit shell using the proven Attention native audio/TTS/haptics pattern.
+- [x] Add the native Rabbit shell using the proven Attention native audio/TTS/haptics pattern.
 - [ ] Add resumable capture review where AI processing needs user judgement.
 - [ ] Add interaction telemetry for surface tuning without silently changing canonical meaning.
 
@@ -53,7 +53,7 @@ Reuse lessons from Attention Agent rather than rediscovering Rabbit/WebView cons
 - Wheel/DPAD maps to one-item-at-a-time navigation.
 - Haptic acknowledgement for capture and navigation.
 - Immersive 480×640 presentation.
-- Self-update channel with signed build metadata.
+- Self-update channel with signed build metadata. **Implemented for alpha via a public GitHub prerelease, SHA-256 verification and Android package-signature enforcement.**
 - Authentication returns to the Swells R1 surface rather than the standard web shell.
 
 The native bridge should be general enough to become a Good Ship device-shell pattern rather than permanently duplicating Attention-specific code.
