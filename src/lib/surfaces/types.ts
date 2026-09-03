@@ -1,4 +1,4 @@
-import type { SentimentViewData, SignalView } from "@/lib/types";
+import type { SentimentCell, SentimentViewData, SignalView } from "@/lib/types";
 
 export type SwellsSurfaceId = "web" | "r1" | "tablet" | "epaper";
 
@@ -31,6 +31,7 @@ export interface SwellsTemperatureReading {
   observationCount: number;
   trend: SwellsTemperatureTrend;
   distribution: SentimentViewData["distribution"];
+  cells: SentimentCell[];
 }
 
 export interface SwellsSwellReading {
