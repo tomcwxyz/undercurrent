@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createObservation } from "@/app/(app)/actions";\nimport { R1VoiceNoticeButton } from "@/components/app/r1/r1-voice-notice-button";
+import { createObservation } from "@/app/(app)/actions";
+import { R1VoiceNoticeButton } from "@/components/app/r1/r1-voice-notice-button";
 import type {
   SwellsLens,
   SwellsSwellReading,
