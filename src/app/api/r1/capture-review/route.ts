@@ -184,9 +184,39 @@ export async function POST(request: Request) {
     after(async () => {
       for (const signalId of signalIds) {
         try {
-          await evolveSignal(signalId, review.spaceId);
+          const [remaining] = await db
+            .select({ observationId: signalObservations.observationId })
+            .from(signalObservations)
+            .where(eq(signalObservations.signalId, signalId))
+            .limit(1);
+
+          if (remaining) {
+            await evolveSignal(signalId, review.spaceId);
+            continue;
+          }
+
+          const [signal] = await db
+            .select({ aiGenerated: signals.aiGenerated })
+            .from(signals)
+            .where(eq(signals.id, signalId))
+            .limit(1);
+
+          if (signal?.aiGenerated) {
+            await db.delete(signals).where(eq(signals.id, signalId));
+          } else {
+            await db
+              .update(signals)
+              .set({
+                observationCount: 0,
+                contributorCount: 0,
+                strength: "weak",
+                direction: "steady",
+                lastUpdated: new Date(),
+              })
+              .where(eq(signals.id, signalId));
+          }
         } catch (cause) {
-          console.error("[r1/capture-review] could not re-evolve signal", {
+          console.error("[r1/capture-review] could not reconcile signal", {
             signalId,
             cause,
           });
