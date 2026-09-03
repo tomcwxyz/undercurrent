@@ -95,7 +95,7 @@ export function R1AskSwellSurface({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col rounded-[34px] border border-white/[0.06] bg-white/[0.02] px-6 pb-6 pt-6">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-white/[0.06] bg-white/[0.02] px-5 pb-5 pt-5">
       <div className="flex items-center justify-between gap-4">
         <button
           type="button"
@@ -105,46 +105,46 @@ export function R1AskSwellSurface({
           }}
           className="text-[0.68rem] uppercase tracking-[0.16em] text-text-muted"
         >
-          ← {signal.title}
+          ← Swell
         </button>
-        <span className="shrink-0 text-[0.66rem] uppercase tracking-[0.18em] text-cool-1">
+        <span className="max-w-[190px] truncate text-[0.58rem] uppercase tracking-[0.14em] text-cool-1">
           Ask this swell
         </span>
       </div>
 
       {!result ? (
         <>
-          <div className="mt-8">
-            <h2 className="font-display text-[2.45rem] font-light leading-[0.95] text-text-primary">
+          <div className="mt-5">
+            <h2 className="font-display text-[2rem] font-light leading-[0.97] text-text-primary">
               What do you want to understand?
             </h2>
-            <p className="mt-3 text-[0.78rem] leading-relaxed text-text-secondary">
+            <p className="mt-2 text-[0.68rem] leading-relaxed text-text-secondary">
               Swells will answer only from observations linked to this signal.
             </p>
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-2">
+          <div className="mt-4 grid grid-cols-2 gap-2">
             {QUICK_QUESTIONS.map((item) => (
               <button
                 type="button"
                 key={item}
                 disabled={asking}
                 onClick={() => void ask(item)}
-                className="min-h-16 rounded-[18px] border border-white/[0.06] bg-white/[0.025] px-3 py-3 text-left text-[0.74rem] leading-snug text-text-secondary disabled:opacity-40"
+                className="min-h-12 rounded-[15px] border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-left text-[0.66rem] leading-snug text-text-secondary disabled:opacity-40"
               >
                 {item}
               </button>
             ))}
           </div>
 
-          <div className="mt-auto">
+          <div className="mt-auto pt-3">
             <textarea
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
               placeholder="Or ask something else…"
               maxLength={400}
               rows={2}
-              className="w-full resize-none rounded-[20px] border border-white/[0.07] bg-black/10 px-4 py-3 text-[0.86rem] leading-relaxed text-text-primary outline-none placeholder:text-text-muted/60 focus:border-cool-1/30"
+              className="h-16 w-full resize-none rounded-[16px] border border-white/[0.07] bg-black/10 px-3 py-2 text-[0.74rem] leading-relaxed text-text-primary outline-none placeholder:text-text-muted/60 focus:border-cool-1/30"
             />
 
             {error ? (
@@ -153,7 +153,7 @@ export function R1AskSwellSurface({
               </p>
             ) : null}
 
-            <div className="mt-3 flex gap-2">
+            <div className="mt-2 flex gap-2">
               <R1VoiceQuestionButton
                 disabled={asking}
                 onError={setError}
@@ -172,26 +172,26 @@ export function R1AskSwellSurface({
         </>
       ) : (
         <>
-          <div className="mt-7 text-[0.66rem] uppercase tracking-[0.16em] text-text-muted">
+          <div className="mt-4 line-clamp-2 text-[0.58rem] uppercase tracking-[0.12em] text-text-muted">
             {question}
           </div>
 
-          <div className="my-auto">
-            <p className="font-display text-[1.78rem] font-light leading-[1.18] text-text-primary">
+          <div className="my-auto min-h-0 py-3">
+            <p className="line-clamp-6 font-display text-[1.35rem] font-light leading-[1.16] text-text-primary">
               {result.answer}
             </p>
             {result.caveat ? (
-              <p className="mt-4 text-[0.78rem] leading-relaxed text-text-secondary">
+              <p className="mt-3 line-clamp-2 text-[0.68rem] leading-relaxed text-text-secondary">
                 {result.caveat}
               </p>
             ) : null}
           </div>
 
-          <div className="rounded-[18px] border border-white/[0.05] bg-white/[0.02] px-4 py-3">
-            <div className="text-[0.66rem] uppercase tracking-[0.13em] text-text-muted">
+          <div className="rounded-[15px] border border-white/[0.05] bg-white/[0.02] px-3 py-2">
+            <div className="text-[0.56rem] uppercase tracking-[0.11em] text-text-muted">
               Evidence support · {result.confidence}
             </div>
-            <div className="mt-1 text-[0.76rem] text-text-secondary">
+            <div className="mt-1 text-[0.66rem] text-text-secondary">
               {result.evidence.length
                 ? `Based on ${result.evidence.length} linked observation${result.evidence.length === 1 ? "" : "s"}.`
                 : `No specific linked observation was strong enough to cite from ${result.evidenceAvailable} available.`}
@@ -209,7 +209,7 @@ export function R1AskSwellSurface({
             </div>
           </div>
 
-          <div className="mt-3 flex gap-2">
+          <div className="mt-2 flex gap-2">
             <button
               type="button"
               onClick={() =>
