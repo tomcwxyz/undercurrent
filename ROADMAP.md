@@ -39,7 +39,7 @@ Current implementation target:
 - [x] Add one-at-a-time Horizon and Swell views.
 - [x] Add a lightweight Notice capture path through the canonical observation pipeline.
 - [x] Add a first Change view from existing signal direction.
-- [ ] Add bounded Ask against a selected signal and its evidence.
+- [x] Add bounded Ask against a selected signal and its evidence.
 - [x] Add the native Rabbit shell using the proven Attention native audio/TTS/haptics pattern.
 - [ ] Add resumable capture review where AI processing needs user judgement.
 - [ ] Add interaction telemetry for surface tuning without silently changing canonical meaning.
@@ -60,17 +60,23 @@ The native bridge should be general enough to become a Good Ship device-shell pa
 
 ## Next
 
-### Ask a swell
+### Ask a swell — next depth
 
-A voice-first, bounded AI interaction:
+The first bounded Ask interaction is implemented on R1:
 
-- “Why is this strengthening?”
-- “What contradicts it?”
-- “When did I first notice this?”
-- “What other swells connect to it?”
-- “What might I be missing?”
+- exact selected signal;
+- approved linked observations only;
+- earliest + latest evidence retained in a bounded context;
+- short Haiku-tier responses;
+- explicit evidence references and confidence;
+- voice question and native spoken answer;
+- no conversational memory and no signal mutation.
 
-Answers must be grounded in the selected signal and its exact observations. The model should not silently relabel, merge or rewrite signals.
+Next depth:
+
+- “What other swells connect to it?” using explicit signal connections rather than broad retrieval;
+- open the cited observations on a richer surface;
+- evaluate answer usefulness and evidence quality as part of the tuning store.
 
 ### Human judgement and tuning
 

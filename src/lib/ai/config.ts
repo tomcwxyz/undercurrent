@@ -9,6 +9,8 @@ export const AI_CONFIG = {
     // Sonnet is ample for this synthesis task and far cheaper than Opus.
     attentionAnalysis: "claude-sonnet-4-5-20250929" as const,
     mediaDescription: "claude-haiku-4-5-20251001" as const,
+    // R1 Ask is deliberately evidence-bounded; Haiku keeps these short calls cheap.
+    r1Ask: "claude-haiku-4-5-20251001" as const,
   },
 
   embedding: {
