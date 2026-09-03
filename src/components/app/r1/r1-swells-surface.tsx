@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createObservation } from "@/app/(app)/actions";
+import { createObservation } from "@/app/(app)/actions";\nimport { R1VoiceNoticeButton } from "@/components/app/r1/r1-voice-notice-button";
 import type {
   SwellsLens,
   SwellsSwellReading,
@@ -382,13 +382,29 @@ function NoticeSurface({
       <textarea
         value={text}
         onChange={(event) => setText(event.target.value)}
-        placeholder="Say it, or write it here…"
+        placeholder="Write it here…"
         maxLength={5000}
         autoFocus
         className="my-7 min-h-0 flex-1 resize-none rounded-[24px] border border-white/[0.07] bg-black/10 p-5 text-[1rem] leading-relaxed text-text-primary outline-none placeholder:text-text-muted/60 focus:border-cool-1/30"
       />
 
       {error ? <p className="mb-3 text-[0.72rem] text-warm-1">{error}</p> : null}
+
+      <R1VoiceNoticeButton
+        spaceId={spaceId}
+        disabled={isPending || saved}
+        onError={setError}
+        onSaved={() => {
+          setSaved(true);
+          setText("");
+          router.refresh();
+          window.setTimeout(onDone, 650);
+        }}
+      />
+
+      <div className="my-2 text-center text-[0.62rem] uppercase tracking-[0.16em] text-text-muted">
+        or write it
+      </div>
 
       <button
         type="button"
