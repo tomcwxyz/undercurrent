@@ -74,6 +74,7 @@ function buildTemperature(
       sentiment.comparison?.distribution
     ),
     distribution: sentiment.distribution,
+    cells: sentiment.cells.slice(-28),
   };
 }
 
