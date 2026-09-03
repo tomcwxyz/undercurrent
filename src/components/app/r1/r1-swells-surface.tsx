@@ -385,7 +385,6 @@ function NoticeSurface({
         onChange={(event) => setText(event.target.value)}
         placeholder="Write it here…"
         maxLength={5000}
-        autoFocus
         className="my-7 min-h-0 flex-1 resize-none rounded-[24px] border border-white/[0.07] bg-black/10 p-5 text-[1rem] leading-relaxed text-text-primary outline-none placeholder:text-text-muted/60 focus:border-cool-1/30"
       />
 
