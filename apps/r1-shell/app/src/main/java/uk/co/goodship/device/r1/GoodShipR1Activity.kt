@@ -47,6 +47,7 @@ abstract class GoodShipR1Activity : Activity(), TextToSpeech.OnInitListener {
     private var voiceRecordingFile: File? = null
     private var pendingWebPermission: PermissionRequest? = null
     private var returningFromAuth = false
+    private var updateManager: GitHubReleaseUpdateManager? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -170,6 +171,14 @@ abstract class GoodShipR1Activity : Activity(), TextToSpeech.OnInitListener {
 
         WebView.setWebContentsDebuggingEnabled(false)
         setContentView(webView)
+        updateManager = shellConfig.update?.let { update ->
+            GitHubReleaseUpdateManager(
+                activity = this,
+                config = update,
+                productName = shellConfig.productName,
+                userAgentProduct = shellConfig.userAgentProduct,
+            )
+        }
         scheduleImmersiveMode()
 
         if (
@@ -534,6 +543,7 @@ abstract class GoodShipR1Activity : Activity(), TextToSpeech.OnInitListener {
         super.onResume()
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         scheduleImmersiveMode()
+        updateManager?.onResume()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -605,6 +615,8 @@ abstract class GoodShipR1Activity : Activity(), TextToSpeech.OnInitListener {
         textToSpeech?.stop()
         textToSpeech?.shutdown()
         textToSpeech = null
+        updateManager?.shutdown()
+        updateManager = null
 
         if (::webView.isInitialized) {
             webView.removeJavascriptInterface(shellConfig.bridgeName)
