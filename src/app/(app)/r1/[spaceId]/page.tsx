@@ -5,6 +5,7 @@ import {
   getObservationsWithSentiment,
   getSignalsForSpace,
   getSpaceById,
+  getSpacesForUser,
 } from "@/lib/db/queries";
 import { toSentimentViewData, toSignalView } from "@/lib/db/transforms";
 import { canCreateObservation } from "@/lib/permissions";
@@ -31,10 +32,11 @@ export default async function R1SpacePage({
     redirect("/dashboard");
   }
 
-  const [space, signalRows, sentimentRows] = await Promise.all([
+  const [space, signalRows, sentimentRows, userSpaces] = await Promise.all([
     getSpaceById(spaceId),
     getSignalsForSpace(spaceId),
     getObservationsWithSentiment(spaceId),
+    getSpacesForUser(session.user.id),
   ]);
 
   if (!space) {
@@ -51,6 +53,7 @@ export default async function R1SpacePage({
     <R1SwellsSurface
       projection={projectSwellsSurface(scene, "r1")}
       spaceName={space.name}
+      spaces={userSpaces.map(({ id, name }) => ({ id, name }))}
       canCapture={canCreateObservation(role as SpaceRole)}
     />
   );
