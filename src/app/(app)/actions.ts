@@ -46,7 +46,7 @@ function generateCollectionToken(): string {
 const createObservationSchema = z.object({
   text: z.string().max(5000).optional(),
   spaceId: z.string().uuid(),
-  surface: z.enum(["r1"]).optional(),
+  surface: z.enum(["r1", "tablet"]).optional(),
 });
 
 const mediaRefSchema = z.array(
@@ -180,14 +180,9 @@ export async function submitReflectionResponse(formData: FormData) {
   const reflection = await getReflectionById(parsed.reflectionId);
   if (!reflection) throw new Error("Reflection not found");
 
-  const spaceId = reflection.spaceId;
-  const signalIds = (reflection.signalIds as string[] | null) ?? [];
-
-  const role = await getMemberRole(session.user.id, spaceId);
+  const role = await getMemberRole(session.user.id, reflection.spaceId);
   if (!role || !canCreateObservation(role as SpaceRole)) throw new Error("Not authorized for this space");
 
-  // Subscription gating mirrors createObservation — responses count as
-  // observations against the monthly limit.
   const access = await checkSubscriptionAccess(session.user.id, session.user.email);
   if (!access.allowed) throw new Error(`Subscription ${access.reason}`);
 
@@ -197,170 +192,56 @@ export async function submitReflectionResponse(formData: FormData) {
   const [inserted] = await db
     .insert(observations)
     .values({
-      spaceId,
+      spaceId: reflection.spaceId,
       authorId: session.user.id,
       authorName: session.user.name ?? "Anonymous",
-      contentText: parsed.text,
+      contentText: parsed.text.trim(),
       signalStrength: "single",
-      reflectionId: parsed.reflectionId,
+      reflectionId: reflection.id,
     })
     .returning({ id: observations.id });
 
   if (subscription) {
-    await incrementObservationCount(subscription.id, spaceId);
+    await incrementObservationCount(subscription.id, reflection.spaceId);
   }
 
   revalidatePath("/dashboard", "layout");
-
-  after(() => processReflectionResponse(inserted.id, spaceId, signalIds));
+  after(() => processReflectionResponse(inserted.id, reflection.spaceId, (reflection.signalIds as string[]) ?? []));
 }
 
-export async function markNotificationReadAction(formData: FormData) {
+// ── Space actions ──
+
+export async function createSpaceAction(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not authenticated");
 
-  const notificationId = formData.get("notificationId");
-  if (typeof notificationId !== "string") throw new Error("Invalid notificationId");
+  const name = formData.get("name");
+  const description = formData.get("description");
+  if (typeof name !== "string" || !name.trim()) throw new Error("Name is required");
 
-  await markNotificationRead(notificationId, session.user.id);
-  revalidatePath("/dashboard", "layout");
+  const spaceId = await createSpace(name.trim(), typeof description === "string" ? description.trim() || null : null, session.user.id);
+  await seedSpaceContent(spaceId, session.user.id);
+  redirect(`/dashboard/${spaceId}`);
 }
-
-export async function markAllNotificationsReadAction(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Not authenticated");
-
-  const spaceId = formData.get("spaceId");
-  if (typeof spaceId !== "string") throw new Error("Invalid spaceId");
-
-  await markAllNotificationsRead(session.user.id, spaceId);
-  revalidatePath("/dashboard", "layout");
-}
-
-// ── Space management actions ──
-
-const updateSpaceSchema = z.object({
-  spaceId: z.string().uuid(),
-  name: z.string().min(1).max(200),
-  description: z.string().max(2000).optional(),
-  environment: z.enum(["stars", "water", "mycelium"]).optional(),
-});
 
 export async function updateSpaceAction(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not authenticated");
 
-  const parsed = updateSpaceSchema.parse({
-    spaceId: formData.get("spaceId"),
-    name: formData.get("name"),
-    description: formData.get("description") || undefined,
-    environment: formData.get("environment") || undefined,
-  });
-
-  const role = await getMemberRole(session.user.id, parsed.spaceId);
-  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Not authorized");
-
-  await updateSpace(parsed.spaceId, {
-    name: parsed.name,
-    description: parsed.description ?? null,
-    environment: parsed.environment,
-  });
-  revalidatePath("/dashboard", "layout");
-}
-
-const digestPreferenceSchema = z.object({
-  spaceId: z.string().uuid(),
-  enabled: z.enum(["true", "false"]),
-});
-
-/** Self-scoped — any member can control their own digest preference, no role check needed. */
-export async function updateEmailDigestPreferenceAction(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Not authenticated");
-
-  const parsed = digestPreferenceSchema.parse({
-    spaceId: formData.get("spaceId"),
-    enabled: formData.get("enabled"),
-  });
-
-  const role = await getMemberRole(session.user.id, parsed.spaceId);
-  if (!role) throw new Error("Not a member of this space");
-
-  await setEmailDigestPreference(session.user.id, parsed.spaceId, parsed.enabled === "true");
-  revalidatePath("/dashboard", "layout");
-}
-
-const inviteSchema = z.object({
-  spaceId: z.string().uuid(),
-  email: z.string().email(),
-  role: z.enum(["admin", "facilitator", "observer", "viewer"]),
-});
-
-export async function inviteToSpaceAction(formData: FormData): Promise<{ link: string } | null> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Not authenticated");
-
-  const parsed = inviteSchema.parse({
-    spaceId: formData.get("spaceId"),
-    email: formData.get("email"),
-    role: formData.get("role"),
-  });
-
-  const role = await getMemberRole(session.user.id, parsed.spaceId);
-  if (!role || !canManageMembers(role as SpaceRole)) throw new Error("Not authorized");
-
-  // Check user limit from subscription
-  const subscription = await getSubscriptionForUser(session.user.id);
-  if (subscription) {
-    const memberCount = await getSpaceMemberCount(parsed.spaceId);
-    if (memberCount >= subscription.userLimit) {
-      throw new Error("Space member limit reached for your plan");
-    }
+  const spaceId = formData.get("spaceId");
+  const name = formData.get("name");
+  const description = formData.get("description");
+  if (typeof spaceId !== "string" || typeof name !== "string" || !name.trim()) {
+    throw new Error("Invalid space settings");
   }
 
-  const token = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 7 * 86400000); // 7 days
+  const role = await getMemberRole(session.user.id, spaceId);
+  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Not authorized for this space");
 
-  await createInvitation(parsed.spaceId, parsed.email, parsed.role, session.user.id, token, expiresAt);
-
-  return { link: `${getBaseUrl()}/invite/${token}` };
-}
-
-const memberActionSchema = z.object({
-  spaceId: z.string().uuid(),
-  userId: z.string().uuid(),
-});
-
-export async function updateMemberRoleAction(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Not authenticated");
-
-  const parsed = memberActionSchema.parse({
-    spaceId: formData.get("spaceId"),
-    userId: formData.get("userId"),
+  await updateSpace(spaceId, {
+    name: name.trim(),
+    description: typeof description === "string" ? description.trim() || null : null,
   });
-  const newRole = z.enum(["admin", "facilitator", "observer", "viewer"]).parse(formData.get("role"));
-
-  const role = await getMemberRole(session.user.id, parsed.spaceId);
-  if (!role || !canManageMembers(role as SpaceRole)) throw new Error("Not authorized");
-
-  await updateMemberRole(parsed.userId, parsed.spaceId, newRole);
-  revalidatePath("/dashboard", "layout");
-}
-
-export async function removeMemberAction(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Not authenticated");
-
-  const parsed = memberActionSchema.parse({
-    spaceId: formData.get("spaceId"),
-    userId: formData.get("userId"),
-  });
-
-  const role = await getMemberRole(session.user.id, parsed.spaceId);
-  if (!role || !canManageMembers(role as SpaceRole)) throw new Error("Not authorized");
-
-  await removeMember(parsed.userId, parsed.spaceId);
   revalidatePath("/dashboard", "layout");
 }
 
@@ -368,146 +249,157 @@ export async function deleteSpaceAction(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not authenticated");
 
-  const spaceId = z.string().uuid().parse(formData.get("spaceId"));
+  const spaceId = formData.get("spaceId");
+  if (typeof spaceId !== "string") throw new Error("Invalid spaceId");
 
   const role = await getMemberRole(session.user.id, spaceId);
-  if (!role || !canDeleteSpace(role as SpaceRole)) throw new Error("Not authorized");
+  if (!role || !canDeleteSpace(role as SpaceRole)) throw new Error("Not authorized for this space");
 
   await deleteSpace(spaceId);
   redirect("/dashboard");
 }
 
-const createSpaceSchema = z.object({
-  name: z.string().min(1).max(200),
-  description: z.string().max(2000).optional(),
-});
-
-export async function createSpaceAction(formData: FormData) {
+export async function inviteMemberAction(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not authenticated");
 
-  const parsed = createSpaceSchema.parse({
-    name: formData.get("name"),
-    description: formData.get("description") || undefined,
-  });
-
-  const spaceId = await createSpace(parsed.name, parsed.description ?? null, session.user.id);
-
-  // Optionally fill the new space with the rich demo dataset so the user can
-  // explore the views immediately. Flagged isDemo, so it can be cleared.
-  if (formData.get("seedSample") === "true") {
-    await seedSpaceContent(spaceId, session.user.id);
+  const spaceId = formData.get("spaceId");
+  const email = formData.get("email");
+  const role = formData.get("role");
+  if (typeof spaceId !== "string" || typeof email !== "string" || typeof role !== "string") {
+    throw new Error("Invalid invitation");
   }
 
-  redirect(`/dashboard/${spaceId}`);
+  const currentRole = await getMemberRole(session.user.id, spaceId);
+  if (!currentRole || !canManageMembers(currentRole as SpaceRole)) throw new Error("Not authorized for this space");
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const token = generateCollectionToken();
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  await createInvitation(spaceId, normalizedEmail, role, session.user.id, token, expiresAt);
+
+  revalidatePath("/dashboard", "layout");
 }
 
-// ── Collection actions ──
+export async function updateMemberRoleAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not authenticated");
 
-const createCollectionSchema = z.object({
-  spaceId: z.string().uuid(),
-  title: z.string().min(1).max(200),
-  description: z.string().max(1000).optional(),
-  closeAt: z.string().datetime().optional(),
-  maxResponses: z.coerce.number().int().positive().optional(),
-  moderationEnabled: z.coerce.boolean().optional(),
-});
+  const spaceId = formData.get("spaceId");
+  const userId = formData.get("userId");
+  const role = formData.get("role");
+  if (typeof spaceId !== "string" || typeof userId !== "string" || typeof role !== "string") {
+    throw new Error("Invalid member update");
+  }
+
+  const currentRole = await getMemberRole(session.user.id, spaceId);
+  if (!currentRole || !canManageMembers(currentRole as SpaceRole)) throw new Error("Not authorized for this space");
+  await updateMemberRole(userId, spaceId, role);
+  revalidatePath("/dashboard", "layout");
+}
+
+export async function removeMemberAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not authenticated");
+
+  const spaceId = formData.get("spaceId");
+  const userId = formData.get("userId");
+  if (typeof spaceId !== "string" || typeof userId !== "string") throw new Error("Invalid member removal");
+
+  const currentRole = await getMemberRole(session.user.id, spaceId);
+  if (!currentRole || !canManageMembers(currentRole as SpaceRole)) throw new Error("Not authorized for this space");
+  await removeMember(userId, spaceId);
+  revalidatePath("/dashboard", "layout");
+}
+
+export async function updateEmailDigestPreferenceAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not authenticated");
+  const spaceId = formData.get("spaceId");
+  const enabled = formData.get("enabled");
+  if (typeof spaceId !== "string") throw new Error("Invalid spaceId");
+  const role = await getMemberRole(session.user.id, spaceId);
+  if (!role) throw new Error("Not authorized for this space");
+  await setEmailDigestPreference(session.user.id, spaceId, enabled === "true");
+}
+
+export async function markNotificationReadAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not authenticated");
+  const notificationId = formData.get("notificationId");
+  if (typeof notificationId !== "string") throw new Error("Invalid notification");
+  await markNotificationRead(notificationId, session.user.id);
+  revalidatePath("/dashboard", "layout");
+}
+
+export async function markAllNotificationsReadAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not authenticated");
+  const spaceId = formData.get("spaceId");
+  if (typeof spaceId !== "string") throw new Error("Invalid spaceId");
+  await markAllNotificationsRead(session.user.id, spaceId);
+  revalidatePath("/dashboard", "layout");
+}
 
 export async function createCollectionAction(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not authenticated");
 
-  const parsed = createCollectionSchema.parse(Object.fromEntries(formData));
-  const role = await getMemberRole(session.user.id, parsed.spaceId);
-  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Permission denied");
+  const spaceId = formData.get("spaceId");
+  const title = formData.get("title");
+  const description = formData.get("description");
+  if (typeof spaceId !== "string" || typeof title !== "string" || !title.trim()) {
+    throw new Error("Invalid collection");
+  }
 
-  const baseUrl = getBaseUrl();
-  const row = await createCollection({
-    spaceId: parsed.spaceId,
-    title: parsed.title,
-    description: parsed.description ?? null,
-    token: generateCollectionToken(),
-    closeAt: parsed.closeAt ? new Date(parsed.closeAt) : null,
-    maxResponses: parsed.maxResponses ?? null,
-    moderationEnabled: parsed.moderationEnabled ?? false,
+  const role = await getMemberRole(session.user.id, spaceId);
+  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Not authorized for this space");
+
+  const token = generateCollectionToken();
+  const collection = await createCollection({
+    spaceId,
+    title: title.trim(),
+    description: typeof description === "string" ? description.trim() || null : null,
+    token,
   });
-
-  revalidatePath(`/dashboard/${parsed.spaceId}`);
-  return toCollectionView(row, baseUrl);
+  revalidatePath("/dashboard", "layout");
+  return toCollectionView(collection, getBaseUrl());
 }
-
-const updateCollectionSchema = z.object({
-  id: z.string().uuid(),
-  spaceId: z.string().uuid(),
-  title: z.string().min(1).max(200).optional(),
-  description: z.string().max(1000).optional(),
-  isOpen: z.coerce.boolean().optional(),
-  closeAt: z.string().datetime().optional().nullable(),
-  maxResponses: z.coerce.number().int().positive().optional().nullable(),
-  moderationEnabled: z.coerce.boolean().optional(),
-});
 
 export async function updateCollectionAction(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not authenticated");
 
-  const parsed = updateCollectionSchema.parse(Object.fromEntries(formData));
-  const role = await getMemberRole(session.user.id, parsed.spaceId);
-  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Permission denied");
+  const collectionId = formData.get("collectionId");
+  const spaceId = formData.get("spaceId");
+  const title = formData.get("title");
+  const description = formData.get("description");
+  if (typeof collectionId !== "string" || typeof spaceId !== "string" || typeof title !== "string" || !title.trim()) {
+    throw new Error("Invalid collection update");
+  }
 
-  await updateCollection(parsed.id, {
-    title: parsed.title,
-    description: parsed.description,
-    isOpen: parsed.isOpen,
-    closeAt: parsed.closeAt
-      ? new Date(parsed.closeAt)
-      : parsed.closeAt === null
-      ? null
-      : undefined,
-    maxResponses: parsed.maxResponses,
-    moderationEnabled: parsed.moderationEnabled,
+  const role = await getMemberRole(session.user.id, spaceId);
+  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Not authorized for this space");
+  await updateCollection(collectionId, {
+    title: title.trim(),
+    description: typeof description === "string" ? description.trim() || null : null,
   });
-
-  revalidatePath(`/dashboard/${parsed.spaceId}`);
+  revalidatePath("/dashboard", "layout");
 }
 
 export async function deleteCollectionAction(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not authenticated");
 
-  const id = z.string().uuid().parse(formData.get("id"));
-  const spaceId = z.string().uuid().parse(formData.get("spaceId"));
+  const collectionId = formData.get("collectionId");
+  const spaceId = formData.get("spaceId");
+  if (typeof collectionId !== "string" || typeof spaceId !== "string") throw new Error("Invalid collection deletion");
   const role = await getMemberRole(session.user.id, spaceId);
-  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Permission denied");
-
-  await deleteCollection(id);
-  revalidatePath(`/dashboard/${spaceId}`);
+  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Not authorized for this space");
+  await deleteCollection(collectionId);
+  revalidatePath("/dashboard", "layout");
 }
 
-export async function moderateObservationAction(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Not authenticated");
-
-  const obsId = z.string().uuid().parse(formData.get("observationId"));
-  const spaceId = z.string().uuid().parse(formData.get("spaceId"));
-  const collectionId = z.string().uuid().parse(formData.get("collectionId"));
-  const action = z.enum(["approve", "reject"]).parse(formData.get("action"));
-
-  const role = await getMemberRole(session.user.id, spaceId);
-  if (!role || !canEditSpace(role as SpaceRole)) throw new Error("Permission denied");
-
-  const newStatus = action === "approve" ? "approved" : "rejected";
-  await db
-    .update(observations)
-    .set({ moderationStatus: newStatus })
-    .where(eq(observations.id, obsId));
-
-  if (action === "approve") {
-    await incrementCollectionResponseCount(collectionId);
-    after(async () => {
-      await processObservation(obsId, spaceId);
-    });
-  }
-
-  revalidatePath(`/dashboard/${spaceId}`);
+export async function incrementCollectionResponseCountAction(collectionId: string) {
+  await incrementCollectionResponseCount(collectionId);
 }
