@@ -1,0 +1,111 @@
+name: Build Swells tablet shell
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/tablet-shell/**"
+      - "scripts/tablet-release-payload.mjs"
+      - ".github/workflows/tablet-shell.yml"
+  push:
+    branches:
+      - master
+    paths:
+      - "apps/tablet-shell/**"
+      - "scripts/tablet-release-payload.mjs"
+      - ".github/workflows/tablet-shell.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require version bump for native shell changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            exit 0
+          fi
+
+          changed="$(git diff --name-only "$BASE_SHA" "$GITHUB_SHA" -- \
+            apps/tablet-shell/app/src \
+            apps/tablet-shell/app/build.gradle.kts)"
+
+          if [ -z "$changed" ]; then
+            exit 0
+          fi
+
+          current_code="$(sed -n 's/.*versionCode = \([0-9][0-9]*\).*/\1/p' apps/tablet-shell/app/build.gradle.kts | head -1)"
+          if ! git cat-file -e "$BASE_SHA:apps/tablet-shell/app/build.gradle.kts" 2>/dev/null; then
+            test -n "$current_code" && test "$current_code" -gt 0
+            exit $?
+          fi
+
+          base_code="$(git show "$BASE_SHA:apps/tablet-shell/app/build.gradle.kts" | sed -n 's/.*versionCode = \([0-9][0-9]*\).*/\1/p' | head -1)"
+          if [ -z "$base_code" ] || [ -z "$current_code" ] || [ "$current_code" -le "$base_code" ]; then
+            echo "Native tablet changes require versionCode to increase (base=$base_code current=$current_code)."
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Prepare stable debug signing key
+        run: base64 --decode apps/r1-shell/debug-signing/swells-r1-debug.keystore.b64 > apps/r1-shell/debug-signing/swells-r1-debug.keystore
+
+      - name: Build debug APK
+        run: gradle -p apps/tablet-shell :app:assembleDebug
+
+      - name: Name APK
+        run: cp apps/tablet-shell/app/build/outputs/apk/debug/app-debug.apk swells-tablet-shell-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swells-tablet-shell-debug
+          path: swells-tablet-shell-debug.apk
+          if-no-files-found: error
+
+      - name: Prepare alpha release manifest
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: node scripts/tablet-release-payload.mjs swells-tablet-shell-debug.apk tablet-release.json swells-tablet
+
+      - name: Publish tablet alpha
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          asset_name="$(node -e "const fs=require('fs');process.stdout.write(JSON.parse(fs.readFileSync('tablet-release.json','utf8')).assetName)")"
+          cp swells-tablet-shell-debug.apk "$asset_name"
+
+          if gh release view swells-tablet-alpha >/dev/null 2>&1; then
+            gh release upload swells-tablet-alpha "$asset_name" --clobber
+            gh release edit swells-tablet-alpha \
+              --title "Swells tablet alpha" \
+              --notes-file tablet-release.json \
+              --prerelease
+          else
+            gh release create swells-tablet-alpha "$asset_name" \
+              --target "$GITHUB_SHA" \
+              --title "Swells tablet alpha" \
+              --notes-file tablet-release.json \
+              --prerelease
+          fi
