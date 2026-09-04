@@ -60,18 +60,35 @@ Reuse lessons from Attention Agent rather than rediscovering Rabbit/WebView cons
 
 The native bridge should be general enough to become a Good Ship device-shell pattern rather than permanently duplicating Attention-specific code.
 
+### Tablet projection — first alpha
+
+The tablet uses the same semantic surface model, but deliberately offers more exploration depth than the R1.
+
+- [x] Rich 28-day Temperature surface with tappable daily evidence.
+- [x] Multi-swell living Horizon instead of one-item-at-a-time navigation.
+- [x] Explore view for connected swells and shared evidence.
+- [x] Linked observation browsing for a selected swell.
+- [x] Visual signal history from stored snapshots.
+- [x] Bounded Ask against the selected swell and its evidence.
+- [x] Touch and voice Notice capture through the canonical observation pipeline.
+- [x] Space switching and last-space persistence.
+- [x] Responsive portrait and landscape layout.
+- [x] Installable Android tablet shell with cookie/auth persistence and WebView microphone permission forwarding.
+- [x] Signed, path-filtered tablet APK build and public alpha release channel.
+
+The first physical target is Android 10 at 1200×1920, but neither the projection nor shell should depend on one tablet model or fixed resolution.
+
 ## Next
 
 ### Ask a swell — next depth
 
-The first bounded Ask interaction is implemented on R1:
+The first bounded Ask interaction is implemented on R1 and tablet:
 
 - exact selected signal;
 - approved linked observations only;
 - earliest + latest evidence retained in a bounded context;
 - short Haiku-tier responses;
 - explicit evidence references and confidence;
-- voice question and native spoken answer;
 - no conversational memory and no signal mutation.
 
 Next depth:
@@ -96,16 +113,15 @@ Continue to record explicit feedback such as:
 
 Keep model proposals, evidence, user decisions and resulting state changes inspectable so Swells can be evaluated and tuned.
 
-### Tablet projection
+### Tablet field testing
 
-Use the same semantic surface model with more exploration depth:
+Use physical tablet testing to tune:
 
-- living horizon;
-- connected swells;
-- visual history;
-- evidence browsing;
-- bounded Ask;
-- richer Temperature over time.
+- density in portrait vs landscape;
+- usefulness of the connected-swell field;
+- how much evidence should remain visible alongside Ask;
+- whether Notice should stay modal or become a persistent edge action;
+- whether a shared Good Ship Android shell should replace product-specific tablet shell code.
 
 ### E-paper projection
 
